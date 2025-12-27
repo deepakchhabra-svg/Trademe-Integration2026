@@ -154,6 +154,18 @@ def ops_inbox(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
                 }
                 for j in failed_jobs
             ],
+            "commands_retrying": [
+                {
+                    "id": c.id,
+                    "type": c.type,
+                    "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+                    "attempts": c.attempts,
+                    "max_attempts": c.max_attempts,
+                    "last_error": c.last_error,
+                    "updated_at": _dt(c.updated_at),
+                }
+                for c in retry_cmds
+            ],
             "orders_pending": [
                 {
                     "id": o.id,
@@ -499,12 +511,22 @@ def create_command(
 
 
 @app.get("/commands", response_model=PageResponse)
-def list_commands(page: int = 1, per_page: int = 50) -> PageResponse:
+def list_commands(
+    page: int = 1,
+    per_page: int = 50,
+    status: Optional[str] = None,
+    type: Optional[str] = None,
+) -> PageResponse:
     if page < 1 or per_page < 1 or per_page > 1000:
         raise HTTPException(status_code=400, detail="Invalid pagination")
 
     with get_db_session() as session:
-        query = session.query(SystemCommand).order_by(SystemCommand.created_at.desc())
+        query = session.query(SystemCommand)
+        if status:
+            query = query.filter(SystemCommand.status == status)
+        if type:
+            query = query.filter(SystemCommand.type == type)
+        query = query.order_by(SystemCommand.created_at.desc())
         total = query.count()
         rows = query.offset((page - 1) * per_page).limit(per_page).all()
         items = []

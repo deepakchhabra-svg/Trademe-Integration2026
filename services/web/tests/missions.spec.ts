@@ -37,6 +37,11 @@ test.describe("RetailOS MVP missions (smoke)", () => {
     await expect(page.getByRole("heading", { name: "Audits" })).toBeVisible();
   });
 
+  test("Mission J (read): Operator Inbox loads", async ({ page }) => {
+    await page.goto("/ops/inbox");
+    await expect(page.getByRole("heading", { name: "Operator Inbox" })).toBeVisible();
+  });
+
   test("Mission G (drilldown): open a raw product inspector if available", async ({ page, request }) => {
     const api = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
     const res = await request.get(`${api}/vaults/raw?page=1&per_page=1`, { headers: { "X-RetailOS-Role": "root" } });

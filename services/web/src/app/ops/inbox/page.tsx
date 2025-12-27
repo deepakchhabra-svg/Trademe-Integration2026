@@ -19,6 +19,15 @@ type Inbox = {
     last_error: string | null;
     updated_at: string | null;
   }>;
+  commands_retrying: Array<{
+    id: string;
+    type: string;
+    status: string;
+    attempts: number;
+    max_attempts: number;
+    last_error: string | null;
+    updated_at: string | null;
+  }>;
   jobs_failed: Array<{ id: number; job_type: string | null; status: string | null; start_time: string | null; end_time: string | null; summary: string | null }>;
   orders_pending: Array<{ id: number; tm_order_ref: string; buyer_name: string | null; sold_price: number | null; created_at: string | null }>;
 };
@@ -96,6 +105,40 @@ export default async function InboxPage() {
               <div className="p-4 text-sm text-slate-600">No pending orders.</div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-4">
+          <div className="text-sm font-semibold">Retrying / executing commands</div>
+          <div className="mt-1 text-xs text-slate-600">Good for spotting platform outages or stuck workers.</div>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {inbox.commands_retrying.length ? (
+            inbox.commands_retrying.map((c) => (
+              <div key={c.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Link className="font-mono text-xs underline" href={`/ops/commands/${c.id}`}>
+                      {c.id.slice(0, 12)}
+                    </Link>
+                    <div className="mt-1 text-sm">{c.type}</div>
+                    <div className="mt-1 text-xs text-slate-600">
+                      {c.status} · {c.attempts}/{c.max_attempts} · {c.updated_at || "-"}
+                    </div>
+                  </div>
+                  <Badge tone="amber">{c.status}</Badge>
+                </div>
+                {c.last_error ? (
+                  <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
+                    {c.last_error}
+                  </pre>
+                ) : null}
+              </div>
+            ))
+          ) : (
+            <div className="p-4 text-sm text-slate-600">No retrying/executing commands.</div>
+          )}
         </div>
       </div>
 

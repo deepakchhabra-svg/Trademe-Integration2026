@@ -18,13 +18,18 @@ import { Badge } from "../../_components/Badge";
 export default async function CommandsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; per_page?: string }>;
+  searchParams: Promise<{ page?: string; per_page?: string; type?: string; status?: string }>;
 }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
 
-  const data = await apiGet<PageResponse<Cmd>>(`/commands?page=${page}&per_page=${perPage}`);
+  const qp = new URLSearchParams();
+  qp.set("page", String(page));
+  qp.set("per_page", String(perPage));
+  if (sp.type) qp.set("type", sp.type);
+  if (sp.status) qp.set("status", sp.status);
+  const data = await apiGet<PageResponse<Cmd>>(`/commands?${qp.toString()}`);
 
   return (
     <div className="space-y-4">
