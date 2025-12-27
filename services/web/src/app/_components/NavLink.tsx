@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
+import { useEffect, useState } from "react";
 
 export function NavLink({
   href,
@@ -11,8 +12,12 @@ export function NavLink({
   href: string;
   label: string;
 }) {
+  // Avoid SSR/CSR hydration mismatch: render inactive on first pass,
+  // then compute active state after mount.
   const pathname = usePathname();
-  const active = pathname === href || (href !== "/" && pathname?.startsWith(href));
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const active = mounted ? pathname === href || (href !== "/" && pathname?.startsWith(href)) : false;
   return (
     <Link
       href={href}
