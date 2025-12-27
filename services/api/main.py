@@ -380,6 +380,101 @@ def bulk_dryrun_publish(req: BulkDryRunPublishRequest, _role: Role = Depends(req
         }
 
 
+class BulkResetEnrichmentRequest(BaseModel):
+    supplier_id: Optional[int] = None
+    source_category: Optional[str] = None
+    limit: int = 200
+    priority: int = 60
+
+
+@app.post("/ops/bulk/reset_enrichment", response_model=dict[str, Any])
+def bulk_reset_enrichment(req: BulkResetEnrichmentRequest, _role: Role = Depends(require_role("power"))) -> dict[str, Any]:
+    """
+    Enqueues RESET_ENRICHMENT commands for supplier products in scope.
+    Uses a hard limit to prevent queue explosions.
+    """
+    if req.limit < 1 or req.limit > 2000:
+        raise HTTPException(status_code=400, detail="Invalid limit")
+
+    import uuid
+
+    with get_db_session() as session:
+        q = session.query(SupplierProduct)
+        if req.supplier_id is not None:
+            q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
+        if req.source_category:
+            q = q.filter(SupplierProduct.source_category == req.source_category)
+
+        # Only reset those that were attempted previously
+        q = q.filter(SupplierProduct.enrichment_status.in_(["FAILED", "SUCCESS"]))
+        q = q.order_by(SupplierProduct.last_scraped_at.desc())
+
+        rows = q.limit(int(req.limit)).all()
+        enqueued = 0
+
+        for sp in rows:
+            session.add(
+                SystemCommand(
+                    id=str(uuid.uuid4()),
+                    type="RESET_ENRICHMENT",
+                    payload={"supplier_product_id": sp.id},
+                    status=CommandStatus.PENDING,
+                    priority=int(req.priority),
+                )
+            )
+            enqueued += 1
+
+        session.commit()
+        return {"enqueued": enqueued, "requested_limit": req.limit}
+
+
+class BulkScanCompetitorsRequest(BaseModel):
+    supplier_id: Optional[int] = None
+    source_category: Optional[str] = None
+    status: str = "Live"  # Live | DRY_RUN
+    limit: int = 100
+    priority: int = 40
+
+
+@app.post("/ops/bulk/scan_competitors", response_model=dict[str, Any])
+def bulk_scan_competitors(req: BulkScanCompetitorsRequest, _role: Role = Depends(require_role("power"))) -> dict[str, Any]:
+    """
+    Enqueues SCAN_COMPETITORS commands for listings in scope.
+    """
+    if req.limit < 1 or req.limit > 2000:
+        raise HTTPException(status_code=400, detail="Invalid limit")
+
+    import uuid
+
+    with get_db_session() as session:
+        q = session.query(TradeMeListing).join(InternalProduct).join(SupplierProduct)
+        if req.supplier_id is not None:
+            q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
+        if req.source_category:
+            q = q.filter(SupplierProduct.source_category == req.source_category)
+        if req.status:
+            q = q.filter(TradeMeListing.actual_state == req.status)
+
+        q = q.order_by(TradeMeListing.last_synced_at.desc().nullslast())
+        rows = q.limit(int(req.limit)).all()
+
+        enqueued = 0
+        for l in rows:
+            session.add(
+                SystemCommand(
+                    id=str(uuid.uuid4()),
+                    type="SCAN_COMPETITORS",
+                    payload={"listing_db_id": l.id, "tm_listing_id": l.tm_listing_id, "internal_product_id": l.internal_product_id},
+                    status=CommandStatus.PENDING,
+                    priority=int(req.priority),
+                )
+            )
+            enqueued += 1
+
+        session.commit()
+        return {"enqueued": enqueued, "requested_limit": req.limit}
+
+
 class PageResponse(BaseModel):
     items: list[dict[str, Any]]
     total: int

@@ -21,6 +21,8 @@ export function BulkOpsForm() {
   const [pages, setPages] = useState<string>("1");
   const [batchSize, setBatchSize] = useState<string>("25");
   const [dryRunLimit, setDryRunLimit] = useState<string>("50");
+  const [resetEnrichLimit, setResetEnrichLimit] = useState<string>("200");
+  const [scanLimit, setScanLimit] = useState<string>("100");
   const [msg, setMsg] = useState<string | null>(null);
 
   async function enqueue(type: string, payload: Record<string, unknown>, priority = 60) {
@@ -189,6 +191,73 @@ export function BulkOpsForm() {
         </div>
         <div className="mt-2 text-[11px] text-slate-500">
           Creates `PUBLISH_LISTING` commands with `dry_run=true` for review (skips Live/DRY_RUN and duplicates).
+        </div>
+      </Section>
+
+      <Section title="Bulk reset enrichment (requeue copy generation)">
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-slate-600">
+            <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
+            <input
+              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              value={resetEnrichLimit}
+              onChange={(e) => setResetEnrichLimit(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900"
+            onClick={async () => {
+              setMsg(null);
+              try {
+                const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/reset_enrichment", {
+                  supplier_id: supplierId ? Number(supplierId) : undefined,
+                  source_category: sourceCategory || undefined,
+                  limit: Number(resetEnrichLimit || "200"),
+                  priority: 60,
+                });
+                setMsg(`Reset enrichment queued: enqueued=${res.enqueued}`);
+              } catch (e) {
+                setMsg(e instanceof Error ? e.message : "Failed to reset enrichment");
+              }
+            }}
+          >
+            Enqueue RESET_ENRICHMENT
+          </button>
+        </div>
+      </Section>
+
+      <Section title="Bulk competitor scan (pricing intelligence)">
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-slate-600">
+            <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
+            <input
+              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              value={scanLimit}
+              onChange={(e) => setScanLimit(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+            onClick={async () => {
+              setMsg(null);
+              try {
+                const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/scan_competitors", {
+                  supplier_id: supplierId ? Number(supplierId) : undefined,
+                  source_category: sourceCategory || undefined,
+                  status: "Live",
+                  limit: Number(scanLimit || "100"),
+                  priority: 40,
+                });
+                setMsg(`Competitor scans queued: enqueued=${res.enqueued}`);
+              } catch (e) {
+                setMsg(e instanceof Error ? e.message : "Failed to enqueue scans");
+              }
+            }}
+          >
+            Enqueue SCAN_COMPETITORS
+          </button>
         </div>
       </Section>
     </div>

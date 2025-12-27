@@ -25,6 +25,10 @@ export default async function Home() {
           <div className="text-sm font-semibold">Vault 3 · Listings</div>
           <div className="mt-1 text-xs text-slate-600">Lifecycle, payload drift, performance signals</div>
         </Link>
+        <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/vaults/live?status=DRY_RUN">
+          <div className="text-sm font-semibold">DRY_RUN review queue</div>
+          <div className="mt-1 text-xs text-slate-600">Bulk dry-runs waiting for publish decision</div>
+        </Link>
         <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/ops/commands">
           <div className="text-sm font-semibold">Commands</div>
           <div className="mt-1 text-xs text-slate-600">Queue, failures, payload inspection</div>

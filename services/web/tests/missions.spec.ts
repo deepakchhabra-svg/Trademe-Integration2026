@@ -57,6 +57,11 @@ test.describe("RetailOS MVP missions (smoke)", () => {
     await expect(page.getByRole("heading", { name: "Bulk Ops" })).toBeVisible();
   });
 
+  test("Mission N (read): DRY_RUN queue view loads", async ({ page }) => {
+    await page.goto("/vaults/live?status=DRY_RUN");
+    await expect(page.getByRole("heading", { name: "Vault 3 · Listings" })).toBeVisible();
+  });
+
   test("Mission G (drilldown): open a raw product inspector if available", async ({ page, request }) => {
     const api = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
     const res = await request.get(`${api}/vaults/raw?page=1&per_page=1`, { headers: { "X-RetailOS-Role": "root" } });
