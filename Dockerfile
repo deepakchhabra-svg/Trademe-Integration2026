@@ -5,30 +5,34 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # System Dependencies
-# curl: for universal adapter and healthchecks
-# chromium: for selectolax/httpx scraping logic (some sites check for browser headers)
-# build-essential: for compiling some python deps
+# Added chromium and clean up in one layer
 RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
+    chromium \
+    chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Requirements
-COPY requirements.txt .
+# Environment Variables
+ENV PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    STREAMLIT_SERVER_PORT=8501 \
+    STREAMLIT_SERVER_ADDRESS=0.0.0.0
 
-# Install Python Dependencies
+# Copy requirements first for better caching
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy Application Code
+# Copy application code
 COPY . .
 
-# Environment Variables (Default)
-ENV PYTHONPATH=/app
-ENV STREAMLIT_SERVER_PORT=8501
-ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+# Create a non-root user and change ownership of app files
+RUN useradd -m myuser && chown -R myuser /app
+USER myuser
 
 # Expose Port
 EXPOSE 8501
 
-# Default Command (Run Dashboard)
+# Default Command
 CMD ["streamlit", "run", "retail_os/dashboard/app.py"]
