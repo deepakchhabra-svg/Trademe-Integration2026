@@ -1,6 +1,27 @@
 import Link from "next/link";
+import { apiGet } from "./_components/api";
+
+type OpsSummary = {
+  commands: { total: number; pending: number; executing: number; human_required: number; failed: number };
+  vaults: {
+    raw_total: number;
+    raw_present: number;
+    enriched_total: number;
+    enriched_ready: number;
+    listings_total: number;
+    listings_dry_run: number;
+    listings_live: number;
+  };
+  orders: { total: number; pending_fulfillment: number };
+};
 
 export default async function Home() {
+  let summary: OpsSummary | null = null;
+  try {
+    summary = await apiGet<OpsSummary>("/ops/summary");
+  } catch {
+    summary = null;
+  }
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -25,6 +46,53 @@ export default async function Home() {
           </div>
         </div>
       </div>
+
+      {summary ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Queue</div>
+            <div className="mt-2 text-sm text-slate-900">
+              pending <span className="font-semibold">{summary.commands.pending}</span> · executing{" "}
+              <span className="font-semibold">{summary.commands.executing}</span>
+            </div>
+            <div className="mt-1 text-sm text-slate-900">
+              human <span className="font-semibold">{summary.commands.human_required}</span> · failed{" "}
+              <span className="font-semibold">{summary.commands.failed}</span>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vaults</div>
+            <div className="mt-2 text-sm text-slate-900">
+              raw <span className="font-semibold">{summary.vaults.raw_present}</span>/<span className="font-semibold">{summary.vaults.raw_total}</span>
+            </div>
+            <div className="mt-1 text-sm text-slate-900">
+              enriched-ready <span className="font-semibold">{summary.vaults.enriched_ready}</span>/
+              <span className="font-semibold">{summary.vaults.enriched_total}</span>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Listings</div>
+            <div className="mt-2 text-sm text-slate-900">
+              DRY_RUN <span className="font-semibold">{summary.vaults.listings_dry_run}</span>
+            </div>
+            <div className="mt-1 text-sm text-slate-900">
+              Live <span className="font-semibold">{summary.vaults.listings_live}</span>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fulfillment</div>
+            <div className="mt-2 text-sm text-slate-900">
+              pending orders <span className="font-semibold">{summary.orders.pending_fulfillment}</span>
+            </div>
+            <div className="mt-1 text-xs text-slate-500">Use Inbox to clear exceptions.</div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
+          Ops summary is unavailable at your current role. Switch role to <span className="font-mono">power</span> or{" "}
+          <span className="font-mono">root</span>.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

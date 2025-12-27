@@ -101,3 +101,24 @@ def test_worker_resolve_command_strips_whitespace():
     assert t == "ENRICH_SUPPLIER"
     assert payload == {}
 
+
+def test_ops_summary_endpoint_shape(tmp_path: Path):
+    """
+    Ensure Ops Workbench summary endpoint is stable-shaped.
+    """
+    import importlib
+    import os
+    from fastapi.testclient import TestClient
+
+    db_file = tmp_path / "retail_os.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+
+    import services.api.main as mod
+
+    importlib.reload(mod)
+    client = TestClient(mod.app)
+    res = client.get("/ops/summary", headers={"X-RetailOS-Role": "power"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "commands" in data and "vaults" in data and "orders" in data
+

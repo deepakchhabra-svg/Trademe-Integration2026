@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import func, text
 
 from retail_os.core.database import (
     AuditLog,
@@ -268,6 +268,68 @@ def ops_inbox(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
                 }
                 for o in pending_orders
             ],
+        }
+
+
+@app.get("/ops/summary")
+def ops_summary(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
+    """
+    High-signal operational rollup for the Ops Workbench.
+    Prevents needing to dig through Commands/Audits for day-to-day operation.
+    """
+    with get_db_session() as session:
+        cmd_total = session.query(func.count(SystemCommand.id)).scalar() or 0
+        cmd_pending = session.query(func.count(SystemCommand.id)).filter(SystemCommand.status == CommandStatus.PENDING).scalar() or 0
+        cmd_executing = (
+            session.query(func.count(SystemCommand.id)).filter(SystemCommand.status == CommandStatus.EXECUTING).scalar() or 0
+        )
+        cmd_human = (
+            session.query(func.count(SystemCommand.id)).filter(SystemCommand.status == CommandStatus.HUMAN_REQUIRED).scalar() or 0
+        )
+        cmd_failed = (
+            session.query(func.count(SystemCommand.id))
+            .filter(SystemCommand.status.in_([CommandStatus.FAILED_RETRYABLE, CommandStatus.FAILED_FATAL]))
+            .scalar()
+            or 0
+        )
+
+        raw_total = session.query(func.count(SupplierProduct.id)).scalar() or 0
+        raw_present = session.query(func.count(SupplierProduct.id)).filter(SupplierProduct.sync_status == "PRESENT").scalar() or 0
+
+        enriched_total = session.query(func.count(InternalProduct.id)).scalar() or 0
+        enriched_ready = (
+            session.query(func.count(InternalProduct.id))
+            .join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+            .filter(SupplierProduct.enriched_description.isnot(None))
+            .scalar()
+            or 0
+        )
+
+        listings_total = session.query(func.count(TradeMeListing.id)).scalar() or 0
+        listings_dry = session.query(func.count(TradeMeListing.id)).filter(TradeMeListing.actual_state == "DRY_RUN").scalar() or 0
+        listings_live = session.query(func.count(TradeMeListing.id)).filter(TradeMeListing.actual_state == "Live").scalar() or 0
+
+        orders_total = session.query(func.count(Order.id)).scalar() or 0
+        orders_pending = session.query(func.count(Order.id)).filter(Order.fulfillment_status == "PENDING").scalar() or 0
+
+        return {
+            "commands": {
+                "total": cmd_total,
+                "pending": cmd_pending,
+                "executing": cmd_executing,
+                "human_required": cmd_human,
+                "failed": cmd_failed,
+            },
+            "vaults": {
+                "raw_total": raw_total,
+                "raw_present": raw_present,
+                "enriched_total": enriched_total,
+                "enriched_ready": enriched_ready,
+                "listings_total": listings_total,
+                "listings_dry_run": listings_dry,
+                "listings_live": listings_live,
+            },
+            "orders": {"total": orders_total, "pending_fulfillment": orders_pending},
         }
 
 
