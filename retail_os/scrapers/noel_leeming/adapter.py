@@ -174,6 +174,8 @@ class NoelLeemingAdapter:
         else:
             # UPDATE
             sp.last_scraped_at = datetime.utcnow()
+            # Always refresh category metadata even if snapshot is unchanged.
+            sp.source_category = data.get("source_category")
             if sp.snapshot_hash != current_hash:
                 # Audit Logic would go here
                 
@@ -181,7 +183,6 @@ class NoelLeemingAdapter:
                 sp.cost_price = cost
                 sp.images = local_images if local_images else imgs
                 sp.specs = data.get("specs", {})
-                sp.source_category = data.get("source_category")
                 sp.snapshot_hash = current_hash
                 
                 self.db.commit()
