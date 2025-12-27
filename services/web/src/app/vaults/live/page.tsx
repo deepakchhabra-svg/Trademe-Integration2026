@@ -36,7 +36,8 @@ export default async function LiveVault({
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
   const q = sp.q || "";
-  const status = sp.status || "";
+  // Default view should show real listings only (not DRY_RUN drafts).
+  const status = sp.status || "Live";
   const supplierId = sp.supplier_id || "";
   const sourceCategory = sp.source_category || "";
 
@@ -44,7 +45,7 @@ export default async function LiveVault({
   qp.set("page", String(page));
   qp.set("per_page", String(perPage));
   if (q) qp.set("q", q);
-  if (status) qp.set("status", status);
+  qp.set("status", status);
   if (supplierId) qp.set("supplier_id", supplierId);
   if (sourceCategory) qp.set("source_category", sourceCategory);
 
@@ -90,12 +91,16 @@ export default async function LiveVault({
             </label>
             <label className="text-xs text-slate-600">
               <span className="mr-1">Status</span>
-              <input
+              <select
                 name="status"
                 defaultValue={status}
-                className="w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-                placeholder="Live/DRY_RUN"
-              />
+                className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              >
+                <option value="Live">Live</option>
+                <option value="DRY_RUN">DRY_RUN</option>
+                <option value="Withdrawn">Withdrawn</option>
+                <option value="All">All</option>
+              </select>
             </label>
             <label className="text-xs text-slate-600">
               <span className="mr-1">Supplier</span>
@@ -131,7 +136,7 @@ export default async function LiveVault({
             <button type="submit" className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white">
               Apply
             </button>
-            <Link className="text-xs text-slate-600 underline" href="/vaults/live">
+            <Link className="text-xs text-slate-600 underline" href="/vaults/live?status=Live">
               Reset
             </Link>
           </form>
