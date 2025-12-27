@@ -287,6 +287,99 @@ def ops_enqueue(req: EnqueueRequest, _role: Role = Depends(require_role("power")
         return CommandCreateResponse(id=cmd.id, status=cmd.status.value if hasattr(cmd.status, "value") else str(cmd.status))
 
 
+class BulkDryRunPublishRequest(BaseModel):
+    supplier_id: Optional[int] = None
+    source_category: Optional[str] = None
+    limit: int = 50
+    priority: int = 60
+
+
+@app.post("/ops/bulk/dryrun_publish", response_model=dict[str, Any])
+def bulk_dryrun_publish(req: BulkDryRunPublishRequest, _role: Role = Depends(require_role("power"))) -> dict[str, Any]:
+    """
+    Creates PUBLISH_LISTING commands in DRY RUN mode for review at scale.
+    Safe defaults:
+    - skips products already Live
+    - skips products already DRY_RUN
+    - skips products that already have a pending PUBLISH_LISTING command
+    """
+    if req.limit < 1 or req.limit > 1000:
+        raise HTTPException(status_code=400, detail="Invalid limit")
+
+    import uuid
+
+    with get_db_session() as session:
+        q = session.query(InternalProduct).join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+        if req.supplier_id is not None:
+            q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
+        if req.source_category:
+            q = q.filter(SupplierProduct.source_category == req.source_category)
+
+        # Skip anything already Live or DRY_RUN
+        q = q.outerjoin(TradeMeListing, TradeMeListing.internal_product_id == InternalProduct.id).filter(
+            (TradeMeListing.id.is_(None)) | (~TradeMeListing.actual_state.in_(["Live", "DRY_RUN"]))
+        )
+
+        # newest-ish first
+        q = q.order_by(SupplierProduct.last_scraped_at.desc())
+
+        candidates = q.limit(int(req.limit)).all()
+
+        enqueued = 0
+        skipped_existing_cmd = 0
+        skipped_already_listed = 0
+
+        for ip in candidates:
+            # Defensive: double-check listings
+            already = False
+            for l in (ip.listings or []):
+                if l.actual_state in ["Live", "DRY_RUN"]:
+                    already = True
+                    break
+            if already:
+                skipped_already_listed += 1
+                continue
+
+            # Skip if a PUBLISH_LISTING is already pending for this internal product
+            existing_cmd = None
+            for c in (
+                session.query(SystemCommand)
+                .filter(SystemCommand.type == "PUBLISH_LISTING")
+                .filter(SystemCommand.status.in_([CommandStatus.PENDING, CommandStatus.EXECUTING, CommandStatus.FAILED_RETRYABLE]))
+                .order_by(SystemCommand.created_at.desc())
+                .limit(500)
+                .all()
+            ):
+                try:
+                    if (c.payload or {}).get("internal_product_id") == ip.id:
+                        existing_cmd = c
+                        break
+                except Exception:
+                    continue
+            if existing_cmd:
+                skipped_existing_cmd += 1
+                continue
+
+            session.add(
+                SystemCommand(
+                    id=str(uuid.uuid4()),
+                    type="PUBLISH_LISTING",
+                    payload={"internal_product_id": ip.id, "dry_run": True},
+                    status=CommandStatus.PENDING,
+                    priority=int(req.priority),
+                )
+            )
+            enqueued += 1
+
+        session.commit()
+        return {
+            "enqueued": enqueued,
+            "skipped_existing_cmd": skipped_existing_cmd,
+            "skipped_already_listed": skipped_already_listed,
+            "requested_limit": req.limit,
+        }
+
+
 class PageResponse(BaseModel):
     items: list[dict[str, Any]]
     total: int

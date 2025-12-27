@@ -20,6 +20,7 @@ export function BulkOpsForm() {
   const [sourceCategory, setSourceCategory] = useState<string>("");
   const [pages, setPages] = useState<string>("1");
   const [batchSize, setBatchSize] = useState<string>("25");
+  const [dryRunLimit, setDryRunLimit] = useState<string>("50");
   const [msg, setMsg] = useState<string | null>(null);
 
   async function enqueue(type: string, payload: Record<string, unknown>, priority = 60) {
@@ -147,6 +148,47 @@ export function BulkOpsForm() {
           >
             Enqueue SYNC_SELLING_ITEMS
           </button>
+        </div>
+      </Section>
+
+      <Section title="Bulk dry-run publish (safe review queue)">
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-slate-600">
+            <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
+            <input
+              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              value={dryRunLimit}
+              onChange={(e) => setDryRunLimit(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+            onClick={async () => {
+              setMsg(null);
+              try {
+                const res = await apiPostClient<{ enqueued: number; skipped_existing_cmd: number; skipped_already_listed: number }>(
+                  "/ops/bulk/dryrun_publish",
+                  {
+                    supplier_id: supplierId ? Number(supplierId) : undefined,
+                    source_category: sourceCategory || undefined,
+                    limit: Number(dryRunLimit || "50"),
+                    priority: 60,
+                  },
+                );
+                setMsg(
+                  `Dry-run queued: enqueued=${res.enqueued}, skipped_existing_cmd=${res.skipped_existing_cmd}, skipped_already_listed=${res.skipped_already_listed}`,
+                );
+              } catch (e) {
+                setMsg(e instanceof Error ? e.message : "Failed to dry-run enqueue");
+              }
+            }}
+          >
+            Enqueue DRY_RUN publish
+          </button>
+        </div>
+        <div className="mt-2 text-[11px] text-slate-500">
+          Creates `PUBLISH_LISTING` commands with `dry_run=true` for review (skips Live/DRY_RUN and duplicates).
         </div>
       </Section>
     </div>
