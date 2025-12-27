@@ -34,6 +34,12 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+function imgSrc(raw: string): string {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  if (raw.startsWith("/media/")) return `${base}${raw}`;
+  return raw;
+}
+
 export default async function RawDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const sp = await apiGet<SupplierProduct>(`/supplier-products/${encodeURIComponent(id)}`);
@@ -113,11 +119,11 @@ export default async function RawDetailPage({ params }: { params: Promise<{ id: 
         {sp.images?.length ? (
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
             {sp.images.map((src, idx) => (
-              <a key={idx} href={src} target="_blank" rel="noreferrer" className="group">
+              <a key={idx} href={imgSrc(src)} target="_blank" rel="noreferrer" className="group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   alt={`image-${idx + 1}`}
-                  src={src}
+                  src={imgSrc(src)}
                   className="h-28 w-full rounded-lg border border-slate-200 object-cover group-hover:opacity-90"
                 />
               </a>

@@ -2,44 +2,104 @@ import Link from "next/link";
 
 export default async function Home() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Use the sidebar to traverse records end-to-end (raw → enriched → listings → commands → audits → jobs → orders).
-          </p>
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Ops Workbench</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Run the store in a guided flow: <span className="font-semibold">Scrape → Enrich → Dry-run → Publish</span>.
+              Use Vaults for inspection; use Ops only when something breaks.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link className="rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white" href="/ops/bulk">
+              Run a batch (Bulk Ops)
+            </Link>
+            <Link className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-900" href="/ops/inbox">
+              Inbox (exceptions)
+            </Link>
+            <Link className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-900" href="/vaults/live?status=DRY_RUN">
+              Review DRY_RUN
+            </Link>
+          </div>
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/vaults/raw">
-          <div className="text-sm font-semibold">Vault 1 · Raw</div>
-          <div className="mt-1 text-xs text-slate-600">Supplier truth, reconciliation evidence</div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-semibold">1) Scrape supplier truth</div>
+          <p className="mt-2 text-sm text-slate-600">
+            Pull the latest catalog from suppliers into <span className="font-semibold">Vault 1</span>.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link className="rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white" href="/ops/bulk">
+              Enqueue SCRAPE_SUPPLIER
+            </Link>
+            <Link className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-900" href="/vaults/raw">
+              Inspect Vault 1
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-semibold">2) Enrich + standardize copy</div>
+          <p className="mt-2 text-sm text-slate-600">
+            Generate listing-ready copy and create internal products in <span className="font-semibold">Vault 2</span>.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link className="rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white" href="/ops/bulk">
+              Enqueue ENRICH_SUPPLIER
+            </Link>
+            <Link className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-900" href="/vaults/enriched">
+              Inspect Vault 2
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-semibold">3) Dry-run publish (safe)</div>
+          <p className="mt-2 text-sm text-slate-600">
+            Create DRY_RUN listing drafts to review payload and guardrails without spending.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link className="rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white" href="/ops/bulk">
+              Enqueue DRY_RUN publish
+            </Link>
+            <Link className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-900" href="/vaults/live?status=DRY_RUN">
+              Review queue
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-semibold">4) Approve publish (real)</div>
+          <p className="mt-2 text-sm text-slate-600">
+            Promote DRY_RUN → PUBLISH in controlled batches (drift-safe, quota-safe, store-mode safe).
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link className="rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white" href="/ops/bulk">
+              Enqueue PUBLISH from DRY_RUN
+            </Link>
+            <Link className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-900" href="/ops/trademe">
+              Check balance/health
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Link className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:bg-slate-50" href="/ops/inbox">
+          <div className="text-sm font-semibold">Inbox</div>
+          <div className="mt-1 text-xs text-slate-600">All HUMAN_REQUIRED + failed jobs + pending orders.</div>
         </Link>
-        <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/vaults/enriched">
-          <div className="text-sm font-semibold">Vault 2 · Enriched</div>
-          <div className="mt-1 text-xs text-slate-600">Enrichment status, copy, publish readiness</div>
-        </Link>
-        <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/vaults/live">
-          <div className="text-sm font-semibold">Vault 3 · Listings</div>
-          <div className="mt-1 text-xs text-slate-600">Lifecycle, payload drift, performance signals</div>
-        </Link>
-        <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/vaults/live?status=DRY_RUN">
-          <div className="text-sm font-semibold">DRY_RUN review queue</div>
-          <div className="mt-1 text-xs text-slate-600">Bulk dry-runs waiting for publish decision</div>
-        </Link>
-        <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/ops/commands">
-          <div className="text-sm font-semibold">Commands</div>
-          <div className="mt-1 text-xs text-slate-600">Queue, failures, payload inspection</div>
-        </Link>
-        <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/suppliers">
+        <Link className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:bg-slate-50" href="/suppliers">
           <div className="text-sm font-semibold">Suppliers</div>
-          <div className="mt-1 text-xs text-slate-600">Source health and category partitioning</div>
+          <div className="mt-1 text-xs text-slate-600">Supplier health + category partitioning.</div>
         </Link>
-        <Link className="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100" href="/orders">
+        <Link className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:bg-slate-50" href="/orders">
           <div className="text-sm font-semibold">Orders</div>
-          <div className="mt-1 text-xs text-slate-600">Fulfillment attention & customer truth</div>
+          <div className="mt-1 text-xs text-slate-600">Fulfillment workflow (human work).</div>
         </Link>
       </div>
     </div>

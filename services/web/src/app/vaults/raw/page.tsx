@@ -21,6 +21,12 @@ import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
 import { buildQueryString } from "../../_components/pagination";
 
+function imgSrc(raw: string): string {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  if (raw.startsWith("/media/")) return `${base}${raw}`;
+  return raw;
+}
+
 export default async function RawVault({
   searchParams,
 }: {
@@ -135,6 +141,7 @@ export default async function RawVault({
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Img</th>
                 <th className="px-4 py-3">SKU</th>
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Cost</th>
@@ -152,8 +159,26 @@ export default async function RawVault({
                       {it.id}
                     </Link>
                   </td>
+                  <td className="px-4 py-3">
+                    {it.images?.length ? (
+                      <Link href={`/vaults/raw/${it.id}`} className="block w-12">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          alt=""
+                          src={imgSrc(it.images[0])}
+                          className="h-10 w-12 rounded-md border border-slate-200 object-cover"
+                        />
+                      </Link>
+                    ) : (
+                      <div className="h-10 w-12 rounded-md border border-dashed border-slate-200 bg-slate-50" />
+                    )}
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">{it.external_sku}</td>
-                  <td className="px-4 py-3">{it.title || "-"}</td>
+                  <td className="px-4 py-3">
+                    <Link className="text-slate-900 hover:underline" href={`/vaults/raw/${it.id}`}>
+                      {it.title || "-"}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">{it.cost_price == null ? "-" : `$${it.cost_price.toFixed(2)}`}</td>
                   <td className="px-4 py-3">{it.sync_status || "-"}</td>
                   <td className="px-4 py-3 font-mono text-[11px] text-slate-700">{it.source_category || "-"}</td>
