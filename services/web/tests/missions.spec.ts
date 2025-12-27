@@ -3,8 +3,10 @@ import { test, expect } from "@playwright/test";
 test.describe("RetailOS MVP missions (smoke)", () => {
   test("Mission 0: Home loads and shows API status", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ops Workbench" })).toBeVisible();
     await expect(page.getByText("API")).toBeVisible();
+    // Guided workflow text should be present (operator journey).
+    await expect(page.getByText("Scrape → Enrich → Dry-run → Publish")).toBeVisible();
   });
 
   test("Mission A (read): Vault 1 raw page loads", async ({ page }) => {
@@ -24,7 +26,7 @@ test.describe("RetailOS MVP missions (smoke)", () => {
 
   test("Mission D (read): Commands page loads", async ({ page }) => {
     await page.goto("/ops/commands");
-    await expect(page.getByRole("heading", { name: "Commands" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Commands (debug)" })).toBeVisible();
   });
 
   test("Mission E (read): Jobs page loads", async ({ page }) => {
