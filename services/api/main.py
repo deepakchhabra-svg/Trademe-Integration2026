@@ -23,6 +23,7 @@ from retail_os.core.database import (
     Supplier,
     SupplierProduct,
     SystemCommand,
+    SystemSetting,
     TradeMeListing,
     get_db_session,
 )
@@ -135,20 +136,32 @@ def get_request_role(request: Request) -> Role:
     """
     Minimal RBAC without interactive login (by design for now).
     - Set `X-RetailOS-Role` header from the web app (cookie-backed).
-    - If a root token is configured, `X-RetailOS-Token` must match.
+    - If a token is configured, it overrides the claimed role (identity-based).
+      This fixes "can't go back to root" by making the token authoritative.
     """
-    role = (request.headers.get("X-RetailOS-Role") or os.getenv("RETAIL_OS_DEFAULT_ROLE") or "root").lower()
+    claimed_role = (request.headers.get("X-RetailOS-Role") or os.getenv("RETAIL_OS_DEFAULT_ROLE") or "root").lower()
+    supplied = request.headers.get("X-RetailOS-Token")
 
-    root_token = os.getenv("RETAIL_OS_ROOT_TOKEN")
-    if root_token:
-        supplied = request.headers.get("X-RetailOS-Token")
-        if role == "root" and supplied != root_token:
-            # Don't allow claiming root without token.
-            return "power"
+    # Token-based identity overrides role claims.
+    # Configure per-role tokens via env vars.
+    token_map: dict[str, str | None] = {
+        "root": os.getenv("RETAIL_OS_ROOT_TOKEN"),
+        "power": os.getenv("RETAIL_OS_POWER_TOKEN"),
+        "fulfillment": os.getenv("RETAIL_OS_FULFILLMENT_TOKEN"),
+        "listing": os.getenv("RETAIL_OS_LISTING_TOKEN"),
+    }
+    if supplied:
+        for r, t in token_map.items():
+            if t and supplied == t:
+                return r
 
-    if role not in ROLE_RANK:
+    # Backwards compatibility: if root token is configured, do not allow claiming root without it.
+    if token_map.get("root") and claimed_role == "root":
+        return "power"
+
+    if claimed_role not in ROLE_RANK:
         return "listing"
-    return role
+    return claimed_role
 
 
 def require_role(min_role: Role):
@@ -1200,6 +1213,70 @@ def suppliers() -> list[dict[str, Any]]:
     with get_db_session() as session:
         rows = session.query(Supplier).order_by(Supplier.name.asc()).all()
         return [{"id": s.id, "name": s.name, "base_url": s.base_url, "is_active": s.is_active} for s in rows]
+
+
+def _supplier_policy_key(supplier_id: int) -> str:
+    return f"supplier.policy.{int(supplier_id)}"
+
+
+def _get_supplier_policy(session, supplier_id: int) -> dict[str, Any]:
+    """
+    Per-supplier policy stored in SystemSetting.
+    This avoids schema migrations and keeps policies auditable + editable.
+    """
+    default_policy: dict[str, Any] = {
+        "enabled": True,
+        "scrape": {"enabled": True, "category_presets": []},
+        "enrich": {"enabled": True, "enrichment_policy_override": None},
+        "publish": {"enabled": True, "publishing_policy_override": None},
+    }
+    row = session.query(SystemSetting).filter(SystemSetting.key == _supplier_policy_key(supplier_id)).first()
+    if row and isinstance(row.value, dict):
+        v = row.value
+        out = {**default_policy, **v}
+        out["scrape"] = {**default_policy["scrape"], **(v.get("scrape") if isinstance(v.get("scrape"), dict) else {})}
+        out["enrich"] = {**default_policy["enrich"], **(v.get("enrich") if isinstance(v.get("enrich"), dict) else {})}
+        out["publish"] = {**default_policy["publish"], **(v.get("publish") if isinstance(v.get("publish"), dict) else {})}
+        return out
+    return default_policy
+
+
+@app.get("/suppliers/{supplier_id}/policy")
+def supplier_policy_get(
+    supplier_id: int,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    with get_db_session() as session:
+        s = session.query(Supplier).filter(Supplier.id == int(supplier_id)).first()
+        if not s:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+        return {"supplier_id": s.id, "supplier_name": s.name, "policy": _get_supplier_policy(session, s.id)}
+
+
+class SupplierPolicyPutRequest(BaseModel):
+    policy: dict[str, Any]
+
+
+@app.put("/suppliers/{supplier_id}/policy")
+def supplier_policy_put(
+    supplier_id: int,
+    req: SupplierPolicyPutRequest,
+    _role: Role = Depends(require_role("root")),
+) -> dict[str, Any]:
+    if not isinstance(req.policy, dict):
+        raise HTTPException(status_code=400, detail="policy must be an object")
+    with get_db_session() as session:
+        s = session.query(Supplier).filter(Supplier.id == int(supplier_id)).first()
+        if not s:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+        row = session.query(SystemSetting).filter(SystemSetting.key == _supplier_policy_key(s.id)).first()
+        if not row:
+            row = SystemSetting(key=_supplier_policy_key(s.id), value=req.policy)
+            session.add(row)
+        else:
+            row.value = req.policy
+        session.commit()
+        return {"supplier_id": s.id, "supplier_name": s.name, "policy": _get_supplier_policy(session, s.id)}
 
 
 class CommandCreateRequest(BaseModel):

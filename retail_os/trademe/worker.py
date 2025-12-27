@@ -472,6 +472,24 @@ class CommandWorker:
                 session.commit()
                 raise ValueError(command.error_message)
 
+            # Per-supplier policy gate (publish)
+            try:
+                sp0 = prod.supplier_product
+                supplier_id = sp0.supplier_id if sp0 else None
+                if supplier_id is not None:
+                    row = session.query(SystemSetting).filter(SystemSetting.key == f"supplier.policy.{int(supplier_id)}").first()
+                    if row and isinstance(row.value, dict):
+                        pol = row.value
+                        if pol.get("enabled") is False or pol.get("publish", {}).get("enabled") is False:
+                            command.status = CommandStatus.HUMAN_REQUIRED
+                            command.error_code = "SUPPLIER_DISABLED"
+                            command.error_message = "Supplier policy disables publishing."
+                            session.commit()
+                            raise ValueError(command.error_message)
+            except Exception as e:
+                # If policy read fails, do not block publish for that reason.
+                logger.warning(f"PUBLISH_POLICY_CHECK_FAILED cmd_id={command.id} err={e}")
+
             # Stale truth: enforce fresh supplier scrape + (if approved_from_dryrun exists) hash must match
             sp = prod.supplier_product
             if not sp:
@@ -789,6 +807,29 @@ class CommandWorker:
         pages = int(payload.get("pages", 1) or 1)
         
         logger.info(f"SCRAPE_SUPPLIER_START cmd_id={command.id} supplier={supplier_name}")
+
+        # Per-supplier policy gate (DB-backed)
+        try:
+            pol = None
+            if supplier_id is not None:
+                s = SessionLocal()
+                try:
+                    from retail_os.core.database import SystemSetting
+
+                    row = s.query(SystemSetting).filter(SystemSetting.key == f"supplier.policy.{int(supplier_id)}").first()
+                    if row and isinstance(row.value, dict):
+                        pol = row.value
+                finally:
+                    s.close()
+            if pol and (pol.get("enabled") is False or pol.get("scrape", {}).get("enabled") is False):
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "SUPPLIER_DISABLED"
+                command.error_message = "Supplier policy disables scraping."
+                logger.warning(f"SCRAPE_SUPPLIER_BLOCKED cmd_id={command.id} supplier_id={supplier_id} reason=SUPPLIER_DISABLED")
+                return
+        except Exception:
+            # Never block scraping due to policy read errors; logging is best-effort.
+            pass
         
         session = SessionLocal()
         try:
@@ -871,6 +912,28 @@ class CommandWorker:
             batch_size,
             delay_seconds,
         )
+
+        # Per-supplier policy gate (DB-backed)
+        try:
+            pol = None
+            if supplier_id is not None:
+                s = SessionLocal()
+                try:
+                    from retail_os.core.database import SystemSetting
+
+                    row = s.query(SystemSetting).filter(SystemSetting.key == f"supplier.policy.{int(supplier_id)}").first()
+                    if row and isinstance(row.value, dict):
+                        pol = row.value
+                finally:
+                    s.close()
+            if pol and (pol.get("enabled") is False or pol.get("enrich", {}).get("enabled") is False):
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "SUPPLIER_DISABLED"
+                command.error_message = "Supplier policy disables enrichment."
+                logger.warning(f"ENRICH_SUPPLIER_BLOCKED cmd_id={command.id} supplier_id={supplier_id} reason=SUPPLIER_DISABLED")
+                return
+        except Exception:
+            pass
 
         # 1) Ensure InternalProducts exist (needed for publish pipeline).
         session = SessionLocal()

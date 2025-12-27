@@ -48,6 +48,22 @@ class SpectatorScheduler:
             return {**default, **row.value}
         return default
 
+    def _get_supplier_policy(self, session, supplier_id: int) -> dict:
+        """
+        Per-supplier policy overrides.
+        Stored in SystemSetting under: supplier.policy.<id>
+        """
+        base = {"enabled": True, "scrape": {"enabled": True}, "enrich": {"enabled": True}, "publish": {"enabled": True}}
+        row = session.query(SystemSetting).filter(SystemSetting.key == f"supplier.policy.{int(supplier_id)}").first()
+        if row and isinstance(row.value, dict):
+            v = row.value
+            out = {**base, **v}
+            out["scrape"] = {**base["scrape"], **(v.get("scrape") if isinstance(v.get("scrape"), dict) else {})}
+            out["enrich"] = {**base["enrich"], **(v.get("enrich") if isinstance(v.get("enrich"), dict) else {})}
+            out["publish"] = {**base["publish"], **(v.get("publish") if isinstance(v.get("publish"), dict) else {})}
+            return out
+        return base
+
     def _enqueue_jobstatus(self, session, job_type: str) -> JobStatus:
         job = JobStatus(
             job_type=job_type,
@@ -110,6 +126,9 @@ class SpectatorScheduler:
             by_supplier = {}
             
             for supplier in suppliers:
+                pol = self._get_supplier_policy(session, supplier.id)
+                if not pol.get("enabled", True) or not pol.get("scrape", {}).get("enabled", True):
+                    continue
                 if cfg.get("per_category"):
                     cats = (
                         session.query(SupplierProduct.source_category)
@@ -209,6 +228,9 @@ class SpectatorScheduler:
             by_supplier = {}
             
             for supplier in suppliers:
+                pol = self._get_supplier_policy(session, supplier.id)
+                if not pol.get("enabled", True) or not pol.get("enrich", {}).get("enabled", True):
+                    continue
                 if cfg.get("per_category"):
                     cats = (
                         session.query(SupplierProduct.source_category)
