@@ -138,9 +138,22 @@ class OneCheqAdapter:
                 else:
                     print(f"   -> Image {idx} download failed: {result['error']}")
         
-        # Calculate Snapshot Hash
-        # We hash the Unified representation to detect drift
-        content = f"{data['title']}|{cost}|{data['source_status']}|{local_images}"
+        # Calculate Snapshot Hash (include more fields so changes are detected)
+        content = json.dumps(
+            {
+                "title": data.get("title"),
+                "description": data.get("description"),
+                "brand": data.get("brand"),
+                "condition": data.get("condition"),
+                "cost": cost,
+                "status": data.get("source_status"),
+                "images": local_images,
+                "specs": data.get("specs") or {},
+                "stock_level": data.get("stock_level"),
+            },
+            sort_keys=True,
+            ensure_ascii=True,
+        )
         current_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
         
         # DB Logic

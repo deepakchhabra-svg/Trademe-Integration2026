@@ -52,6 +52,85 @@ def norm_ws(text: str) -> str:
     return " ".join(text.split())
 
 
+_SKU_SAFE_RE = re.compile(r"[^A-Za-z0-9]+")
+
+
+def normalize_sku(raw: str) -> str:
+    """
+    Normalize supplier SKU into a stable identifier.
+    We enforce alnum-only + uppercase to avoid drift and DB duplicates.
+    """
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    s = re.sub(r"^(sku|item|product)\s*[:#-]?\s*", "", s, flags=re.I).strip()
+    s = _SKU_SAFE_RE.sub("", s).upper()
+    return s[:32]
+
+
+def _iter_jsonld_products(doc: HTMLParser) -> List[Dict]:
+    """
+    Best-effort extractor for JSON-LD Product objects.
+    Shopify commonly embeds Product JSON-LD.
+    """
+    out: List[Dict] = []
+    for node in doc.css('script[type="application/ld+json"]'):
+        raw = (node.text() or "").strip()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except Exception:
+            continue
+
+        candidates: list[dict] = []
+        if isinstance(data, dict):
+            if data.get("@type") == "Product":
+                candidates.append(data)
+            elif "@graph" in data and isinstance(data["@graph"], list):
+                candidates.extend([x for x in data["@graph"] if isinstance(x, dict) and x.get("@type") == "Product"])
+        elif isinstance(data, list):
+            candidates.extend([x for x in data if isinstance(x, dict) and x.get("@type") == "Product"])
+
+        out.extend(candidates)
+    return out
+
+
+def _extract_brand_from_jsonld(products: List[Dict]) -> str:
+    for p in products:
+        b = p.get("brand")
+        if isinstance(b, dict):
+            name = b.get("name")
+            if name:
+                return norm_ws(str(name))
+        if isinstance(b, str) and b.strip():
+            return norm_ws(b)
+        m = p.get("manufacturer")
+        if isinstance(m, dict):
+            name = m.get("name")
+            if name:
+                return norm_ws(str(name))
+    return ""
+
+
+def _extract_sku_from_jsonld(products: List[Dict]) -> str:
+    for p in products:
+        for k in ("sku", "mpn"):
+            v = p.get(k)
+            if v:
+                sku = normalize_sku(str(v))
+                if sku:
+                    return sku
+        offers = p.get("offers")
+        if isinstance(offers, dict):
+            v = offers.get("sku") or offers.get("mpn")
+            if v:
+                sku = normalize_sku(str(v))
+                if sku:
+                    return sku
+    return ""
+
+
 def extract_onecheq_id(url: str) -> str:
     """Extract product ID from OneCheq URL."""
     # URL format: https://onecheq.co.nz/products/product-slug
@@ -132,6 +211,7 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
     
     # Parse with Selectolax
     doc = HTMLParser(html)
+    products_jsonld = _iter_jsonld_products(doc)
     
     # Extract title (robust fallbacks)
     title = ""
@@ -174,15 +254,18 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
             # Best-effort JSON-LD parsing; ignore failures but log for debugging.
             print(f"Error parsing JSON-LD product data: {e}")
     
-    # Extract SKU
-    sku = product_id
+    # Extract SKU (prefer JSON-LD sku/mpn; then on-page SKU; then URL slug)
+    sku = _extract_sku_from_jsonld(products_jsonld) or ""
     sku_node = doc.css_first(".product__sku, [class*='sku'], .variant-sku")
     if sku_node:
         sku_text = norm_ws(sku_node.text())
         # Extract just the SKU value (e.g., "SKU: LOT731" -> "LOT731")
         sku_match = re.search(r'SKU:?\s*([A-Z0-9]+)', sku_text, re.IGNORECASE)
         if sku_match:
-            sku = sku_match.group(1)
+            sku = normalize_sku(sku_match.group(1))
+
+    if not sku:
+        sku = normalize_sku(product_id)
     
     # Extract price
     price = 0.0
@@ -235,14 +318,17 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
         elif 'refurbished' in condition_text.lower():
             condition = "Refurbished"
     
-    # Extract brand from title or meta
-    brand = ""
-    # Try to extract brand from title (first word often)
-    if title:
-        # Common patterns: "Apple iPhone", "Samsung Galaxy", etc.
-        brand_match = re.match(r'^([A-Za-z]+)', title)
+    # Extract brand (prefer JSON-LD Product.brand; then meta hints; then title heuristic)
+    brand = _extract_brand_from_jsonld(products_jsonld)
+    if not brand:
+        meta_brand = doc.css_first('meta[property="product:brand"], meta[name="product:brand"], meta[name="brand"]')
+        if meta_brand:
+            brand = norm_ws(meta_brand.attributes.get("content", ""))
+
+    if not brand and title:
+        brand_match = re.match(r"^([A-Za-z][A-Za-z0-9&]+)", title)
         if brand_match:
-            brand = brand_match.group(1)
+            brand = brand_match.group(1).strip()
     
     # Extract description
     description = ""
@@ -259,30 +345,21 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
     if not description:
         # JSON-LD description fallback
         try:
-            for node in doc.css('script[type="application/ld+json"]'):
-                raw = (node.text() or "").strip()
-                if not raw:
-                    continue
-                data = json.loads(raw)
-                candidates = []
-                if isinstance(data, dict):
-                    if data.get("@type") == "Product":
-                        candidates.append(data)
-                    elif "@graph" in data and isinstance(data["@graph"], list):
-                        candidates.extend([x for x in data["@graph"] if isinstance(x, dict) and x.get("@type") == "Product"])
-                elif isinstance(data, list):
-                    candidates.extend([x for x in data if isinstance(x, dict) and x.get("@type") == "Product"])
-                for p in candidates:
-                    desc = p.get("description") or ""
-                    if desc:
-                        description = norm_ws(str(desc))
-                        raise StopIteration()
+            for p in products_jsonld:
+                desc = p.get("description") or ""
+                if desc:
+                    description = norm_ws(str(desc))
+                    raise StopIteration()
         except StopIteration:
             # Used for early exit once a valid description has been found.
             pass
         except Exception as e:
             # Best-effort JSON-LD parsing; ignore failures but log for debugging.
             print(f"Error parsing JSON-LD for description: {e}")
+
+    # Ensure description isn't absurdly short; fall back to title.
+    if description and len(description) < 20 and title:
+        description = title
 
     # Hard last resort: use slug-derived title so adapter doesn't drop the row
     if not title:

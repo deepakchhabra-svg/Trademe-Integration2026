@@ -204,6 +204,9 @@ def scrape_single_item(url: str) -> Optional[Dict]:
     
     # Extract condition
     condition = find_label_value(doc, ["Condition"])
+
+    # Extract brand/make (helps enrichment + category mapping)
+    brand = find_label_value(doc, ["Brand", "Make", "Manufacturer"])
     
     # Extract model number (from description or specs)
     model = ""
@@ -218,6 +221,8 @@ def scrape_single_item(url: str) -> Optional[Dict]:
         specs["Model"] = model
     if condition:
         specs["Condition"] = condition
+    if brand:
+        specs["Brand"] = brand
     
     # Use buy_now_price if available, otherwise current_price
     price = buy_now_price if buy_now_price else current_price
@@ -233,6 +238,8 @@ def scrape_single_item(url: str) -> Optional[Dict]:
         "source_url": url,
         "title": title,
         "description": description,
+        "brand": brand,
+        "condition": condition or "Used",
         "buy_now_price": price or 0.0,
         "stock_level": 1,
         "photo1": photo1,  # Real Azure blob URL or None

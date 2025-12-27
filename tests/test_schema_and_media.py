@@ -199,3 +199,12 @@ def test_supplier_policy_endpoints(tmp_path: Path):
     assert j2["policy"]["enabled"] is False
     assert j2["policy"]["scrape"]["enabled"] is False
 
+
+def test_onecheq_normalize_sku_alnum_upper():
+    from retail_os.scrapers.onecheq.scraper import normalize_sku
+
+    assert normalize_sku(" LOT731 ") == "LOT731"
+    assert normalize_sku("SKU: lot-731") == "LOT731"
+    assert normalize_sku("OC-LOT731") == "OCLOT731"  # prefixes are handled elsewhere; normalize is alnum-only.
+    assert normalize_sku("nothing-phone-2-5g") == "NOTHINGPHONE25G"
+

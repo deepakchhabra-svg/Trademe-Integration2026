@@ -41,13 +41,14 @@ class CashConvertersAdapter:
             "source_listing_id": raw.get("source_id"),
             "title": raw.get("title"),
             "description": raw.get("description"),
+            "brand": raw.get("brand") or (raw.get("specs") or {}).get("Brand") or "",
             "buy_now_price": raw.get("buy_now_price"),
             "source_url": raw.get("source_url"),
             "source_status": raw.get("source_status"),
             "images": [p for p in [raw.get("photo1"), raw.get("photo2"), raw.get("photo3"), raw.get("photo4")] if p],
             # Standard Fields
             "stock_level": raw.get("stock_level", 0),
-            "condition": "Used",
+            "condition": raw.get("condition") or (raw.get("specs") or {}).get("Condition") or "Used",
             "specs": raw.get("specs", {})  # CRITICAL: Pass specs to DB
         }
 
@@ -146,8 +147,21 @@ class CashConvertersAdapter:
             else:
                 print(f"   -> Image {idx} download failed: {result['error']}")
         
-        # Calculate Snapshot Hash
-        content = f"{data['title']}|{cost}|{data['source_status']}|{local_images}"
+        # Calculate Snapshot Hash (include more fields so changes are detected)
+        content = json.dumps(
+            {
+                "title": data.get("title"),
+                "description": data.get("description"),
+                "brand": data.get("brand"),
+                "condition": data.get("condition"),
+                "cost": cost,
+                "status": data.get("source_status"),
+                "images": local_images,
+                "specs": data.get("specs") or {},
+            },
+            sort_keys=True,
+            ensure_ascii=True,
+        )
         current_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
         
         # DB Logic
@@ -163,6 +177,8 @@ class CashConvertersAdapter:
                 external_sku=supplier_sku,
                 title=data["title"],
                 description=data["description"],
+                brand=data.get("brand", ""),
+                condition=data.get("condition", "Used"),
                 cost_price=cost,
                 stock_level=data.get("stock_level", 1),
                 product_url=data["source_url"],
@@ -223,6 +239,9 @@ class CashConvertersAdapter:
                     self.db.add(log)
 
                 sp.title = data["title"]
+                sp.description = data.get("description", "")
+                sp.brand = data.get("brand", "")
+                sp.condition = data.get("condition", "Used")
                 sp.cost_price = cost
                 sp.images = local_images if local_images else imgs  # Prefer local
                 sp.specs = data.get("specs", {})
