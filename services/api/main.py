@@ -380,6 +380,132 @@ def bulk_dryrun_publish(req: BulkDryRunPublishRequest, _role: Role = Depends(req
         }
 
 
+class BulkApprovePublishRequest(BaseModel):
+    supplier_id: Optional[int] = None
+    source_category: Optional[str] = None
+    limit: int = 50
+    priority: int = 60
+
+
+@app.post("/ops/bulk/approve_publish", response_model=dict[str, Any])
+def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(require_role("power"))) -> dict[str, Any]:
+    """
+    Turns reviewed DRY_RUN items into real PUBLISH_LISTING commands, with a strict drift check:
+    - the SupplierProduct.snapshot_hash must match the snapshot captured at DRY_RUN generation time.
+
+    Safety:
+    - disabled when store.mode is HOLIDAY or PAUSED (publishing costs money)
+    - skips if a real publish command is already pending
+    """
+    if req.limit < 1 or req.limit > 2000:
+        raise HTTPException(status_code=400, detail="Invalid limit")
+
+    import uuid
+    from retail_os.core.database import SystemSetting
+
+    with get_db_session() as session:
+        store_mode = "NORMAL"
+        s = session.query(SystemSetting).filter(SystemSetting.key == "store.mode").first()
+        if s and isinstance(s.value, str) and s.value.strip():
+            store_mode = s.value.strip().upper()
+        if store_mode in ["HOLIDAY", "PAUSED"]:
+            raise HTTPException(status_code=409, detail=f"Publishing disabled in store.mode={store_mode}")
+
+        q = session.query(TradeMeListing).join(InternalProduct).join(SupplierProduct)
+        q = q.filter(TradeMeListing.actual_state == "DRY_RUN")
+        if req.supplier_id is not None:
+            q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
+        if req.source_category:
+            q = q.filter(SupplierProduct.source_category == req.source_category)
+        q = q.order_by(TradeMeListing.last_synced_at.desc().nullslast())
+
+        rows = q.limit(int(req.limit)).all()
+
+        enqueued = 0
+        skipped_existing_cmd = 0
+        skipped_drift = 0
+        skipped_missing_metadata = 0
+        skipped_bad_dryrun_id = 0
+
+        for l in rows:
+            tm_id = str(l.tm_listing_id or "")
+            if not tm_id.startswith("DRYRUN-"):
+                skipped_bad_dryrun_id += 1
+                continue
+
+            dryrun_cmd_id = tm_id.replace("DRYRUN-", "", 1)
+            dryrun_cmd = session.query(SystemCommand).filter(SystemCommand.id == dryrun_cmd_id).first()
+            if not dryrun_cmd:
+                skipped_missing_metadata += 1
+                continue
+
+            snap = None
+            try:
+                snap = (dryrun_cmd.payload or {}).get("supplier_snapshot_hash")
+            except Exception:
+                snap = None
+            if not snap:
+                skipped_missing_metadata += 1
+                continue
+
+            # Drift check: refuse to publish if supplier truth changed since DRY_RUN
+            try:
+                current_snap = l.internal_product.supplier_product.snapshot_hash  # type: ignore[union-attr]
+            except Exception:
+                current_snap = None
+            if not current_snap or str(current_snap) != str(snap):
+                skipped_drift += 1
+                continue
+
+            # Skip if a real publish is already pending for this internal product
+            existing_cmd = None
+            for c in (
+                session.query(SystemCommand)
+                .filter(SystemCommand.type == "PUBLISH_LISTING")
+                .filter(SystemCommand.status.in_([CommandStatus.PENDING, CommandStatus.EXECUTING, CommandStatus.FAILED_RETRYABLE]))
+                .order_by(SystemCommand.created_at.desc())
+                .limit(500)
+                .all()
+            ):
+                try:
+                    p = c.payload or {}
+                    if p.get("internal_product_id") == l.internal_product_id and not bool(p.get("dry_run", False)):
+                        existing_cmd = c
+                        break
+                except Exception:
+                    continue
+            if existing_cmd:
+                skipped_existing_cmd += 1
+                continue
+
+            session.add(
+                SystemCommand(
+                    id=str(uuid.uuid4()),
+                    type="PUBLISH_LISTING",
+                    payload={
+                        "internal_product_id": l.internal_product_id,
+                        "dry_run": False,
+                        "approved_from_dryrun": dryrun_cmd_id,
+                        "approved_at": datetime.utcnow().isoformat(),
+                    },
+                    status=CommandStatus.PENDING,
+                    priority=int(req.priority),
+                )
+            )
+            enqueued += 1
+
+        session.commit()
+        return {
+            "enqueued": enqueued,
+            "skipped_existing_cmd": skipped_existing_cmd,
+            "skipped_drift": skipped_drift,
+            "skipped_missing_metadata": skipped_missing_metadata,
+            "skipped_bad_dryrun_id": skipped_bad_dryrun_id,
+            "requested_limit": req.limit,
+            "store_mode": store_mode,
+        }
+
+
 class BulkResetEnrichmentRequest(BaseModel):
     supplier_id: Optional[int] = None
     source_category: Optional[str] = None

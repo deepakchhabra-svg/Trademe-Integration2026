@@ -21,6 +21,7 @@ export function BulkOpsForm() {
   const [pages, setPages] = useState<string>("1");
   const [batchSize, setBatchSize] = useState<string>("25");
   const [dryRunLimit, setDryRunLimit] = useState<string>("50");
+  const [approveLimit, setApproveLimit] = useState<string>("50");
   const [resetEnrichLimit, setResetEnrichLimit] = useState<string>("200");
   const [scanLimit, setScanLimit] = useState<string>("100");
   const [msg, setMsg] = useState<string | null>(null);
@@ -191,6 +192,52 @@ export function BulkOpsForm() {
         </div>
         <div className="mt-2 text-[11px] text-slate-500">
           Creates `PUBLISH_LISTING` commands with `dry_run=true` for review (skips Live/DRY_RUN and duplicates).
+        </div>
+      </Section>
+
+      <Section title="Bulk approve publish (DRY_RUN → PUBLISH)">
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-slate-600">
+            <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
+            <input
+              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              value={approveLimit}
+              onChange={(e) => setApproveLimit(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+            onClick={async () => {
+              setMsg(null);
+              try {
+                const res = await apiPostClient<{
+                  enqueued: number;
+                  skipped_existing_cmd: number;
+                  skipped_drift: number;
+                  skipped_missing_metadata: number;
+                  skipped_bad_dryrun_id: number;
+                  store_mode: string;
+                }>("/ops/bulk/approve_publish", {
+                  supplier_id: supplierId ? Number(supplierId) : undefined,
+                  source_category: sourceCategory || undefined,
+                  limit: Number(approveLimit || "50"),
+                  priority: 60,
+                });
+                setMsg(
+                  `Approved publish queued: enqueued=${res.enqueued}, skipped_drift=${res.skipped_drift}, skipped_existing_cmd=${res.skipped_existing_cmd} (store_mode=${res.store_mode})`,
+                );
+              } catch (e) {
+                setMsg(e instanceof Error ? e.message : "Failed to approve publish");
+              }
+            }}
+          >
+            Enqueue PUBLISH from DRY_RUN
+          </button>
+        </div>
+        <div className="mt-2 text-[11px] text-slate-500">
+          Only enqueues real `PUBLISH_LISTING` if supplier snapshot hash matches the DRY_RUN snapshot (drift-safe). Disabled in
+          store modes HOLIDAY/PAUSED.
         </div>
       </Section>
 

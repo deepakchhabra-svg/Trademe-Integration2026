@@ -273,6 +273,22 @@ class CommandWorker:
                 except Exception as e:
                     logger.error(f"   -> [DRY RUN] Payload build failed: {e}")
                     raise
+
+                # Persist DRY_RUN evidence on the command (for later drift checks / bulk approvals)
+                try:
+                    cmd_row = session.query(SystemCommand).get(command.id)
+                    sp = prod.supplier_product
+                    if cmd_row and sp:
+                        cmd_payload = cmd_row.payload or {}
+                        cmd_payload["dry_run_generated_at"] = datetime.utcnow().isoformat()
+                        cmd_payload["supplier_snapshot_hash"] = sp.snapshot_hash
+                        cmd_payload["supplier_last_scraped_at"] = (
+                            sp.last_scraped_at.isoformat() if sp.last_scraped_at else None
+                        )
+                        cmd_row.payload = cmd_payload
+                        session.commit()
+                except Exception as e:
+                    logger.warning(f"   -> [DRY RUN] Could not persist snapshot metadata: {e}")
                 
                 # Create/update Vault3 listing with DRY RUN marker
                 listing_id = f"DRYRUN-{command.id}"
@@ -299,6 +315,14 @@ class CommandWorker:
                     tm_listing.payload_snapshot = payload_json
                     tm_listing.payload_hash = payload_hash
                     tm_listing.last_synced_at = datetime.utcnow()
+
+                # ListingDraft is the single source-of-truth review object for payloads
+                draft = session.query(ListingDraft).filter_by(command_id=command.id).first()
+                if not draft:
+                    draft = ListingDraft(command_id=command.id, payload_json=payload_dict, validation_results=None)
+                    session.add(draft)
+                else:
+                    draft.payload_json = payload_dict
                 
                 session.commit()
                 
