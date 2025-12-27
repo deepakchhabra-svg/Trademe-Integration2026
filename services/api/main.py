@@ -28,6 +28,21 @@ from retail_os.trademe.api import TradeMeAPI
 
 app = FastAPI(title="RetailOS API", version="0.1.0")
 
+
+@app.on_event("startup")
+def _startup_init_db() -> None:
+    """
+    Ensure DB schema exists on fresh machines (especially local Windows dev).
+    Without this, list endpoints (e.g. /vaults/raw) can 500 if tables don't exist yet.
+    """
+    try:
+        from retail_os.core.database import init_db
+
+        init_db()
+    except Exception as e:
+        # Don't crash the API process; surface errors through endpoints/logs instead.
+        print(f"API startup: init_db failed: {e}")
+
 # MVP CORS: allow local dev frontends; tighten in production.
 app.add_middleware(
     CORSMiddleware,

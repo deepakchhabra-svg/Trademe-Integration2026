@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, D
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
+from pathlib import Path
 import enum
 from contextlib import contextmanager
 
@@ -301,7 +302,9 @@ _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 _default_db_path = os.path.join(_repo_root, "data", "retail_os.db")
 os.makedirs(os.path.dirname(_default_db_path), exist_ok=True)
 
-DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{_default_db_path}"
+# Windows-safe sqlite URL: ensure forward slashes (e.g. sqlite:///C:/path/to/db)
+_default_db_path_uri = Path(_default_db_path).as_posix()
+DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{_default_db_path_uri}"
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
