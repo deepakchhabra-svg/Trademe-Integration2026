@@ -137,11 +137,38 @@ class CommandWorker:
             return
 
         elif command_type == "UPDATE_PRICE":
-            # For now we only record intent (Trade Me price update wiring comes next).
-            time.sleep(0.2)
             listing_id = payload.get("listing_id") or payload.get("tm_listing_id") or payload.get("target_id")
             new_price = payload.get("new_price") or payload.get("price")
-            print(f"   -> UPDATE_PRICE requested listing_id={listing_id} new_price={new_price}")
+            if not listing_id or new_price is None:
+                raise ValueError("UPDATE_PRICE requires listing_id and new_price")
+            if not self.api:
+                raise Exception("API wrapper not available.")
+
+            print(f"   -> Updating price listing_id={listing_id} new_price={new_price}")
+            ok = self.api.update_price(str(listing_id), float(new_price))
+            if not ok:
+                raise ValueError("Update price returned False")
+
+            # Persist local truth + history
+            session = SessionLocal()
+            try:
+                from retail_os.core.database import TradeMeListing, PriceHistory
+
+                tm = session.query(TradeMeListing).filter(TradeMeListing.tm_listing_id == str(listing_id)).first()
+                if tm:
+                    tm.actual_price = float(new_price)
+                    tm.last_synced_at = datetime.utcnow()
+                    session.add(
+                        PriceHistory(
+                            listing_id=tm.id,
+                            price=float(new_price),
+                            change_type="STRATEGY",
+                            timestamp=datetime.utcnow(),
+                        )
+                    )
+                session.commit()
+            finally:
+                session.close()
             return
 
         elif command_type == "WITHDRAW_LISTING":
@@ -164,6 +191,10 @@ class CommandWorker:
 
         elif command_type == "SYNC_SOLD_ITEMS":
             self.handle_sync_sold_items(command)
+            return
+
+        elif command_type == "RESET_ENRICHMENT":
+            self.handle_reset_enrichment(command)
             return
 
         else:
@@ -803,6 +834,50 @@ class CommandWorker:
                     job.summary = err[:2000]
                 s.commit()
             raise
+
+    def handle_reset_enrichment(self, command):
+        """
+        Marks a SupplierProduct back to PENDING enrichment and clears enriched fields.
+        This is the operator's "requeue" button.
+        """
+        cmd_type, payload = self.resolve_command(command)
+        sp_id = payload.get("supplier_product_id")
+        if sp_id is None:
+            raise ValueError("RESET_ENRICHMENT requires supplier_product_id")
+
+        session = SessionLocal()
+        try:
+            from retail_os.core.database import SupplierProduct, AuditLog
+
+            sp = session.query(SupplierProduct).get(int(sp_id))
+            if not sp:
+                raise ValueError("SupplierProduct not found")
+
+            old = {
+                "enrichment_status": sp.enrichment_status,
+                "enriched_title": sp.enriched_title,
+                "enriched_description_present": bool(sp.enriched_description),
+            }
+
+            sp.enrichment_status = "PENDING"
+            sp.enrichment_error = None
+            sp.enriched_title = None
+            sp.enriched_description = None
+
+            session.add(
+                AuditLog(
+                    entity_type="SupplierProduct",
+                    entity_id=str(sp.id),
+                    action="ENRICHMENT_RESET",
+                    old_value=str(old),
+                    new_value="PENDING",
+                    user="Operator",
+                    timestamp=datetime.utcnow(),
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
 
 # --- MAIN ENTRY POINT ---
 if __name__ == "__main__":

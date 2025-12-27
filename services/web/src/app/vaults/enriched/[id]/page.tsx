@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet } from "../../../_components/api";
 import { Badge } from "../../../_components/Badge";
+import { EnrichedActions } from "./Actions";
 
 type InternalProductDetail = {
   id: number;
@@ -126,6 +127,11 @@ export default async function EnrichedDetailPage({ params }: { params: Promise<{
           </pre>
         </div>
       </div>
+
+      <EnrichedActions
+        internalProductId={ip.id}
+        supplierProductId={sp?.id ?? null}
+      />
     </div>
   );
 }

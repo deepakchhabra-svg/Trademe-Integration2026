@@ -174,6 +174,31 @@ class TradeMeAPI:
         except Exception as e:
             raise Exception(f"Withdraw Failed: {e}")
 
+    def update_listing(self, payload: dict) -> dict:
+        """
+        Updates an existing listing.
+        Trade Me V1 endpoint (commonly): POST /Selling/Update.json
+        NOTE: Field support depends on account/category.
+        """
+        print("API: Updating Listing...")
+        try:
+            res = self.session.post(f"{PROD_URL}/Selling/Update.json", json=payload, timeout=TIMEOUT_SECS)
+            res.raise_for_status()
+            return res.json()
+        except Exception as e:
+            raise Exception(f"Update Listing Failed: {e}")
+
+    def update_price(self, listing_id: str, new_price: float) -> bool:
+        """
+        Attempts to update listing price.
+        Uses /Selling/Update.json with StartPrice.
+        """
+        payload = {"ListingId": int(listing_id), "StartPrice": float(new_price)}
+        data = self.update_listing(payload)
+        if data.get("Success") is True:
+            return True
+        raise Exception(f"Update Price Failed: {data}")
+
     def get_all_selling_items(self) -> list:
         """
         Fetches all currently selling items.
