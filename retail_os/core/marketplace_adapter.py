@@ -33,14 +33,16 @@ class MarketplaceAdapter:
         # LOGIC BRANCH: GEN AI vs HEURISTIC
         from retail_os.core.llm_enricher import enricher
         enrichment_failed = False
-        
-        # Check explicit env var to avoid singleton state issues
-        api_key = os.getenv("GEMINI_API_KEY")
-        if use_ai is True and not api_key:
-            # Explicitly requested AI but no key is configured.
+
+        # Decide AI usage:
+        # - use_ai=True: force AI if available; otherwise deterministic fallback.
+        # - use_ai=False: force deterministic.
+        # - use_ai=None: auto (AI if available).
+        ai_available = enricher.is_active()
+        if use_ai is True and not ai_available:
             use_ai = False
-        
-        if (use_ai is True) or (use_ai is None and api_key):
+
+        if (use_ai is True) or (use_ai is None and ai_available):
             # PATH A: GENERATIVE AI (Gemini 2.0)
             from retail_os.utils.seo import clean_description
             clean_input = clean_description(item.description or "")

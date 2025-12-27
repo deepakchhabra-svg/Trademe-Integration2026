@@ -1,7 +1,7 @@
 import os
 import json
 import requests
-from typing import Dict, Optional
+from typing import Dict
 from dotenv import load_dotenv
 
 # Force load env to ensure keys are picked up
@@ -70,6 +70,8 @@ class LLMEnricher:
                 return self._call_openai(prompt)
             elif self.provider == "gemini":
                 return self._call_gemini(prompt)
+            # Defensive fallback if a new provider is introduced but not implemented.
+            raise RuntimeError(f"Unknown LLM provider: {self.provider}")
         except Exception as e:
             # Graceful fallback: return original description if API fails
             error_msg = f"LLM Enrichment failed (using original): {str(e)[:200]}"
@@ -148,8 +150,9 @@ class LLMEnricher:
                 except:
                     pass
 
-                val = data['candidates'][0]['content']['parts'][0]['text'].strip()
-                return f"[GEMINI] {val}"
+                # Keep output clean (no provider prefix in production copy).
+                val = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                return val
                 
             except requests.exceptions.HTTPError as e:
                 # If non-429 error, raise immediately
