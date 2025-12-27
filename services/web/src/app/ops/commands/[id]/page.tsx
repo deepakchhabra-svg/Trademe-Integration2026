@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet } from "../../../_components/api";
 import { Badge } from "../../../_components/Badge";
+import { CommandActions } from "./Actions";
 
 type CommandDetail = {
   id: string;
@@ -68,6 +69,8 @@ export default async function CommandDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
       ) : null}
+
+      <CommandActions commandId={cmd.id} />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="text-sm font-semibold">Payload (JSON)</div>
