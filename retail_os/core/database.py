@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 import enum
 from contextlib import contextmanager
+from typing import Iterable
 
 Base = declarative_base()
 
@@ -324,8 +325,60 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 SessionLocal = sessionmaker(bind=engine)
 
+def _sqlite_table_columns(conn, table_name: str) -> set[str]:
+    """
+    Returns column names for a sqlite table. If table doesn't exist, returns empty set.
+    Uses PRAGMA table_info which is sqlite-specific.
+    """
+    rows = conn.exec_driver_sql(f"PRAGMA table_info({table_name})").fetchall()
+    # PRAGMA table_info columns: cid, name, type, notnull, dflt_value, pk
+    return {r[1] for r in rows} if rows else set()
+
+
+def _sqlite_ensure_columns(conn, table_name: str, columns: dict[str, str]) -> list[str]:
+    """
+    Ensure sqlite table has the given columns; add any missing columns via ALTER TABLE.
+    Returns list of columns added.
+    """
+    existing = _sqlite_table_columns(conn, table_name)
+    added: list[str] = []
+    for col, col_sql in columns.items():
+        if col in existing:
+            continue
+        conn.exec_driver_sql(f"ALTER TABLE {table_name} ADD COLUMN {col} {col_sql}")
+        added.append(col)
+    return added
+
+
+def _auto_migrate_sqlite_schema() -> None:
+    """
+    Minimal, safe schema drift fix for sqlite in local dev.
+    SQLAlchemy create_all() won't add columns to existing tables, so older DBs can 500.
+    """
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    with engine.begin() as conn:
+        # Additive migrations only (safe). Keep this list small and focused.
+        _sqlite_ensure_columns(
+            conn,
+            "supplier_products",
+            {
+                # Added for category-based scaling.
+                "source_category": "VARCHAR",
+                # Added for Noel Leeming ranking support.
+                "collection_rank": "INTEGER",
+                "collection_page": "INTEGER",
+                # Evidence fields used by pipeline guardrails.
+                "snapshot_hash": "VARCHAR",
+                "last_scraped_at": "DATETIME",
+                "sync_status": "VARCHAR",
+            },
+        )
+
 def init_db():
     Base.metadata.create_all(engine)
+    _auto_migrate_sqlite_schema()
     print("Strict Schema Initialized (WAL Mode ON).")
 
 @contextmanager
