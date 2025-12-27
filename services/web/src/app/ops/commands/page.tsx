@@ -25,7 +25,7 @@ export default async function CommandsPage({
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
   const type = sp.type || "";
-  const status = sp.status || "";
+  const status = sp.status || "NOT_SUCCEEDED";
 
   const qp = new URLSearchParams();
   qp.set("page", String(page));
@@ -42,12 +42,60 @@ export default async function CommandsPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Commands</h1>
-          <p className="mt-1 text-sm text-slate-600">Every action is a command. Click to inspect payload + errors.</p>
+          <h1 className="text-lg font-semibold tracking-tight">Commands (debug)</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Low-level ledger of the worker queue. Default view hides SUCCEEDED so you can focus on what needs attention.
+          </p>
         </div>
         <Badge tone="blue">
           Page {page} · {perPage}/page
         </Badge>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Link className="rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-900" href="/ops/inbox">
+          Go to Inbox (recommended)
+        </Link>
+        <Link
+          className={`rounded-md border px-3 py-1 text-xs font-medium ${
+            status === "NEEDS_ATTENTION" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
+          }`}
+          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NEEDS_ATTENTION" }, { page: 1 })}`}
+        >
+          Needs attention
+        </Link>
+        <Link
+          className={`rounded-md border px-3 py-1 text-xs font-medium ${
+            status === "ACTIVE" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
+          }`}
+          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "ACTIVE" }, { page: 1 })}`}
+        >
+          Active (PENDING/EXECUTING)
+        </Link>
+        <Link
+          className={`rounded-md border px-3 py-1 text-xs font-medium ${
+            status === "NOT_SUCCEEDED" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
+          }`}
+          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NOT_SUCCEEDED" }, { page: 1 })}`}
+        >
+          Not succeeded
+        </Link>
+        <Link
+          className={`rounded-md border px-3 py-1 text-xs font-medium ${
+            status === "SUCCEEDED" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
+          }`}
+          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "SUCCEEDED" }, { page: 1 })}`}
+        >
+          Succeeded
+        </Link>
+        <Link
+          className={`rounded-md border px-3 py-1 text-xs font-medium ${
+            status === "All" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
+          }`}
+          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "" }, { page: 1 })}`}
+        >
+          All
+        </Link>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">

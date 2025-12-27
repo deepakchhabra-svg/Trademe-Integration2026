@@ -34,6 +34,11 @@ export default async function AppShell({ children }: { children: React.ReactNode
 
           <div className="flex-1 space-y-6 px-3 py-4">
             <div className="space-y-1">
+              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Workbench</div>
+              <NavLink href="/" label="Ops Workbench" />
+            </div>
+
+            <div className="space-y-1">
               <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Vaults
               </div>
@@ -50,10 +55,16 @@ export default async function AppShell({ children }: { children: React.ReactNode
               {canSee(who.role, "power") ? <NavLink href="/ops/alerts" label="Alerts" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/trademe" label="Trade Me Health" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/bulk" label="Bulk Ops" /> : null}
-              <NavLink href="/ops/commands" label="Commands" />
               {canSee(who.role, "power") ? <NavLink href="/ops/jobs" label="Jobs" /> : null}
-              {canSee(who.role, "power") ? <NavLink href="/ops/audits" label="Audits" /> : null}
             </div>
+
+            {canSee(who.role, "root") ? (
+              <div className="space-y-1">
+                <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Debug</div>
+                <NavLink href="/ops/commands" label="Commands (debug)" />
+                <NavLink href="/ops/audits" label="Audits (debug)" />
+              </div>
+            ) : null}
 
             <div className="space-y-1">
               <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">

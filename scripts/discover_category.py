@@ -4,6 +4,7 @@ sys.path.append(os.getcwd())
 
 import re
 from typing import List, Set
+import math
 from selectolax.parser import HTMLParser
 import subprocess
 
@@ -84,11 +85,18 @@ def discover_cash_converters_urls(base_url: str, max_pages: int = 5) -> List[str
     print(f"\n[OK] Discovered {len(urls)} unique Cash Converters URLs")
     return urls
 
-def discover_noel_leeming_urls(base_url: str, max_pages: int = 5) -> List[str]:
+def discover_noel_leeming_urls(base_url: str, max_pages: int = 5, max_items: int | None = None) -> List[str]:
     """
     Discover product URLs from Noel Leeming category pages.
     Returns list of product URLs.
     """
+    # Backwards compatibility: older callers used max_items.
+    if max_items is not None:
+        try:
+            max_pages = max(1, int(math.ceil(int(max_items) / 32)))
+        except Exception:
+            max_pages = max_pages
+
     print("=" * 60)
     print("NOEL LEEMING DISCOVERY")
     print("=" * 60)

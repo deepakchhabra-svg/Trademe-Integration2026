@@ -55,6 +55,11 @@ class CommandWorker:
         """
         cmd_type = getattr(command, "command_type", None) or getattr(command, "type", None)
         payload = getattr(command, "parameters", None) or getattr(command, "payload", None) or {}
+        # Normalize common drift issues: accidental whitespace or non-str types.
+        if cmd_type is not None and not isinstance(cmd_type, str):
+            cmd_type = str(cmd_type)
+        if isinstance(cmd_type, str):
+            cmd_type = cmd_type.strip()
         return cmd_type, payload
 
     def run(self):

@@ -957,37 +957,33 @@ def vault_live(
         raise HTTPException(status_code=400, detail="Invalid pagination")
 
     with get_db_session() as session:
-        query = session.query(TradeMeListing)
+        # Always join to display listing context (title/thumb/category) without needing extra clicks.
+        query = (
+            session.query(TradeMeListing)
+            .outerjoin(InternalProduct, TradeMeListing.internal_product_id == InternalProduct.id)
+            .outerjoin(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+        )
 
         if status != "All":
             query = query.filter(TradeMeListing.actual_state == status)
 
-        if supplier_id is not None or source_category:
-            query = (
-                query.join(InternalProduct, TradeMeListing.internal_product_id == InternalProduct.id)
-                .join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
-            )
-            if supplier_id is not None:
-                query = query.filter(SupplierProduct.supplier_id == int(supplier_id))
-            if source_category:
-                query = query.filter(SupplierProduct.source_category == source_category)
+        if supplier_id is not None:
+            query = query.filter(SupplierProduct.supplier_id == int(supplier_id))
+        if source_category:
+            query = query.filter(SupplierProduct.source_category == source_category)
 
         if q:
             term = f"%{q}%"
-            query = query.join(InternalProduct, TradeMeListing.internal_product_id == InternalProduct.id).filter(
-                (InternalProduct.title.ilike(term)) | (TradeMeListing.tm_listing_id.ilike(term))
-            )
+            query = query.filter((InternalProduct.title.ilike(term)) | (TradeMeListing.tm_listing_id.ilike(term)))
 
         total = query.count()
-        rows = (
-            query.order_by(TradeMeListing.last_synced_at.desc())
-            .offset((page - 1) * per_page)
-            .limit(per_page)
-            .all()
-        )
+        rows = query.order_by(TradeMeListing.last_synced_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
 
         items = []
         for l in rows:
+            ip = l.product
+            sp = ip.supplier_product if ip else None
+            imgs = _public_image_urls((sp.images if sp else None) or [])
             items.append(
                 {
                     "id": l.id,
@@ -999,6 +995,9 @@ def vault_live(
                     "view_count": l.view_count,
                     "watch_count": l.watch_count,
                     "category_id": l.category_id,
+                    "title": (ip.title if ip else None) or (sp.enriched_title if sp else None) or (sp.title if sp else None),
+                    "thumb": imgs[0] if imgs else None,
+                    "source_category": getattr(sp, "source_category", None) if sp else None,
                     "last_synced_at": _dt(l.last_synced_at),
                 }
             )
@@ -1098,10 +1097,17 @@ def list_commands(
     with get_db_session() as session:
         query = session.query(SystemCommand)
         if status:
-            try:
-                query = query.filter(SystemCommand.status == CommandStatus(status))
-            except Exception:
-                raise HTTPException(status_code=400, detail="Invalid status filter")
+            if status == "NOT_SUCCEEDED":
+                query = query.filter(SystemCommand.status != CommandStatus.SUCCEEDED)
+            elif status == "ACTIVE":
+                query = query.filter(SystemCommand.status.in_([CommandStatus.PENDING, CommandStatus.EXECUTING]))
+            elif status == "NEEDS_ATTENTION":
+                query = query.filter(SystemCommand.status.in_([CommandStatus.HUMAN_REQUIRED, CommandStatus.FAILED_RETRYABLE, CommandStatus.FAILED_FATAL]))
+            else:
+                try:
+                    query = query.filter(SystemCommand.status == CommandStatus(status))
+                except Exception:
+                    raise HTTPException(status_code=400, detail="Invalid status filter")
         if type:
             query = query.filter(SystemCommand.type == type)
         query = query.order_by(SystemCommand.created_at.desc())
@@ -1328,6 +1334,7 @@ def audits(
     entity_type: Optional[str] = None,
     entity_id: Optional[str] = None,
     action: Optional[str] = None,
+    include_ai_cost: bool = False,
     page: int = 1,
     per_page: int = 100,
     _role: Role = Depends(require_role("power")),
@@ -1342,6 +1349,9 @@ def audits(
             q = q.filter(AuditLog.entity_id == entity_id)
         if action:
             q = q.filter(AuditLog.action == action)
+        elif not include_ai_cost:
+            # Default to high-signal audit events. AI token logs can be very noisy at scale.
+            q = q.filter(AuditLog.action != "AI_COST")
 
         total = q.count()
         rows = q.order_by(AuditLog.timestamp.desc()).offset((page - 1) * per_page).limit(per_page).all()

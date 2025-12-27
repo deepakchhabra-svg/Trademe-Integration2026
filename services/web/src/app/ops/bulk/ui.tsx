@@ -4,6 +4,7 @@ import { useState } from "react";
 import { apiPostClient } from "../../_components/api_client";
 
 type Resp = { id: string; status: string };
+type Supplier = { id: number; name: string };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -14,7 +15,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function BulkOpsForm() {
+export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
   const [supplierId, setSupplierId] = useState<string>("");
   const [supplierName, setSupplierName] = useState<string>("");
   const [sourceCategory, setSourceCategory] = useState<string>("");
@@ -40,8 +41,56 @@ export function BulkOpsForm() {
     <div className="space-y-4">
       {msg ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900">{msg}</div> : null}
 
+      <Section title="How to use (recommended flow)">
+        <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
+          <li>
+            Pick supplier + category scope below. Then run <span className="font-semibold">SCRAPE_SUPPLIER</span>.
+          </li>
+          <li>
+            Run <span className="font-semibold">ENRICH_SUPPLIER</span> to populate Vault 2 (copy + internal products).
+          </li>
+          <li>
+            Run <span className="font-semibold">DRY_RUN publish</span> and review in Vault 3 (status=DRY_RUN).
+          </li>
+          <li>
+            Run <span className="font-semibold">Approve publish</span> to publish real listings (drift-safe + policy-safe).
+          </li>
+        </ol>
+        <div className="mt-3 text-[11px] text-slate-500">
+          Tip: if you’re unsure, start with pages=1 and limits=10 to validate end-to-end without flooding the queue.
+        </div>
+      </Section>
+
       <Section title="Scope">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="text-xs text-slate-600 md:col-span-2">
+            <div className="mb-1 font-semibold uppercase tracking-wide">Supplier picker</div>
+            <select
+              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              value={supplierId && supplierName ? `${supplierId}:${supplierName}` : ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) {
+                  setSupplierId("");
+                  setSupplierName("");
+                  return;
+                }
+                const [id, name] = v.split(":");
+                setSupplierId(id);
+                setSupplierName(name);
+              }}
+            >
+              <option value="">Select supplier…</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={`${s.id}:${s.name}`}>
+                  {s.name} (id {s.id})
+                </option>
+              ))}
+            </select>
+            <div className="mt-1 text-[11px] text-slate-500">
+              ONECHEQ / CASH_CONVERTERS / NOEL_LEEMING are supported.
+            </div>
+          </label>
           <label className="text-xs text-slate-600">
             <div className="mb-1 font-semibold uppercase tracking-wide">supplier_id</div>
             <input
@@ -68,6 +117,9 @@ export function BulkOpsForm() {
               onChange={(e) => setSourceCategory(e.target.value)}
               placeholder="CC browse_url / NL category_url / OC collection handle"
             />
+            <div className="mt-1 text-[11px] text-slate-500">
+              ONECHEQ: collection handle (e.g. smartphones-and-mobilephones) · CASH_CONVERTERS: browse URL · NOEL_LEEMING: category URL
+            </div>
           </label>
         </div>
       </Section>

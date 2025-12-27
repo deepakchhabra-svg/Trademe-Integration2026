@@ -79,3 +79,25 @@ def test_public_image_urls_maps_local_media_paths():
     assert api._public_image_urls([r"data\media\b.jpg"]) == ["/media/b.jpg"]
     assert api._public_image_urls([r"/tmp/something/else.jpg"]) == []
 
+
+def test_discover_noel_leeming_urls_accepts_max_items_signature():
+    # Backwards-compat: older code called discover_noel_leeming_urls(max_items=...).
+    from scripts import discover_category
+    from scripts import discover_noel_leeming
+
+    # Just ensure signature accepts the arg (we don't hit network here).
+    discover_category.discover_noel_leeming_urls("https://example.com", max_pages=1, max_items=10)
+    discover_noel_leeming.discover_noel_leeming_urls("https://example.com", max_pages=1, max_items=10)
+
+
+def test_worker_resolve_command_strips_whitespace():
+    from retail_os.trademe.worker import CommandWorker
+
+    class _Cmd:
+        type = "ENRICH_SUPPLIER \n"
+        payload = {}
+
+    t, payload = CommandWorker.resolve_command(_Cmd())
+    assert t == "ENRICH_SUPPLIER"
+    assert payload == {}
+

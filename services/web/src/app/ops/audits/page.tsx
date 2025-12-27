@@ -19,7 +19,14 @@ type AuditRow = {
 export default async function AuditsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; per_page?: string; entity_type?: string; entity_id?: string; action?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    per_page?: string;
+    entity_type?: string;
+    entity_id?: string;
+    action?: string;
+    include_ai_cost?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page || "1"));
@@ -27,14 +34,15 @@ export default async function AuditsPage({
   const entityType = sp.entity_type || "";
   const entityId = sp.entity_id || "";
   const action = sp.action || "";
+  const includeAiCost = sp.include_ai_cost === "1";
 
   const qs = buildQueryString(
-    { page, per_page: perPage, entity_type: entityType, entity_id: entityId, action },
+    { page, per_page: perPage, entity_type: entityType, entity_id: entityId, action, include_ai_cost: includeAiCost ? "1" : "" },
     {},
   );
   const data = await apiGet<PageResponse<AuditRow>>(`/audits?${qs}`);
 
-  const baseParams = { per_page: perPage, entity_type: entityType, entity_id: entityId, action };
+  const baseParams = { per_page: perPage, entity_type: entityType, entity_id: entityId, action, include_ai_cost: includeAiCost ? "1" : "" };
   const prevHref = `/ops/audits?${buildQueryString(baseParams, { page: Math.max(1, page - 1) })}`;
   const nextHref = `/ops/audits?${buildQueryString(baseParams, { page: page + 1 })}`;
 
@@ -83,6 +91,10 @@ export default async function AuditsPage({
                 className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
                 placeholder="VALIDATION_FAIL"
               />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" name="include_ai_cost" value="1" defaultChecked={includeAiCost} />
+              <span>Include AI_COST</span>
             </label>
             <label className="text-xs text-slate-600">
               <span className="mr-1">Per</span>

@@ -3,6 +3,7 @@ Noel Leeming Category Discovery
 Discovers product URLs from category pages with pagination
 """
 import re
+import math
 from typing import List, Set
 from selectolax.parser import HTMLParser
 import subprocess
@@ -27,11 +28,19 @@ def get_html_via_curl(url: str) -> str:
         print(f"CURL Error: {e}")
         return None
 
-def discover_noel_leeming_urls(base_url: str, max_pages: int = 50) -> List[str]:
+def discover_noel_leeming_urls(base_url: str, max_pages: int = 50, max_items: int | None = None) -> List[str]:
     """
     Discover product URLs from Noel Leeming category pages.
     Returns list of product URLs.
     """
+    # Backwards compatibility: older callers used max_items.
+    # NL category pages show ~32 items per page; convert items->pages if provided.
+    if max_items is not None:
+        try:
+            max_pages = max(1, int(math.ceil(int(max_items) / 32)))
+        except Exception:
+            max_pages = max_pages
+
     print("=" * 60)
     print("NOEL LEEMING DISCOVERY")
     print("=" * 60)
