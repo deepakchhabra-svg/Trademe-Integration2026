@@ -162,6 +162,10 @@ class CommandWorker:
             self.handle_scan_competitors(command)
             return
 
+        elif command_type == "SYNC_SOLD_ITEMS":
+            self.handle_sync_sold_items(command)
+            return
+
         else:
             raise ValueError(f"Unknown Command Type: {command_type}")
     
@@ -743,6 +747,62 @@ class CommandWorker:
             session.commit()
         finally:
             session.close()
+
+    def handle_sync_sold_items(self, command):
+        """
+        Pulls sold items/orders from Trade Me and upserts Orders.
+        This is fulfillment-critical and should run frequently.
+        """
+        from retail_os.core.database import JobStatus
+
+        job_row_id = None
+        with SessionLocal() as s:
+            job = JobStatus(
+                job_type="SYNC_SOLD_ITEMS",
+                status="RUNNING",
+                start_time=datetime.utcnow(),
+                items_processed=0,
+                items_created=0,
+                items_updated=0,
+                items_failed=0,
+                summary=None,
+            )
+            s.add(job)
+            s.commit()
+            job_row_id = job.id
+
+        try:
+            from retail_os.core.sync_sold_items import SoldItemSyncer
+
+            syncer = SoldItemSyncer()
+            new_orders = syncer.sync_recent_sales()
+
+            with SessionLocal() as s:
+                job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+                if job:
+                    job.status = "COMPLETED"
+                    job.end_time = datetime.utcnow()
+                    job.items_processed = int(new_orders or 0)
+                    job.items_created = int(new_orders or 0)
+                    job.summary = f"new_orders={int(new_orders or 0)}"
+                s.commit()
+        except Exception as e:
+            # If credentials are missing or TM is down, make this visible (but don't crash worker loop).
+            err = str(e)
+            if "Credentials missing" in err or "missing in Environment" in err:
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "MISSING_CREDS"
+                command.error_message = "Trade Me credentials missing for sold-item sync"
+
+            with SessionLocal() as s:
+                job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+                if job:
+                    job.status = "FAILED"
+                    job.end_time = datetime.utcnow()
+                    job.items_failed = 1
+                    job.summary = err[:2000]
+                s.commit()
+            raise
 
 # --- MAIN ENTRY POINT ---
 if __name__ == "__main__":

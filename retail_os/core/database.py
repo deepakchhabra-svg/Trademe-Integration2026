@@ -295,7 +295,13 @@ class SystemSetting(Base):
 # - sqlite:///data/retail_os.db (local)
 #
 # We keep sqlite check_same_thread=False for Streamlit/scheduler/worker usage.
-DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///data/retail_os.db"
+#
+# Default to a repo-root anchored DB path so scripts work from any cwd.
+_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_default_db_path = os.path.join(_repo_root, "data", "retail_os.db")
+os.makedirs(os.path.dirname(_default_db_path), exist_ok=True)
+
+DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{_default_db_path}"
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})

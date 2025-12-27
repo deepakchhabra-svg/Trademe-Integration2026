@@ -1,6 +1,9 @@
 import sys
 import os
-sys.path.append(os.getcwd())
+# Ensure repo root is on sys.path regardless of cwd
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 
 from retail_os.core.database import engine
 from sqlalchemy import inspect

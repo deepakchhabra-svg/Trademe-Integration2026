@@ -275,6 +275,55 @@ class SpectatorScheduler:
             session.rollback()
         finally:
             session.close()
+
+    def orders_job(self):
+        """
+        Fulfillment-critical: enqueue SYNC_SOLD_ITEMS frequently.
+        This should keep running even in HOLIDAY/SLOW modes (only PAUSED disables).
+        """
+        session = SessionLocal()
+        try:
+            store_mode = self._get_setting(session, "store.mode", {"mode": "NORMAL"})
+            mode = str(store_mode.get("mode", "NORMAL")).upper()
+            cfg = self._get_setting(
+                session,
+                "scheduler.orders",
+                {
+                    "enabled": True,
+                    "interval_minutes": 5 if self.dev_mode else 10,
+                    "priority": 80,
+                },
+            )
+            if mode in ["PAUSED"]:
+                cfg["enabled"] = False
+            if not cfg.get("enabled", True):
+                logger.info(f"SCHEDULER: orders_job disabled (store_mode={mode})")
+                return
+
+            job = self._enqueue_jobstatus(session, "SCHEDULER_ORDERS")
+
+            cmd_id = str(uuid.uuid4())
+            session.add(
+                SystemCommand(
+                    id=cmd_id,
+                    type="SYNC_SOLD_ITEMS",
+                    payload={},
+                    status=CommandStatus.PENDING,
+                    priority=int(cfg.get("priority", 80)),
+                )
+            )
+            session.commit()
+            self._finish_jobstatus(
+                session,
+                job.id,
+                "COMPLETED",
+                {"enqueued": 1, "interval_minutes": int(cfg.get("interval_minutes") or 0), "store_mode": mode},
+            )
+        except Exception as e:
+            logger.error(f"SCHEDULER: orders job failed: {e}")
+            session.rollback()
+        finally:
+            session.close()
     
     def start(self):
         """Start the scheduler"""
@@ -296,6 +345,15 @@ class SpectatorScheduler:
             name='Enrich All Suppliers',
             replace_existing=True
         )
+
+        # Orders job uses its own cadence (default 5–10 minutes)
+        self.scheduler.add_job(
+            self.orders_job,
+            trigger=IntervalTrigger(minutes=5 if self.dev_mode else 10),
+            id="sync_orders",
+            name="Sync Sold Items",
+            replace_existing=True,
+        )
         
         self.scheduler.start()
         logger.info("SCHEDULER: Started successfully")
@@ -303,6 +361,7 @@ class SpectatorScheduler:
         # Run jobs immediately on start
         self.scrape_job()
         self.enrich_job()
+        self.orders_job()
     
     def stop(self):
         """Stop the scheduler"""
