@@ -6,6 +6,15 @@ import { apiPostClient } from "../../_components/api_client";
 type Resp = { id: string; status: string };
 type Supplier = { id: number; name: string };
 
+function Spinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white"
+    />
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -26,15 +35,25 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
   const [resetEnrichLimit, setResetEnrichLimit] = useState<string>("200");
   const [scanLimit, setScanLimit] = useState<string>("100");
   const [msg, setMsg] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  async function enqueue(type: string, payload: Record<string, unknown>, priority = 60) {
-    setMsg(null);
+  async function run(key: string, fn: () => Promise<string>) {
+    if (busyKey) return;
+    setBusyKey(key);
+    setMsg(`Working: ${key}…`);
     try {
-      const res = await apiPostClient<Resp>("/ops/enqueue", { type, payload, priority });
-      setMsg(`Enqueued ${type} (${res.id.slice(0, 12)})`);
+      const m = await fn();
+      setMsg(m);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Failed to enqueue");
+      setMsg(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setBusyKey(null);
     }
+  }
+
+  async function enqueue(type: string, payload: Record<string, unknown>, priority = 60): Promise<string> {
+    const res = await apiPostClient<Resp>("/ops/enqueue", { type, payload, priority });
+    return `Enqueued ${type} (${res.id.slice(0, 12)})`;
   }
 
   return (
@@ -136,9 +155,14 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           </label>
           <button
             type="button"
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+            disabled={!!busyKey}
+            aria-busy={busyKey === "SCRAPE_SUPPLIER"}
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
+              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+            }`}
             onClick={() =>
-              enqueue(
+              run("SCRAPE_SUPPLIER", () =>
+                enqueue(
                 "SCRAPE_SUPPLIER",
                 {
                   supplier_id: supplierId ? Number(supplierId) : undefined,
@@ -147,10 +171,17 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   pages: Number(pages || "1"),
                 },
                 70,
+                ),
               )
             }
           >
-            Enqueue SCRAPE_SUPPLIER
+            {busyKey === "SCRAPE_SUPPLIER" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Enqueuing…
+              </span>
+            ) : (
+              "Enqueue SCRAPE_SUPPLIER"
+            )}
           </button>
         </div>
       </Section>
@@ -167,9 +198,14 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           </label>
           <button
             type="button"
-            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white"
+            disabled={!!busyKey}
+            aria-busy={busyKey === "ENRICH_SUPPLIER"}
+            className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${
+              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
+            }`}
             onClick={() =>
-              enqueue(
+              run("ENRICH_SUPPLIER", () =>
+                enqueue(
                 "ENRICH_SUPPLIER",
                 {
                   supplier_id: supplierId ? Number(supplierId) : undefined,
@@ -179,10 +215,17 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   delay_seconds: 0,
                 },
                 60,
+                ),
               )
             }
           >
-            Enqueue ENRICH_SUPPLIER
+            {busyKey === "ENRICH_SUPPLIER" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Enqueuing…
+              </span>
+            ) : (
+              "Enqueue ENRICH_SUPPLIER"
+            )}
           </button>
         </div>
       </Section>
@@ -191,17 +234,45 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900"
-            onClick={() => enqueue("SYNC_SOLD_ITEMS", {}, 80)}
+            disabled={!!busyKey}
+            aria-busy={busyKey === "SYNC_SOLD_ITEMS"}
+            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
+              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
+            }`}
+            onClick={() => run("SYNC_SOLD_ITEMS", () => enqueue("SYNC_SOLD_ITEMS", {}, 80))}
           >
-            Enqueue SYNC_SOLD_ITEMS
+            {busyKey === "SYNC_SOLD_ITEMS" ? (
+              <span className="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"
+                />
+                Enqueuing…
+              </span>
+            ) : (
+              "Enqueue SYNC_SOLD_ITEMS"
+            )}
           </button>
           <button
             type="button"
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900"
-            onClick={() => enqueue("SYNC_SELLING_ITEMS", { limit: 50 }, 70)}
+            disabled={!!busyKey}
+            aria-busy={busyKey === "SYNC_SELLING_ITEMS"}
+            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
+              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
+            }`}
+            onClick={() => run("SYNC_SELLING_ITEMS", () => enqueue("SYNC_SELLING_ITEMS", { limit: 50 }, 70))}
           >
-            Enqueue SYNC_SELLING_ITEMS
+            {busyKey === "SYNC_SELLING_ITEMS" ? (
+              <span className="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"
+                />
+                Enqueuing…
+              </span>
+            ) : (
+              "Enqueue SYNC_SELLING_ITEMS"
+            )}
           </button>
         </div>
       </Section>
@@ -218,10 +289,13 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           </label>
           <button
             type="button"
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
-            onClick={async () => {
-              setMsg(null);
-              try {
+            disabled={!!busyKey}
+            aria-busy={busyKey === "BULK_DRY_RUN_PUBLISH"}
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
+              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+            }`}
+            onClick={() =>
+              run("BULK_DRY_RUN_PUBLISH", async () => {
                 const res = await apiPostClient<{ enqueued: number; skipped_existing_cmd: number; skipped_already_listed: number }>(
                   "/ops/bulk/dryrun_publish",
                   {
@@ -231,15 +305,17 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                     priority: 60,
                   },
                 );
-                setMsg(
-                  `Dry-run queued: enqueued=${res.enqueued}, skipped_existing_cmd=${res.skipped_existing_cmd}, skipped_already_listed=${res.skipped_already_listed}`,
-                );
-              } catch (e) {
-                setMsg(e instanceof Error ? e.message : "Failed to dry-run enqueue");
-              }
-            }}
+                return `Dry-run queued: enqueued=${res.enqueued}, skipped_existing_cmd=${res.skipped_existing_cmd}, skipped_already_listed=${res.skipped_already_listed}`;
+              })
+            }
           >
-            Enqueue DRY_RUN publish
+            {busyKey === "BULK_DRY_RUN_PUBLISH" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Enqueuing…
+              </span>
+            ) : (
+              "Enqueue DRY_RUN publish"
+            )}
           </button>
         </div>
         <div className="mt-2 text-[11px] text-slate-500">
@@ -259,10 +335,13 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           </label>
           <button
             type="button"
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
-            onClick={async () => {
-              setMsg(null);
-              try {
+            disabled={!!busyKey}
+            aria-busy={busyKey === "BULK_APPROVE_PUBLISH"}
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
+              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+            }`}
+            onClick={() =>
+              run("BULK_APPROVE_PUBLISH", async () => {
                 const res = await apiPostClient<{
                   enqueued: number;
                   skipped_existing_cmd: number;
@@ -276,15 +355,17 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   limit: Number(approveLimit || "50"),
                   priority: 60,
                 });
-                setMsg(
-                  `Approved publish queued: enqueued=${res.enqueued}, skipped_drift=${res.skipped_drift}, skipped_existing_cmd=${res.skipped_existing_cmd} (store_mode=${res.store_mode})`,
-                );
-              } catch (e) {
-                setMsg(e instanceof Error ? e.message : "Failed to approve publish");
-              }
-            }}
+                return `Approved publish queued: enqueued=${res.enqueued}, skipped_drift=${res.skipped_drift}, skipped_existing_cmd=${res.skipped_existing_cmd} (store_mode=${res.store_mode})`;
+              })
+            }
           >
-            Enqueue PUBLISH from DRY_RUN
+            {busyKey === "BULK_APPROVE_PUBLISH" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Enqueuing…
+              </span>
+            ) : (
+              "Enqueue PUBLISH from DRY_RUN"
+            )}
           </button>
         </div>
         <div className="mt-2 text-[11px] text-slate-500">
@@ -305,23 +386,34 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           </label>
           <button
             type="button"
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900"
-            onClick={async () => {
-              setMsg(null);
-              try {
+            disabled={!!busyKey}
+            aria-busy={busyKey === "BULK_RESET_ENRICHMENT"}
+            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
+              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
+            }`}
+            onClick={() =>
+              run("BULK_RESET_ENRICHMENT", async () => {
                 const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/reset_enrichment", {
                   supplier_id: supplierId ? Number(supplierId) : undefined,
                   source_category: sourceCategory || undefined,
                   limit: Number(resetEnrichLimit || "200"),
                   priority: 60,
                 });
-                setMsg(`Reset enrichment queued: enqueued=${res.enqueued}`);
-              } catch (e) {
-                setMsg(e instanceof Error ? e.message : "Failed to reset enrichment");
-              }
-            }}
+                return `Reset enrichment queued: enqueued=${res.enqueued}`;
+              })
+            }
           >
-            Enqueue RESET_ENRICHMENT
+            {busyKey === "BULK_RESET_ENRICHMENT" ? (
+              <span className="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"
+                />
+                Enqueuing…
+              </span>
+            ) : (
+              "Enqueue RESET_ENRICHMENT"
+            )}
           </button>
         </div>
       </Section>
@@ -338,10 +430,13 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           </label>
           <button
             type="button"
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
-            onClick={async () => {
-              setMsg(null);
-              try {
+            disabled={!!busyKey}
+            aria-busy={busyKey === "BULK_SCAN_COMPETITORS"}
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
+              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+            }`}
+            onClick={() =>
+              run("BULK_SCAN_COMPETITORS", async () => {
                 const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/scan_competitors", {
                   supplier_id: supplierId ? Number(supplierId) : undefined,
                   source_category: sourceCategory || undefined,
@@ -349,13 +444,17 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   limit: Number(scanLimit || "100"),
                   priority: 40,
                 });
-                setMsg(`Competitor scans queued: enqueued=${res.enqueued}`);
-              } catch (e) {
-                setMsg(e instanceof Error ? e.message : "Failed to enqueue scans");
-              }
-            }}
+                return `Competitor scans queued: enqueued=${res.enqueued}`;
+              })
+            }
           >
-            Enqueue SCAN_COMPETITORS
+            {busyKey === "BULK_SCAN_COMPETITORS" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Enqueuing…
+              </span>
+            ) : (
+              "Enqueue SCAN_COMPETITORS"
+            )}
           </button>
         </div>
       </Section>

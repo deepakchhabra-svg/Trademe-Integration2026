@@ -5,8 +5,11 @@ import { apiPostClient } from "../../../_components/api_client";
 
 export function CommandActions({ commandId }: { commandId: string }) {
   const [msg, setMsg] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<"retry" | "ack" | "cancel" | null>(null);
 
   async function act(action: "retry" | "ack" | "cancel") {
+    if (busyKey) return;
+    setBusyKey(action);
     setMsg(null);
     try {
       await apiPostClient(`/commands/${encodeURIComponent(commandId)}/${action}`, {});
@@ -14,6 +17,7 @@ export function CommandActions({ commandId }: { commandId: string }) {
       window.location.reload();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Action failed");
+      setBusyKey(null);
     }
   }
 
@@ -23,24 +27,36 @@ export function CommandActions({ commandId }: { commandId: string }) {
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+          disabled={!!busyKey}
+          aria-busy={busyKey === "retry"}
+          className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
+            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+          }`}
           onClick={() => act("retry")}
         >
-          Retry
+          {busyKey === "retry" ? "Working…" : "Retry"}
         </button>
         <button
           type="button"
-          className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900"
+          disabled={!!busyKey}
+          aria-busy={busyKey === "ack"}
+          className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
+            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
+          }`}
           onClick={() => act("ack")}
         >
-          Ack
+          {busyKey === "ack" ? "Working…" : "Ack"}
         </button>
         <button
           type="button"
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-900"
+          disabled={!!busyKey}
+          aria-busy={busyKey === "cancel"}
+          className={`rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-900 ${
+            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-red-100"
+          }`}
           onClick={() => act("cancel")}
         >
-          Cancel
+          {busyKey === "cancel" ? "Working…" : "Cancel"}
         </button>
       </div>
       {msg ? <div className="mt-2 text-xs text-slate-600">{msg}</div> : null}

@@ -3,6 +3,15 @@
 import { useState } from "react";
 import { apiPostClient } from "../../../_components/api_client";
 
+function Spinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white"
+    />
+  );
+}
+
 export function ListingActions({
   listingDbId,
   tmListingId,
@@ -13,15 +22,25 @@ export function ListingActions({
   internalProductId: number | null;
 }) {
   const [status, setStatus] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  async function enqueue(type: string, payload: Record<string, unknown>) {
-    setStatus(null);
+  async function run(key: string, fn: () => Promise<string>) {
+    if (busyKey) return;
+    setBusyKey(key);
+    setStatus(`Working: ${key}…`);
     try {
-      const res = await apiPostClient<{ id: string; status: string }>("/commands", { type, payload, priority: 40 });
-      setStatus(`Enqueued ${type} (${res.id.slice(0, 12)})`);
+      const s = await fn();
+      setStatus(s);
     } catch (e) {
-      setStatus(e instanceof Error ? e.message : "Failed to enqueue");
+      setStatus(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setBusyKey(null);
     }
+  }
+
+  async function enqueue(type: string, payload: Record<string, unknown>): Promise<string> {
+    const res = await apiPostClient<{ id: string; status: string }>("/commands", { type, payload, priority: 40 });
+    return `Enqueued ${type} (${res.id.slice(0, 12)})`;
   }
 
   return (
@@ -36,23 +55,49 @@ export function ListingActions({
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+          disabled={!!busyKey}
+          aria-busy={busyKey === "SCAN_COMPETITORS"}
+          className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
+            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+          }`}
           onClick={() =>
-            enqueue("SCAN_COMPETITORS", {
-              listing_db_id: listingDbId,
-              tm_listing_id: tmListingId,
-              internal_product_id: internalProductId,
-            })
+            run("SCAN_COMPETITORS", () =>
+              enqueue("SCAN_COMPETITORS", {
+                listing_db_id: listingDbId,
+                tm_listing_id: tmListingId,
+                internal_product_id: internalProductId,
+              }),
+            )
           }
         >
-          Scan competitors
+          {busyKey === "SCAN_COMPETITORS" ? (
+            <span className="inline-flex items-center gap-2">
+              <Spinner /> Enqueuing…
+            </span>
+          ) : (
+            "Scan competitors"
+          )}
         </button>
         <button
           type="button"
-          className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900"
-          onClick={() => enqueue("SYNC_SOLD_ITEMS", {})}
+          disabled={!!busyKey}
+          aria-busy={busyKey === "SYNC_SOLD_ITEMS"}
+          className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
+            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
+          }`}
+          onClick={() => run("SYNC_SOLD_ITEMS", () => enqueue("SYNC_SOLD_ITEMS", {}))}
         >
-          Sync sold items
+          {busyKey === "SYNC_SOLD_ITEMS" ? (
+            <span className="inline-flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"
+              />
+              Enqueuing…
+            </span>
+          ) : (
+            "Sync sold items"
+          )}
         </button>
       </div>
 
