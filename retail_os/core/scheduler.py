@@ -324,6 +324,58 @@ class SpectatorScheduler:
             session.rollback()
         finally:
             session.close()
+
+    def trademe_sync_job(self):
+        """
+        Sync marketplace truth (selling items) for metrics + lifecycle.
+        Throttled by store.mode (PAUSED disables; SLOW increases cadence).
+        """
+        session = SessionLocal()
+        try:
+            store_mode = self._get_setting(session, "store.mode", {"mode": "NORMAL"})
+            mode = str(store_mode.get("mode", "NORMAL")).upper()
+            cfg = self._get_setting(
+                session,
+                "scheduler.trademe_sync",
+                {
+                    "enabled": True,
+                    "interval_minutes": 15 if self.dev_mode else 30,
+                    "priority": 70,
+                    "limit": 50,
+                },
+            )
+            if mode in ["PAUSED"]:
+                cfg["enabled"] = False
+            elif mode in ["SLOW", "HOLIDAY"]:
+                cfg["interval_minutes"] = max(int(cfg.get("interval_minutes") or 0), 120)
+
+            if not cfg.get("enabled", True):
+                logger.info(f"SCHEDULER: trademe_sync_job disabled (store_mode={mode})")
+                return
+
+            job = self._enqueue_jobstatus(session, "SCHEDULER_TRADEME_SYNC")
+            cmd_id = str(uuid.uuid4())
+            session.add(
+                SystemCommand(
+                    id=cmd_id,
+                    type="SYNC_SELLING_ITEMS",
+                    payload={"limit": int(cfg.get("limit", 50))},
+                    status=CommandStatus.PENDING,
+                    priority=int(cfg.get("priority", 70)),
+                )
+            )
+            session.commit()
+            self._finish_jobstatus(
+                session,
+                job.id,
+                "COMPLETED",
+                {"enqueued": 1, "interval_minutes": int(cfg.get("interval_minutes") or 0), "store_mode": mode},
+            )
+        except Exception as e:
+            logger.error(f"SCHEDULER: trademe sync job failed: {e}")
+            session.rollback()
+        finally:
+            session.close()
     
     def start(self):
         """Start the scheduler"""
@@ -354,6 +406,14 @@ class SpectatorScheduler:
             name="Sync Sold Items",
             replace_existing=True,
         )
+
+        self.scheduler.add_job(
+            self.trademe_sync_job,
+            trigger=IntervalTrigger(minutes=15 if self.dev_mode else 30),
+            id="sync_trademe",
+            name="Sync Trade Me Selling Items",
+            replace_existing=True,
+        )
         
         self.scheduler.start()
         logger.info("SCHEDULER: Started successfully")
@@ -362,6 +422,7 @@ class SpectatorScheduler:
         self.scrape_job()
         self.enrich_job()
         self.orders_job()
+        self.trademe_sync_job()
     
     def stop(self):
         """Stop the scheduler"""

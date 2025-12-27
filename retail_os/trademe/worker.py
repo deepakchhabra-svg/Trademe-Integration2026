@@ -193,6 +193,10 @@ class CommandWorker:
             self.handle_sync_sold_items(command)
             return
 
+        elif command_type == "SYNC_SELLING_ITEMS":
+            self.handle_sync_selling_items(command)
+            return
+
         elif command_type == "RESET_ENRICHMENT":
             self.handle_reset_enrichment(command)
             return
@@ -518,6 +522,8 @@ class CommandWorker:
         cmd_type, payload = self.resolve_command(command)
         supplier_id = payload.get("supplier_id")
         supplier_name = payload.get("supplier_name", f"Supplier {supplier_id}")
+        source_category = payload.get("source_category")
+        pages = int(payload.get("pages", 1) or 1)
         
         logger.info(f"SCRAPE_SUPPLIER_START cmd_id={command.id} supplier={supplier_name}")
         
@@ -527,8 +533,9 @@ class CommandWorker:
                 from retail_os.scrapers.onecheq.adapter import OneCheqAdapter
                 adapter = OneCheqAdapter()
                 
-                # Run scraper (limit to 1 page for speed)
-                result = adapter.run_sync(pages=1, collection="all")
+                # Category-scoped scrape: Shopify collection handle
+                collection = source_category or payload.get("collection") or "all"
+                adapter.run_sync(pages=pages, collection=collection)
                 
                 # Update last_scraped_at for existing products
                 from datetime import datetime
@@ -543,7 +550,8 @@ class CommandWorker:
             elif "noel" in supplier_name.lower() or "leeming" in supplier_name.lower():
                 from retail_os.scrapers.noel_leeming.adapter import NoelLeemingAdapter
                 adapter = NoelLeemingAdapter()
-                adapter.run_sync(pages=1)
+                # Category-scoped scrape: category_url
+                adapter.run_sync(pages=pages, category_url=source_category or "https://www.noelleeming.co.nz/shop/computers-office-tech/computers")
                 
                 from datetime import datetime
                 from retail_os.core.database import SupplierProduct
@@ -557,7 +565,8 @@ class CommandWorker:
             elif "cash" in supplier_name.lower() or "converters" in supplier_name.lower():
                 from retail_os.scrapers.cash_converters.adapter import CashConvertersAdapter
                 adapter = CashConvertersAdapter()
-                adapter.run_sync(pages=1)
+                # Category-scoped scrape: browse_url
+                adapter.run_sync(pages=pages, browse_url=source_category or "https://shop.cashconverters.co.nz/Browse/R160787-R160789/North_Island-Auckland")
                 
                 from datetime import datetime
                 from retail_os.core.database import SupplierProduct
@@ -834,6 +843,118 @@ class CommandWorker:
                     job.summary = err[:2000]
                 s.commit()
             raise
+
+    def handle_sync_selling_items(self, command):
+        """
+        Pulls currently-selling items from Trade Me and updates local listing truth.
+        Captures ListingMetricSnapshot for velocity calculations.
+        """
+        from retail_os.core.database import JobStatus
+
+        if not self.api:
+            raise Exception("API wrapper not available.")
+
+        cmd_type, payload = self.resolve_command(command)
+        limit = int(payload.get("limit", 50) or 50)
+
+        job_row_id = None
+        with SessionLocal() as s:
+            job = JobStatus(
+                job_type="SYNC_SELLING_ITEMS",
+                status="RUNNING",
+                start_time=datetime.utcnow(),
+                items_processed=0,
+                items_updated=0,
+                items_failed=0,
+                summary=None,
+            )
+            s.add(job)
+            s.commit()
+            job_row_id = job.id
+
+        updated = 0
+        failed = 0
+
+        session = SessionLocal()
+        try:
+            from retail_os.core.database import TradeMeListing, ListingMetricSnapshot, AuditLog
+
+            selling = self.api.get_all_selling_items()
+            selling_ids = [str(i.get("ListingId")) for i in selling if i.get("ListingId") is not None][:limit]
+
+            for tm_id in selling_ids:
+                try:
+                    details = self.api.get_listing_details(tm_id)
+                    if not details:
+                        continue
+
+                    tm = session.query(TradeMeListing).filter(TradeMeListing.tm_listing_id == str(tm_id)).first()
+                    if not tm:
+                        # Not ours (or not yet in DB) - record audit and continue
+                        session.add(
+                            AuditLog(
+                                entity_type="TradeMeListing",
+                                entity_id=str(tm_id),
+                                action="SELLING_SYNC_MISSING_LOCAL",
+                                old_value=None,
+                                new_value=str(details)[:2000],
+                                user="SellingSyncer",
+                                timestamp=datetime.utcnow(),
+                            )
+                        )
+                        session.commit()
+                        continue
+
+                    # Update local truth
+                    tm.actual_state = "Live"
+                    tm.category_id = details.get("Category")
+                    tm.view_count = details.get("ViewCount", tm.view_count or 0)
+                    tm.watch_count = details.get("WatchCount", tm.watch_count or 0)
+                    parsed_price = details.get("ParsedPrice")
+                    if parsed_price is not None:
+                        tm.actual_price = float(parsed_price)
+                    tm.last_synced_at = datetime.utcnow()
+
+                    # Snapshot metrics
+                    session.add(
+                        ListingMetricSnapshot(
+                            listing_id=tm.id,
+                            captured_at=datetime.utcnow(),
+                            view_count=tm.view_count,
+                            watch_count=tm.watch_count,
+                            is_sold=False,
+                        )
+                    )
+                    session.commit()
+                    updated += 1
+                except Exception as e:
+                    failed += 1
+                    session.rollback()
+
+            if job_row_id is not None:
+                with SessionLocal() as s:
+                    job = s.query(JobStatus).get(job_row_id)
+                    if job:
+                        job.status = "COMPLETED"
+                        job.end_time = datetime.utcnow()
+                        job.items_processed = len(selling_ids)
+                        job.items_updated = updated
+                        job.items_failed = failed
+                        job.summary = f"selling_ids={len(selling_ids)} updated={updated} failed={failed}"
+                    s.commit()
+        except Exception as e:
+            if job_row_id is not None:
+                with SessionLocal() as s:
+                    job = s.query(JobStatus).get(job_row_id)
+                    if job:
+                        job.status = "FAILED"
+                        job.end_time = datetime.utcnow()
+                        job.items_failed = 1
+                        job.summary = str(e)[:2000]
+                    s.commit()
+            raise
+        finally:
+            session.close()
 
     def handle_reset_enrichment(self, command):
         """

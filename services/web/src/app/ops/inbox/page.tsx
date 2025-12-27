@@ -1,0 +1,146 @@
+import Link from "next/link";
+
+import { apiGet } from "../../_components/api";
+import { Badge } from "../../_components/Badge";
+
+type Inbox = {
+  counts: {
+    commands_human_required: number;
+    commands_retrying: number;
+    jobs_failed: number;
+    orders_pending: number;
+  };
+  commands_human_required: Array<{
+    id: string;
+    type: string;
+    status: string;
+    error_code: string | null;
+    error_message: string | null;
+    last_error: string | null;
+    updated_at: string | null;
+  }>;
+  jobs_failed: Array<{ id: number; job_type: string | null; status: string | null; start_time: string | null; end_time: string | null; summary: string | null }>;
+  orders_pending: Array<{ id: number; tm_order_ref: string; buyer_name: string | null; sold_price: number | null; created_at: string | null }>;
+};
+
+export default async function InboxPage() {
+  const inbox = await apiGet<Inbox>("/ops/inbox");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Operator Inbox</h1>
+          <p className="mt-1 text-sm text-slate-600">Everything that needs attention, in one place.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone={inbox.counts.commands_human_required ? "red" : "emerald"}>human {inbox.counts.commands_human_required}</Badge>
+          <Badge tone={inbox.counts.jobs_failed ? "red" : "emerald"}>jobs {inbox.counts.jobs_failed}</Badge>
+          <Badge tone={inbox.counts.orders_pending ? "amber" : "emerald"}>orders {inbox.counts.orders_pending}</Badge>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 p-4">
+            <div className="text-sm font-semibold">HUMAN_REQUIRED commands</div>
+            <div className="mt-1 text-xs text-slate-600">Fix blockers (balance, creds, policy, validation).</div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {inbox.commands_human_required.length ? (
+              inbox.commands_human_required.map((c) => (
+                <div key={c.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <Link className="font-mono text-xs underline" href={`/ops/commands/${c.id}`}>
+                        {c.id.slice(0, 12)}
+                      </Link>
+                      <div className="mt-1 text-sm">{c.type}</div>
+                      <div className="mt-1 text-xs text-slate-600">{c.updated_at || "-"}</div>
+                    </div>
+                    {c.error_code ? <Badge tone="red">{c.error_code}</Badge> : <Badge tone="amber">{c.status}</Badge>}
+                  </div>
+                  {c.error_message || c.last_error ? (
+                    <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
+                      {(c.error_message || "") + (c.last_error ? `\n${c.last_error}` : "")}
+                    </pre>
+                  ) : null}
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-sm text-slate-600">No human-required commands.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 p-4">
+            <div className="text-sm font-semibold">Pending orders</div>
+            <div className="mt-1 text-xs text-slate-600">Fulfillment queue (spectator mode).</div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {inbox.orders_pending.length ? (
+              inbox.orders_pending.map((o) => (
+                <div key={o.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-xs">{o.tm_order_ref}</div>
+                      <div className="mt-1 text-sm">{o.buyer_name || "-"}</div>
+                      <div className="mt-1 text-xs text-slate-600">{o.created_at || "-"}</div>
+                    </div>
+                    <Badge tone="amber">{o.sold_price == null ? "-" : `$${o.sold_price.toFixed(2)}`}</Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-sm text-slate-600">No pending orders.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-4">
+          <div className="text-sm font-semibold">Failed jobs</div>
+          <div className="mt-1 text-xs text-slate-600">Automation runs that need investigation.</div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Start</th>
+                <th className="px-4 py-3">End</th>
+                <th className="px-4 py-3">Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inbox.jobs_failed.map((j) => (
+                <tr key={j.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 font-mono text-xs">{j.id}</td>
+                  <td className="px-4 py-3">{j.job_type || "-"}</td>
+                  <td className="px-4 py-3">{j.start_time || "-"}</td>
+                  <td className="px-4 py-3">{j.end_time || "-"}</td>
+                  <td className="px-4 py-3">
+                    <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
+                      {(j.summary || "-").slice(0, 1500)}
+                    </pre>
+                  </td>
+                </tr>
+              ))}
+              {!inbox.jobs_failed.length ? (
+                <tr className="border-t border-slate-100">
+                  <td className="px-4 py-3 text-sm text-slate-600" colSpan={5}>
+                    No failed jobs.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
