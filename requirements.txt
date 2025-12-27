@@ -13,3 +13,6 @@ google-generativeai
 selenium
 webdriver_manager
 pillow
+fastapi
+uvicorn[standard]
+apscheduler
