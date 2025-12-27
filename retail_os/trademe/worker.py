@@ -544,49 +544,119 @@ class CommandWorker:
         cmd_type, payload = self.resolve_command(command)
         supplier_id = payload.get("supplier_id")
         supplier_name = payload.get("supplier_name", f"Supplier {supplier_id}")
-        
-        logger.info(f"ENRICH_SUPPLIER_START cmd_id={command.id} supplier={supplier_name}")
-        
+        source_category = payload.get("source_category")
+
+        batch_size = int(payload.get("batch_size", 25))
+        delay_seconds = int(payload.get("delay_seconds", 0))
+        create_internal_products = bool(payload.get("create_internal_products", True))
+
+        logger.info(
+            "ENRICH_SUPPLIER_START cmd_id=%s supplier=%s supplier_id=%s source_category=%s batch_size=%s delay_seconds=%s",
+            command.id,
+            supplier_name,
+            supplier_id,
+            source_category,
+            batch_size,
+            delay_seconds,
+        )
+
+        # 1) Ensure InternalProducts exist (needed for publish pipeline).
         session = SessionLocal()
-        enriched_count = 0
+        created_internal = 0
         try:
-            from retail_os.core.database import SupplierProduct, InternalProduct
-            from datetime import datetime
-            
-            # Get all supplier products for this supplier
-            supplier_products = session.query(SupplierProduct).filter_by(supplier_id=supplier_id).all()
-            
-            for sp in supplier_products:
-                try:
-                    # Check if InternalProduct exists
-                    existing = session.query(InternalProduct).filter_by(
-                        primary_supplier_product_id=sp.id
-                    ).first()
-                    
-                    if not existing:
-                        # Create InternalProduct
-                        my_sku = f"INT-{sp.supplier_id}-{sp.external_sku}"
-                        internal = InternalProduct(
+            if create_internal_products and supplier_id is not None:
+                from retail_os.core.database import SupplierProduct, InternalProduct
+
+                if "onecheq" in supplier_name.lower():
+                    prefix = "OC"
+                elif "noel" in supplier_name.lower() or "leeming" in supplier_name.lower():
+                    prefix = "NL"
+                elif "cash" in supplier_name.lower() or "converters" in supplier_name.lower():
+                    prefix = "CC"
+                else:
+                    prefix = "INT"
+
+                q = session.query(SupplierProduct).filter(SupplierProduct.supplier_id == int(supplier_id))
+                if source_category:
+                    q = q.filter(SupplierProduct.source_category == source_category)
+
+                for sp in q.all():
+                    existing = session.query(InternalProduct).filter_by(primary_supplier_product_id=sp.id).first()
+                    if existing:
+                        continue
+
+                    my_sku = f"{prefix}-{sp.external_sku}"
+                    session.add(
+                        InternalProduct(
                             sku=my_sku,
                             title=sp.title,
-                            primary_supplier_product_id=sp.id
+                            primary_supplier_product_id=sp.id,
                         )
-                        session.add(internal)
-                        enriched_count += 1
-                except Exception as e:
-                    logger.warning(f"Enrich error for product {sp.id}: {e}")
-                    continue
-            
-            session.commit()
-            
-            logger.info(f"ENRICH_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} enriched={enriched_count} status=SUCCEEDED")
+                    )
+                    created_internal += 1
+
+                session.commit()
         except Exception as e:
-            logger.error(f"ENRICH_SUPPLIER_FAILED cmd_id={command.id} error={e}")
+            logger.warning(
+                "ENRICH_SUPPLIER internal_product_bootstrap_failed cmd_id=%s supplier=%s error=%s",
+                command.id,
+                supplier_name,
+                e,
+            )
             session.rollback()
-            # Don't raise - mark as succeeded with 0 enriched
-            logger.info(f"ENRICH_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} enriched={enriched_count} status=SUCCEEDED")
         finally:
             session.close()
+
+        # 2) Run actual enrichment batch (writes SupplierProduct.enriched_* and enrichment_status)
+        # This reuses the existing worker script logic so UI/API commands are first-class.
+        from scripts.enrich_products import enrich_batch
+
+        from retail_os.core.database import JobStatus
+
+        job_row_id = None
+        with SessionLocal() as s:
+            job = JobStatus(
+                job_type="ENRICH_SUPPLIER",
+                status="RUNNING",
+                start_time=datetime.utcnow(),
+                items_processed=0,
+                items_created=created_internal,
+                summary=None,
+            )
+            s.add(job)
+            s.commit()
+            job_row_id = job.id
+
+        try:
+            enrich_batch(
+                batch_size=batch_size,
+                delay_seconds=delay_seconds,
+                supplier_id=int(supplier_id) if supplier_id is not None else None,
+                source_category=source_category,
+            )
+            with SessionLocal() as s:
+                job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+                if job:
+                    job.status = "COMPLETED"
+                    job.end_time = datetime.utcnow()
+                s.commit()
+
+            logger.info(
+                "ENRICH_SUPPLIER_END cmd_id=%s supplier=%s created_internal=%s status=SUCCEEDED",
+                command.id,
+                supplier_name,
+                created_internal,
+            )
+        except Exception as e:
+            logger.error("ENRICH_SUPPLIER_FAILED cmd_id=%s supplier=%s error=%s", command.id, supplier_name, e)
+            with SessionLocal() as s:
+                job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+                if job:
+                    job.status = "FAILED"
+                    job.end_time = datetime.utcnow()
+                    job.summary = str(e)[:2000]
+                s.commit()
+            raise
 
 # --- MAIN ENTRY POINT ---
 if __name__ == "__main__":
