@@ -156,3 +156,46 @@ def test_command_logs_endpoint_shape(tmp_path: Path):
     assert "next_after_id" in data
     assert "logs" in data
 
+
+def test_supplier_policy_endpoints(tmp_path: Path):
+    """
+    Regression: per-supplier policy endpoints exist and are stable-shaped.
+    """
+    import importlib
+    import os
+    from fastapi.testclient import TestClient
+
+    db_file = tmp_path / "retail_os.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+
+    import retail_os.core.database as db
+    import services.api.main as mod
+
+    importlib.reload(db)
+    db.init_db()
+
+    # Seed supplier.
+    with db.get_db_session() as session:
+        session.add(db.Supplier(id=1, name="ONECHEQ", base_url="https://example.com", is_active=True))
+
+    importlib.reload(mod)
+    client = TestClient(mod.app)
+
+    # GET policy (power)
+    r1 = client.get("/suppliers/1/policy", headers={"X-RetailOS-Role": "power"})
+    assert r1.status_code == 200
+    j1 = r1.json()
+    assert j1["supplier_id"] == 1
+    assert "policy" in j1 and isinstance(j1["policy"], dict)
+
+    # PUT policy (root)
+    r2 = client.put(
+        "/suppliers/1/policy",
+        headers={"X-RetailOS-Role": "root"},
+        json={"policy": {"enabled": False, "scrape": {"enabled": False, "category_presets": ["a", "b"]}}},
+    )
+    assert r2.status_code == 200
+    j2 = r2.json()
+    assert j2["policy"]["enabled"] is False
+    assert j2["policy"]["scrape"]["enabled"] is False
+

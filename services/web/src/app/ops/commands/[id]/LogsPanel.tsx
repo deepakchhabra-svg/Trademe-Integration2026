@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { apiBaseUrlClient } from "../../../_components/api_client";
-import { getCookie } from "../../../_components/cookies";
+import { apiGetClient } from "../../../_components/api_client";
 
 type LogLine = {
   id: number;
@@ -18,21 +17,6 @@ type LogsResp = {
   next_after_id: number;
   logs: LogLine[];
 };
-
-async function apiGetClient<T>(path: string): Promise<T> {
-  const role = getCookie("retailos_role") || "root";
-  const token = getCookie("retailos_token") || undefined;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-RetailOS-Role": role,
-  };
-  if (token) headers["X-RetailOS-Token"] = token;
-
-  const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "GET", headers });
-  if (!res.ok) throw new Error(`API GET ${path} failed: ${res.status}`);
-  return (await res.json()) as T;
-}
 
 function isActiveStatus(status: string): boolean {
   return status === "PENDING" || status === "EXECUTING" || status === "FAILED_RETRYABLE";

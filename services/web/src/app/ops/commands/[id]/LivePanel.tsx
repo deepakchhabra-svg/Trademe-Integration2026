@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { apiBaseUrlClient } from "../../../_components/api_client";
-import { getCookie } from "../../../_components/cookies";
+import { apiGetClient } from "../../../_components/api_client";
 
 type CommandDetail = {
   id: string;
@@ -38,33 +37,6 @@ function Badge({ tone, children }: { tone: "emerald" | "red" | "amber" | "slate"
           ? "border-amber-200 bg-amber-50 text-amber-900"
           : "border-slate-200 bg-slate-50 text-slate-900";
   return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${cls}`}>{children}</span>;
-}
-
-async function apiGetClient<T>(path: string): Promise<T> {
-  const role = getCookie("retailos_role") || "root";
-  const token = getCookie("retailos_token") || undefined;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-RetailOS-Role": role,
-  };
-  if (token) headers["X-RetailOS-Token"] = token;
-
-  const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "GET", headers });
-  if (!res.ok) {
-    let detail: string | undefined;
-    try {
-      const data = (await res.json()) as unknown;
-      if (data && typeof data === "object" && "detail" in data) {
-        const d = (data as { detail?: unknown }).detail;
-        if (typeof d === "string") detail = d;
-      }
-    } catch {
-      // ignore json parse errors
-    }
-    throw new Error(`API GET ${path} failed: ${res.status}${detail ? ` (${detail})` : ""}`);
-  }
-  return (await res.json()) as T;
 }
 
 function isActiveStatus(status: string): boolean {

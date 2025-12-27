@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { apiPutClient } from "../../_components/api_client";
+import { apiGetClient, apiPutClient } from "../../_components/api_client";
 import { buttonClass, cardBodyClass, cardClass, cardHeaderClass } from "../../_components/ui";
 
 type SupplierPolicy = {
@@ -24,17 +24,7 @@ export function PolicyEditor({ supplierId }: { supplierId: number }) {
     setMsg(null);
     setBusy(true);
     try {
-      // api_client currently only has POST/PUT; use POST to a GET-like endpoint is wrong.
-      // We fetch via window.fetch to keep this component self-contained.
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-      const role = document.cookie.match(/(?:^|; )retailos_role=([^;]+)/)?.[1] || "root";
-      const token = document.cookie.match(/(?:^|; )retailos_token=([^;]+)/)?.[1];
-      const headers: Record<string, string> = { "X-RetailOS-Role": decodeURIComponent(role) };
-      if (token) headers["X-RetailOS-Token"] = decodeURIComponent(token);
-
-      const res = await fetch(`${base}/suppliers/${supplierId}/policy`, { headers });
-      if (!res.ok) throw new Error(`Failed to load supplier policy: ${res.status}`);
-      const j = (await res.json()) as SupplierPolicyResp;
+      const j = await apiGetClient<SupplierPolicyResp>(`/suppliers/${encodeURIComponent(String(supplierId))}/policy`);
       setData(j);
       setJsonText(JSON.stringify(j.policy || {}, null, 2));
     } catch (e) {

@@ -7,45 +7,54 @@ export function apiBaseUrlClient(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 }
 
-export async function apiPostClient<T>(path: string, body: unknown): Promise<T> {
+function authHeaders(): Record<string, string> {
   const role = getCookie("retailos_role") || "root";
   const token = getCookie("retailos_token") || undefined;
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "X-RetailOS-Role": role,
   };
   if (token) headers["X-RetailOS-Token"] = token;
+  return headers;
+}
 
-  const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
-  if (!res.ok) {
-    let detail: string | undefined;
-    try {
-      const data = (await res.json()) as unknown;
-      if (data && typeof data === "object" && "detail" in data) {
-        const d = (data as { detail?: unknown }).detail;
-        if (typeof d === "string") detail = d;
-      }
-    } catch {
-      // ignore json parse errors
+async function extractDetail(res: Response): Promise<string | undefined> {
+  try {
+    const data = (await res.json()) as unknown;
+    if (data && typeof data === "object" && "detail" in data) {
+      const d = (data as { detail?: unknown }).detail;
+      if (typeof d === "string") return d;
     }
+  } catch {
+    // ignore json parse errors
+  }
+  return undefined;
+}
+
+export async function apiGetClient<T>(path: string): Promise<T> {
+  const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "GET", headers: authHeaders() });
+  if (!res.ok) {
+    const detail = await extractDetail(res);
+    throw new Error(`API GET ${path} failed: ${res.status}${detail ? ` (${detail})` : ""}`);
+  }
+  return (await res.json()) as T;
+}
+
+export async function apiPostClient<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "POST", headers: authHeaders(), body: JSON.stringify(body) });
+  if (!res.ok) {
+    const detail = await extractDetail(res);
     throw new Error(`API POST ${path} failed: ${res.status}${detail ? ` (${detail})` : ""}`);
   }
   return (await res.json()) as T;
 }
 
 export async function apiPutClient<T>(path: string, body: unknown): Promise<T> {
-  const role = getCookie("retailos_role") || "root";
-  const token = getCookie("retailos_token") || undefined;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-RetailOS-Role": role,
-  };
-  if (token) headers["X-RetailOS-Token"] = token;
-
-  const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "PUT", headers, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`API PUT ${path} failed: ${res.status}`);
+  const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "PUT", headers: authHeaders(), body: JSON.stringify(body) });
+  if (!res.ok) {
+    const detail = await extractDetail(res);
+    throw new Error(`API PUT ${path} failed: ${res.status}${detail ? ` (${detail})` : ""}`);
+  }
   return (await res.json()) as T;
 }
 
