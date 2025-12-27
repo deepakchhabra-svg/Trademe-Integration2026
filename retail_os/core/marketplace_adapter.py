@@ -96,12 +96,22 @@ class MarketplaceAdapter:
         is_safe = True
         audit_reason = "Checked"
         
-        if item.id:
-             primary_img = f"data/media/{item.id}/0.jpg"
-             if os.path.exists(primary_img):
-                 audit = guard.check_image(primary_img)
-                 is_safe = audit["is_safe"]
-                 audit_reason = audit.get("reason", "")
+        # Prefer checking the first *local* image file path we have.
+        # NOTE: ImageDownloader saves to data/media/<sku>.jpg (or <sku>_<n>.jpg).
+        primary_img = None
+        if getattr(item, "images", None):
+            for img in item.images:
+                if isinstance(img, str) and os.path.exists(img):
+                    primary_img = img
+                    break
+        if primary_img:
+            audit = guard.check_image(primary_img)
+            is_safe = audit["is_safe"]
+            audit_reason = audit.get("reason", "")
+        elif guard.is_active():
+            # Guard is active but we have no local image to analyze
+            is_safe = False
+            audit_reason = "No local image available for marketing-image audit"
         
         # Determine Final Trust Signal
         trust_signal = "HIGH"

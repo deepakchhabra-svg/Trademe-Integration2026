@@ -3,11 +3,10 @@ import sys
 import os
 sys.path.append(os.getcwd())
 
-from typing import List
+from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime
 import hashlib
-import json
 
 from retail_os.core.database import SessionLocal, Supplier, SupplierProduct, InternalProduct
 from retail_os.core.unified_schema import normalize_noel_leeming_row
@@ -31,39 +30,70 @@ class NoelLeemingAdapter:
             self.db.commit()
         self.supplier_id = supplier.id
 
-    def run_sync(self, pages: int = 1):
+    def run_sync(
+        self,
+        pages: int = 1,
+        category_url: str = "https://www.noelleeming.co.nz/shop/computers-office-tech/computers",
+        deep_scrape: bool = False,
+        headless: bool = True,
+    ) -> None:
         print(f"NL Adapter: Starting Sync for {self.supplier_name}...")
         sync_start_time = datetime.utcnow()
         
-        # 1. Get Raw Data
-        # We start with computers as a default category for the sync button
-        start_url = "https://www.noelleeming.co.nz/shop/computers-office-tech/computers"
-        from scripts.discover_noel_leeming import discover_noel_leeming_urls
-        
-        # A. Discovery
-        item_urls = discover_noel_leeming_urls(start_url, max_pages=pages)
-        
-        count_updated = 0
-        
-        # B. Scraping & Upsert
-        for url in item_urls:
-            try:
-                # Scrape Content
-                from retail_os.scrapers.noel_leeming.scraper import scrape_category # Reusing generic scraper logic if suitable or specialized one
-                # Note: 'scrape_category' was a misnomer in previous context, checking imports.
-                # Actually we need a 'scrape_single_product' function. 
-                # If unavailable, we write a quick inline scraper or assume discovery returned data.
-                # Checking discover_noel_leeming... it only returns URLs.
-                # We need to fetch the page content.
-                pass 
-                # Placeholder: We will assume we have a scraper. 
-                # For now, to prevent crashing, we skip deep scraping if function missing.
-            except Exception:
-                pass
+        # 1. Scrape category pages (Selenium)
+        raw_rows = scrape_category(
+            headless=headless,
+            max_pages=pages,
+            category_url=category_url,
+            deep_scrape=deep_scrape,
+        )
 
-        # Since we don't have a robust Single Page Scraper for NL in the context yet, 
-        # we will stub this to ensure the BUTTON doesn't crash, but warns.
-        print("NL Adapter: Basic Stub. Deep scraping pending implementation of 'scrape_noel_leeming_product'.")
+        print(f"NL Adapter: Scraped {len(raw_rows)} rows. Normalizing/upserting...")
+
+        count_updated = 0
+        for row in raw_rows:
+            try:
+                unified = normalize_noel_leeming_row(row)
+
+                # Build adapter-friendly dict
+                data = {
+                    "source_listing_id": unified.get("source_listing_id"),
+                    "title": unified.get("title"),
+                    "description": unified.get("description"),
+                    "buy_now_price": unified.get("buy_now_price"),
+                    "source_url": unified.get("source_url"),
+                    "source_status": unified.get("source_status", "Active"),
+                    "images": [p for p in [unified.get("photo1"), unified.get("photo2"), unified.get("photo3"), unified.get("photo4")] if p],
+                    "stock_level": 1,
+                    "specs": {},  # NL specs not extracted yet in this pipeline
+                }
+
+                if not data["source_listing_id"] or not data["title"]:
+                    continue
+
+                # SEO enhancement (safe, deterministic)
+                data["description"] = build_seo_description(
+                    {"title": data["title"], "description": data["description"], "specs": data.get("specs", {})}
+                )
+
+                self._upsert_product(data)
+                count_updated += 1
+            except Exception as e:
+                print(f"NL Adapter: row failed: {e}")
+
+        print(f"NL Adapter: Sync Complete. Processed {count_updated} items.")
+
+        # 2. Reconciliation (safe)
+        from retail_os.core.reconciliation import ReconciliationEngine
+        from retail_os.core.safety import SafetyGuard
+
+        failed_count = len(raw_rows) - count_updated
+        if SafetyGuard.is_safe_to_reconcile(len(raw_rows), failed_count):
+            ReconciliationEngine(self.db).process_orphans(self.supplier_id, sync_start_time)
+        else:
+            print("NL Adapter: Skipping reconciliation (SafetyGuard).")
+
+        self.db.close()
         
     def _upsert_product(self, data: dict) -> str:
         """
@@ -87,9 +117,9 @@ class NoelLeemingAdapter:
         
         # DOWNLOADING
         local_images = []
-        if imgs and len(imgs) > 0:
-            primary_url = imgs[0]
-            result = downloader.download_image(primary_url, sku)
+        for idx, img_url in enumerate(imgs[:4], 1):
+            img_sku = f"{sku}_{idx}" if idx > 1 else sku
+            result = downloader.download_image(img_url, img_sku)
             if result["success"]:
                 local_images.append(result["path"])
         
@@ -114,7 +144,7 @@ class NoelLeemingAdapter:
                 stock_level=data.get("stock_level", 1),
                 product_url=data["source_url"],
                 images=local_images if local_images else imgs, 
-                specifications=data.get("specifications", {}),
+                specs=data.get("specs", {}),
                 snapshot_hash=current_hash,
                 last_scraped_at=datetime.utcnow()
             )
@@ -144,7 +174,7 @@ class NoelLeemingAdapter:
                 sp.title = data["title"]
                 sp.cost_price = cost
                 sp.images = local_images if local_images else imgs
-                sp.specifications = data.get("specifications", {})
+                sp.specs = data.get("specs", {})
                 sp.snapshot_hash = current_hash
                 
                 self.db.commit()
