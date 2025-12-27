@@ -1,30 +1,58 @@
 version: '3.8'
 
 services:
-  retail_os:
+  api:
     build: .
     image: retail_os:latest
-    container_name: retail_os_cockpit
+    container_name: retail_os_api
     ports:
-      - "8501:8501"
+      - "8000:8000"
     volumes:
-      # Persist DB and Artifacts
       - ./data:/app/data
-      # LIVE DEV: Map source code for hot-reloading (Remove in Production)
       - ./retail_os:/app/retail_os
+      - ./services:/app/services
     environment:
-      # Secrets loaded from .env file
       - CONSUMER_KEY=${CONSUMER_KEY}
       - CONSUMER_SECRET=${CONSUMER_SECRET}
       - ACCESS_TOKEN=${ACCESS_TOKEN}
       - ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
-      - DATABASE_URL=sqlite:////app/data/retail.db
+      - DATABASE_URL=sqlite:////app/data/retail_os.db
+    command: ["python3", "-m", "uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     restart: unless-stopped
-    # Healthcheck to ensure Streamlit is up
-    healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://localhost:8501/_stcore/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+
+  worker:
+    build: .
+    image: retail_os:latest
+    container_name: retail_os_worker
+    volumes:
+      - ./data:/app/data
+      - ./retail_os:/app/retail_os
+      - ./services:/app/services
+    environment:
+      - CONSUMER_KEY=${CONSUMER_KEY}
+      - CONSUMER_SECRET=${CONSUMER_SECRET}
+      - ACCESS_TOKEN=${ACCESS_TOKEN}
+      - ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
+      - DATABASE_URL=sqlite:////app/data/retail_os.db
+    command: ["python3", "retail_os/trademe/worker.py"]
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  web:
+    image: node:22-alpine
+    container_name: retail_os_web
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./services/web:/app
+    environment:
+      # NOTE: server-side fetches run inside this container, so use service DNS.
+      - NEXT_PUBLIC_API_BASE_URL=http://api:8000
+    command: ["sh", "-lc", "npm install && npm run dev -- --hostname 0.0.0.0 --port 3000"]
+    restart: unless-stopped
+    depends_on:
+      - api
 
 # Define named volumes if needed, but bind mount (above) is easier for user visibility

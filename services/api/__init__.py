@@ -1,0 +1,2 @@
+"""RetailOS FastAPI service."""
+

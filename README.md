@@ -17,7 +17,8 @@ cp .env.example .env
 docker-compose up -d
 
 # 4. Access dashboard
-# Open http://localhost:8501
+# New (recommended): http://localhost:3000
+# Legacy (Streamlit): http://localhost:8501 (if you run it manually)
 ```
 
 ## 📁 Project Structure
