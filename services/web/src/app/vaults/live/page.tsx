@@ -16,23 +16,40 @@ type LiveItem = {
 import Link from "next/link";
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
+import { buildQueryString } from "../../_components/pagination";
 
 export default async function LiveVault({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; per_page?: string; q?: string; status?: string }>;
+  searchParams: Promise<{ page?: string; per_page?: string; q?: string; status?: string; supplier_id?: string; source_category?: string }>;
 }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
+  const q = sp.q || "";
+  const status = sp.status || "";
+  const supplierId = sp.supplier_id || "";
+  const sourceCategory = sp.source_category || "";
 
   const qp = new URLSearchParams();
   qp.set("page", String(page));
   qp.set("per_page", String(perPage));
-  if (sp.q) qp.set("q", sp.q);
-  if (sp.status) qp.set("status", sp.status);
+  if (q) qp.set("q", q);
+  if (status) qp.set("status", status);
+  if (supplierId) qp.set("supplier_id", supplierId);
+  if (sourceCategory) qp.set("source_category", sourceCategory);
 
   const data = await apiGet<PageResponse<LiveItem>>(`/vaults/live?${qp.toString()}`);
+
+  const baseParams = {
+    per_page: perPage,
+    q,
+    status,
+    supplier_id: supplierId,
+    source_category: sourceCategory,
+  };
+  const prevHref = `/vaults/live?${buildQueryString(baseParams, { page: Math.max(1, page - 1) })}`;
+  const nextHref = `/vaults/live?${buildQueryString(baseParams, { page: page + 1 })}`;
 
   return (
     <div className="space-y-4">
@@ -47,10 +64,68 @@ export default async function LiveVault({
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 p-4">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-slate-700">
             Showing {data.items.length} of {data.total}
           </div>
+          <form className="flex flex-wrap items-center gap-2" method="get">
+            <input type="hidden" name="page" value="1" />
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Search</span>
+              <input
+                name="q"
+                defaultValue={q}
+                className="w-52 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                placeholder="title or TM id"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Status</span>
+              <input
+                name="status"
+                defaultValue={status}
+                className="w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                placeholder="Live/DRY_RUN"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Supplier</span>
+              <input
+                name="supplier_id"
+                defaultValue={supplierId}
+                className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                placeholder="id"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Category</span>
+              <input
+                name="source_category"
+                defaultValue={sourceCategory}
+                className="w-56 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                placeholder="collection/url"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Per</span>
+              <select
+                name="per_page"
+                defaultValue={String(perPage)}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              >
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+            <button type="submit" className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+              Apply
+            </button>
+            <Link className="text-xs text-slate-600 underline" href="/vaults/live">
+              Reset
+            </Link>
+          </form>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -85,6 +160,18 @@ export default async function LiveVault({
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="flex items-center justify-between border-t border-slate-200 p-4 text-sm">
+          <Link
+            className={`text-slate-700 underline ${page <= 1 ? "pointer-events-none opacity-40" : ""}`}
+            href={prevHref}
+          >
+            Prev
+          </Link>
+          <div className="text-xs text-slate-600">Page {page}</div>
+          <Link className="text-slate-700 underline" href={nextHref}>
+            Next
+          </Link>
         </div>
       </div>
     </div>
