@@ -182,9 +182,11 @@ class CommandWorker:
 
         elif command_type == "SCRAPE_SUPPLIER":
             self.handle_scrape_supplier(command)
+            return
         
         elif command_type == "ENRICH_SUPPLIER":
             self.handle_enrich_supplier(command)
+            return
         
         elif command_type == "SCRAPE_OC":
             self.handle_scrape_oc(command)
