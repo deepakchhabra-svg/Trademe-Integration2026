@@ -7,11 +7,12 @@ import re
 import json
 import time
 from typing import Optional, Dict, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from selectolax.parser import HTMLParser
 import httpx
 
 
-def get_html_via_httpx(url: str) -> Optional[str]:
+def get_html_via_httpx(url: str, client: Optional[httpx.Client] = None) -> Optional[str]:
     """Fetch HTML using httpx with proper headers."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -23,12 +24,18 @@ def get_html_via_httpx(url: str) -> Optional[str]:
     # This is not a mock: it just makes the scraper resilient to real-world flakiness.
     for attempt in range(1, 5):
         try:
-            with httpx.Client(headers=headers, follow_redirects=True, timeout=20.0) as client:
-                response = client.get(url)
-                if response.status_code in (429, 503, 502, 504):
-                    raise httpx.HTTPStatusError(f"{response.status_code} from supplier", request=response.request, response=response)
-                response.raise_for_status()
-                return response.text
+            if client is None:
+                with httpx.Client(headers=headers, follow_redirects=True, timeout=20.0) as c:
+                    response = c.get(url)
+            else:
+                response = client.get(url, headers=headers)
+
+            if response.status_code in (429, 503, 502, 504):
+                raise httpx.HTTPStatusError(
+                    f"{response.status_code} from supplier", request=response.request, response=response
+                )
+            response.raise_for_status()
+            return response.text
         except Exception as e:
             wait = min(8.0, 0.7 * (2 ** (attempt - 1)))
             print(f"HTTP Error (attempt {attempt}/4): {e}")
@@ -54,7 +61,7 @@ def extract_onecheq_id(url: str) -> str:
     return "UNKNOWN"
 
 
-def discover_products_from_collection(collection_url: str, max_pages: int = 5) -> List[str]:
+def discover_products_from_collection(collection_url: str, max_pages: int = 5, client: Optional[httpx.Client] = None) -> List[str]:
     """
     Discover all product URLs from a collection page.
     OneCheq uses Shopify pagination: ?page=N
@@ -66,7 +73,7 @@ def discover_products_from_collection(collection_url: str, max_pages: int = 5) -
         page_url = f"{collection_url}?page={page_num}"
         print(f"  Fetching page {page_num}...")
         
-        html = get_html_via_httpx(page_url)
+        html = get_html_via_httpx(page_url, client=client)
         if not html:
             print(f"  Failed to fetch page {page_num}")
             break
@@ -103,7 +110,7 @@ def discover_products_from_collection(collection_url: str, max_pages: int = 5) -
     return list(product_urls)
 
 
-def scrape_onecheq_product(url: str) -> Optional[Dict]:
+def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> Optional[Dict]:
     """
     Scrape a single OneCheq product page.
     Returns dict with product data or None if scraping fails.
@@ -114,7 +121,7 @@ def scrape_onecheq_product(url: str) -> Optional[Dict]:
     product_id = extract_onecheq_id(url)
     
     # Fetch HTML
-    html = get_html_via_httpx(url)
+    html = get_html_via_httpx(url, client=client)
     if not html:
         print(f"ERROR: Failed to fetch HTML from {url}")
         return None
@@ -362,7 +369,7 @@ def scrape_onecheq_product(url: str) -> Optional[Dict]:
     }
 
 
-def scrape_onecheq(limit_pages: int = 1, collection: str = "all") -> List[Dict]:
+def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: int = 8) -> List[Dict]:
     """
     Main entry point for OneCheq scraper.
     
@@ -383,27 +390,46 @@ def scrape_onecheq(limit_pages: int = 1, collection: str = "all") -> List[Dict]:
     else:
         collection_url = f"https://onecheq.co.nz/collections/{collection}"
     
-    # Discover products
+    # Discover products (page fetches are cheap; product pages are expensive).
     max_pages = 999 if limit_pages <= 0 else limit_pages
-    product_urls = discover_products_from_collection(collection_url, max_pages)
+    concurrency = max(1, min(32, int(concurrency or 1)))
+
+    # Reuse a single client for connection pooling (much faster).
+    client = httpx.Client(follow_redirects=True, timeout=20.0)
+    try:
+        product_urls = discover_products_from_collection(collection_url, max_pages, client=client)
+    finally:
+        # We recreate a new client for concurrent section to avoid sharing mutable state across threads on older httpx versions.
+        client.close()
     
     if not product_urls:
         print("No products found!")
         return []
     
-    # Scrape each product
-    products = []
-    for i, url in enumerate(product_urls, 1):
-        print(f"\\nProduct {i}/{len(product_urls)}")
-        try:
-            product_data = scrape_onecheq_product(url)
-            if product_data:
-                products.append(product_data)
-                print(f"  [OK] Success: {product_data['title'][:50]}...")
-            else:
-                print(f"  [FAIL] Failed to scrape")
-        except Exception as e:
-            print(f"  [ERROR] Error: {e}")
+    # Scrape products concurrently (bounded). This is the main speed win.
+    products: list[Dict] = []
+    total = len(product_urls)
+    print(f"Scraping {total} product pages with concurrency={concurrency} ...")
+
+    # Use a threadpool; each worker uses its own client.
+    def _scrape(url: str) -> Optional[Dict]:
+        with httpx.Client(follow_redirects=True, timeout=20.0) as c:
+            return scrape_onecheq_product(url, client=c)
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=concurrency) as ex:
+        futures = {ex.submit(_scrape, url): url for url in product_urls}
+        for fut in as_completed(futures):
+            completed += 1
+            url = futures[fut]
+            try:
+                product_data = fut.result()
+                if product_data:
+                    products.append(product_data)
+            except Exception as e:
+                print(f"  [ERROR] {completed}/{total} failed url={url}: {e}")
+            if completed % 25 == 0 or completed == total:
+                print(f"  Progress: {completed}/{total} scraped (ok={len(products)})")
     
     print(f"\\n=== Scraping Complete ===")
     print(f"Successfully scraped: {len(products)}/{len(product_urls)} products")

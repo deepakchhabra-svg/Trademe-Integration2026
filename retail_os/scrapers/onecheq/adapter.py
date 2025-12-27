@@ -43,7 +43,8 @@ class OneCheqAdapter:
         sync_start_time = datetime.utcnow()
         
         # 1. Get Raw Data
-        raw_items_gen = scrape_onecheq(limit_pages=pages, collection=collection)
+        concurrency = int(os.getenv("RETAILOS_ONECHEQ_CONCURRENCY", "8"))
+        raw_items_gen = scrape_onecheq(limit_pages=pages, collection=collection, concurrency=concurrency)
         print(f"Adapter: Starting processing stream from scraper...")
         
         count_updated = 0
