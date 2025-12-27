@@ -10,6 +10,8 @@ const DEFAULT_KEYS = [
   "scheduler.enrich",
   "enrichment.policy",
   "store.mode",
+  "publishing.policy",
+  "competitor.policy",
 ];
 
 export default async function SettingsPage() {
