@@ -569,6 +569,7 @@ def validate_internal_product(
         if not ip:
             raise HTTPException(status_code=404, detail="InternalProduct not found")
         try:
+            # Run full gates, but still bypass "trust score must be >=95" in test_mode.
             LaunchLock(session).validate_publish(ip, test_mode=True)
             return {"internal_product_id": ip.id, "ok": True, "reason": None}
         except Exception as e:

@@ -21,7 +21,7 @@ export function SettingsEditor({ initial }: { initial: Setting[] }) {
     let parsed: unknown;
     try {
       parsed = JSON.parse(drafts[key] || "null");
-    } catch (e) {
+    } catch {
       setStatus(`Invalid JSON for ${key}`);
       return;
     }
