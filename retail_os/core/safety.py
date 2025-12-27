@@ -5,7 +5,7 @@ class SafetyGuard:
     """
     
     MIN_SUCCESS_RATE = 0.90  # 90% must succeed
-    Min_TOTAL_ITEMS = 5      # Don't reconcile if we only got 1 item (unless store is tiny)
+    MIN_TOTAL_ITEMS = 5      # Don't reconcile if we only got a tiny sample
     
     @staticmethod
     def is_safe_to_reconcile(total_attempted: int, total_failed: int) -> bool:
@@ -14,6 +14,10 @@ class SafetyGuard:
         """
         if total_attempted == 0:
             print("SafetyGuard: Aborting. 0 items attempted.")
+            return False
+
+        if total_attempted < SafetyGuard.MIN_TOTAL_ITEMS:
+            print(f"SafetyGuard: Aborting. Only {total_attempted} items attempted (<{SafetyGuard.MIN_TOTAL_ITEMS}).")
             return False
             
         success_count = total_attempted - total_failed

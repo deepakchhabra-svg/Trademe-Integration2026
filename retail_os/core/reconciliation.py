@@ -73,16 +73,18 @@ class ReconciliationEngine:
         If this product is live on Trade Me, withdraw it.
         """
         # Find linked Internal Product -> TradeMeListing
-        if not sp.internal_product:
+        ip = sp.internal_product
+        if not ip:
             return False
             
-        for listing in sp.internal_product[0].listings:
-            if listing.actual_state == "Live":
+        for listing in ip.listings:
+            if listing.actual_state == "Live" and listing.tm_listing_id:
                 # Create Command
                 cmd_id = str(uuid.uuid4())
                 payload = {
                     "reason": "Supplier Item Removed (Missing Confirmed)",
-                    "tm_listing_id": listing.tm_listing_id
+                    # Worker expects listing_id
+                    "listing_id": str(listing.tm_listing_id)
                 }
                 cmd = SystemCommand(
                     id=cmd_id,

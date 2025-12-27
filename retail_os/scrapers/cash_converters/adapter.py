@@ -9,10 +9,6 @@ import hashlib
 import json
 
 from retail_os.core.database import SessionLocal, Supplier, SupplierProduct, InternalProduct
-from retail_os.scrapers.cash_converters.scraper import scrape_cash_converters
-# We reuse the Unified Schema logic, assuming it's generic enough
-# If normalize_noel_leeming_row is too specific, we'll write a new normalizer here.
-# For Level 1, we will implement a dedicated normalizer function inside this file.
 from retail_os.utils.seo import build_seo_description
 
 class CashConvertersAdapter:
@@ -48,33 +44,27 @@ class CashConvertersAdapter:
             # Standard Fields
             "stock_level": raw.get("stock_level", 0),
             "condition": "Used",
-            "specifications": raw.get("specs", {})  # CRITICAL: Pass specs to DB
+            "specs": raw.get("specs", {})  # CRITICAL: Pass specs to DB
         }
 
 
-    def run_sync(self, pages: int = 1):
+    def run_sync(self, pages: int = 1, browse_url: str = "https://shop.cashconverters.co.nz/Browse/R160787-R160789/North_Island-Auckland"):
         print(f"CC Adapter: Starting Sync for {self.supplier_name}...")
         sync_start_time = datetime.utcnow()
         
-        # 1. Get Raw Data with Deep Extraction
+        # 1. Discover product URLs
+        from scripts.discover_category import discover_cash_converters_urls
         from retail_os.scrapers.cash_converters.scraper import scrape_single_item
         
-        # For batch: we'll use the mock list first, then enhance each with deep extraction
-        # Stub: deprecated scraper function
-        raw_items = []
-        
-        # Deep extraction for each URL
+        urls = discover_cash_converters_urls(browse_url, max_pages=pages)
         enhanced_items = []
-        for item in raw_items:
-            url = item.get("source_url")
-            if url:
-                try:
-                    deep_data = scrape_single_item(url)
-                    # Merge deep data with base item
-                    item.update(deep_data)
-                except Exception as e:
-                    print(f"Deep extraction failed for {url}: {e}")
-            enhanced_items.append(item)
+        for url in urls:
+            try:
+                item = scrape_single_item(url)
+                if item:
+                    enhanced_items.append(item)
+            except Exception as e:
+                print(f"CC scrape failed for {url}: {e}")
         
         print(f"CC Adapter: Got {len(enhanced_items)} items with deep extraction. Processing...")
         
@@ -107,9 +97,9 @@ class CashConvertersAdapter:
         
         # Step 2D: Safety Rails
         from retail_os.core.safety import SafetyGuard
-        failed_count = len(raw_items) - count_updated
+        failed_count = len(enhanced_items) - count_updated
         
-        if SafetyGuard.is_safe_to_reconcile(len(raw_items), failed_count):
+        if SafetyGuard.is_safe_to_reconcile(len(enhanced_items), failed_count):
              engine.process_orphans(self.supplier_id, sync_start_time)
         else:
              print("CC Adapter: Skipping Reconciliation due to Safety Guard.")
@@ -164,7 +154,7 @@ class CashConvertersAdapter:
                 stock_level=data.get("stock_level", 1),
                 product_url=data["source_url"],
                 images=local_images if local_images else imgs,  # Prefer local
-                specifications=data.get("specifications", {}),
+                specs=data.get("specs", {}),
                 snapshot_hash=current_hash,
                 last_scraped_at=datetime.utcnow()
             )
@@ -219,7 +209,7 @@ class CashConvertersAdapter:
                 sp.title = data["title"]
                 sp.cost_price = cost
                 sp.images = local_images if local_images else imgs  # Prefer local
-                sp.specifications = data.get("specifications", {})
+                sp.specs = data.get("specs", {})
                 sp.snapshot_hash = current_hash
                 
                 self.db.commit()
