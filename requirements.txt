@@ -1,0 +1,15 @@
+sqlalchemy
+requests
+requests_oauthlib
+python-dotenv
+httpx
+selectolax
+streamlit
+pandas
+beautifulsoup4
+plotly
+openai
+google-generativeai
+selenium
+webdriver_manager
+pillow

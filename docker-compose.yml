@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  retail_os:
+    build: .
+    image: retail_os:latest
+    container_name: retail_os_cockpit
+    ports:
+      - "8501:8501"
+    volumes:
+      # Persist DB and Artifacts
+      - ./data:/app/data
+      # LIVE DEV: Map source code for hot-reloading (Remove in Production)
+      - ./retail_os:/app/retail_os
+    environment:
+      # Secrets loaded from .env file
+      - CONSUMER_KEY=${CONSUMER_KEY}
+      - CONSUMER_SECRET=${CONSUMER_SECRET}
+      - ACCESS_TOKEN=${ACCESS_TOKEN}
+      - ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
+      - DATABASE_URL=sqlite:////app/data/retail.db
+    restart: unless-stopped
+    # Healthcheck to ensure Streamlit is up
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:8501/_stcore/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# Define named volumes if needed, but bind mount (above) is easier for user visibility
