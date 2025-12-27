@@ -20,9 +20,10 @@ import Link from "next/link";
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
 import { buildQueryString } from "../../_components/pagination";
+import { buttonClass, tableClass, tableHeadClass, tableRowClass } from "../../_components/ui";
 
 function imgSrc(raw: string): string {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
   if (raw.startsWith("/media/")) return `${base}${raw}`;
   return raw;
 }
@@ -128,7 +129,7 @@ export default async function RawVault({
                 <option value="200">200</option>
               </select>
             </label>
-            <button type="submit" className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+            <button type="submit" className={buttonClass({ variant: "primary" })}>
               Apply
             </button>
             <Link className="text-xs text-slate-600 underline" href="/vaults/raw">
@@ -137,8 +138,8 @@ export default async function RawVault({
           </form>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <table className={tableClass()}>
+            <thead className={tableHeadClass()}>
               <tr>
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Img</th>
@@ -153,7 +154,7 @@ export default async function RawVault({
             </thead>
             <tbody>
               {data.items.map((it) => (
-                <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50">
+                <tr key={it.id} className={tableRowClass()}>
                   <td className="px-4 py-3">
                     <Link className="text-slate-900 underline" href={`/vaults/raw/${it.id}`}>
                       {it.id}

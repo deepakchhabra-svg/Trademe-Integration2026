@@ -1,4 +1,6 @@
 import { apiGet } from "../_components/api";
+import Link from "next/link";
+import { tableClass, tableHeadClass, tableRowClass } from "../_components/ui";
 
 type Supplier = { id: number; name: string; base_url: string | null; is_active: boolean };
 
@@ -14,8 +16,8 @@ export default async function SuppliersPage() {
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <table className={tableClass()}>
+            <thead className={tableHeadClass()}>
               <tr>
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Name</th>
@@ -25,9 +27,17 @@ export default async function SuppliersPage() {
             </thead>
             <tbody>
               {suppliers.map((s) => (
-                <tr key={s.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3">{s.id}</td>
-                  <td className="px-4 py-3 font-medium">{s.name}</td>
+                <tr key={s.id} className={tableRowClass()}>
+                  <td className="px-4 py-3">
+                    <Link className="underline" href={`/suppliers/${s.id}`}>
+                      {s.id}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    <Link className="hover:underline" href={`/suppliers/${s.id}`}>
+                      {s.name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">{s.base_url || "-"}</td>
                   <td className="px-4 py-3">{s.is_active ? "yes" : "no"}</td>
                 </tr>
