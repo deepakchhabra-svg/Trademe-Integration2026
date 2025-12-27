@@ -31,6 +31,8 @@ export default async function RawVault() {
             <h1 className="text-xl font-semibold">Vault 1 (Raw)</h1>
             <p className="mt-1 text-sm text-slate-600">Supplier products</p>
           </div>
+          {/* next/link avoids full page reload */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a className="text-sm text-slate-700 underline" href="/">
             Home
           </a>

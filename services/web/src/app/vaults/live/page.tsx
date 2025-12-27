@@ -31,6 +31,7 @@ export default async function LiveVault() {
             <h1 className="text-xl font-semibold">Vault 3 (Live)</h1>
             <p className="mt-1 text-sm text-slate-600">Trade Me listings</p>
           </div>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a className="text-sm text-slate-700 underline" href="/">
             Home
           </a>

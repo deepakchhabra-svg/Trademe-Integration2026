@@ -29,6 +29,7 @@ export default async function EnrichedVault() {
             <h1 className="text-xl font-semibold">Vault 2 (Enriched)</h1>
             <p className="mt-1 text-sm text-slate-600">Internal products + enrichment</p>
           </div>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a className="text-sm text-slate-700 underline" href="/">
             Home
           </a>
