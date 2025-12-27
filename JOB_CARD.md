@@ -68,6 +68,15 @@ This is the single execution plan for turning this repo into a **working, non-or
 - **Acceptance**:
   - Can run order sync and see orders in UI
 
+### Mission G: Fulfillment orchestration (supplier backorder + driver purchase)
+- **Goal**: support multiple fulfillment modes and keep Trade Me/customer informed at each step (where API supports it).
+- **Requirement IDs**: ORD-001..ORD-008 (foundation), CS-001..CS-003 (messaging/feedback – future), IMP-FUL-*
+- **Acceptance**:
+  - Orders flow into a **fulfillment queue** with an explicit state machine (RECEIVED → VERIFIED → PURCHASED/ASSIGNED → IN_TRANSIT → SHIPPED/DELIVERED + exception states)
+  - Driver purchases can be recorded with **amount + receipt evidence**, and costs can be allocated across one or many orders
+  - Profit reporting distinguishes **confirmed** vs **unconfirmed** profit when landed cost is missing
+  - Status update drafts/logs exist even if Trade Me messaging endpoints are unavailable
+
 ---
 
 ## “Implicit” requirements (added for autopilot viability)
@@ -76,4 +85,7 @@ This is the single execution plan for turning this repo into a **working, non-or
 - **IMP-IDEM-001**: Idempotency across all side-effect commands
 - **IMP-PERF-001**: Read pagination + indexes + batch writes for thousands of listings
 - **IMP-SAFE-001**: Kill switch + supplier pause + reconcile safety rails
+- **IMP-FUL-001**: Fulfillment task system (purchase/driver/ship tasks) with SLAs and audit trail
+- **IMP-FUL-002**: Driver purchase events with receipt evidence + cost allocation to orders
+- **IMP-FIN-001**: Profit is “locked” until true landed cost is confirmed (no fake margin reporting)
 
