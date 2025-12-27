@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiGet } from "../../../_components/api";
 import { Badge } from "../../../_components/Badge";
 import { CommandActions } from "./Actions";
+import { LiveCommandPanel } from "./LivePanel";
 
 type CommandDetail = {
   id: string;
@@ -53,6 +54,8 @@ export default async function CommandDetailPage({ params }: { params: Promise<{ 
           {cmd.error_code ? <Badge tone="red">{cmd.error_code}</Badge> : null}
         </div>
       </div>
+
+      <LiveCommandPanel commandId={cmd.id} initial={cmd} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Field label="Priority" value={cmd.priority} />
