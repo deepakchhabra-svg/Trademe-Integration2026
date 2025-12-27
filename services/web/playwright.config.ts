@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import path from "path";
 
 // These tests boot the stack automatically via `webServer`:
 // - web: http://localhost:3000
@@ -14,8 +15,9 @@ export default defineConfig({
       url: "http://127.0.0.1:8000/health",
       reuseExistingServer: !process.env.CI,
       env: {
-        PYTHONPATH: "/workspace",
+        PYTHONPATH: path.resolve(__dirname, "../.."),
       },
+      cwd: path.resolve(__dirname, "../.."),
     },
     {
       command: "npm run dev -- --port 3000",

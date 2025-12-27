@@ -1,5 +1,15 @@
 version: '3.8'
 
+x-common-env: &common_env
+  # Credentials are optional for offline/dev.
+  # If you have a .env file, docker-compose will automatically load it.
+  CONSUMER_KEY: ${CONSUMER_KEY}
+  CONSUMER_SECRET: ${CONSUMER_SECRET}
+  ACCESS_TOKEN: ${ACCESS_TOKEN}
+  ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET}
+  # Single source of truth for DB connection
+  DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/retail_os.db}
+
 services:
   api:
     build: .
@@ -11,14 +21,14 @@ services:
       - ./data:/app/data
       - ./retail_os:/app/retail_os
       - ./services:/app/services
-    environment:
-      - CONSUMER_KEY=${CONSUMER_KEY}
-      - CONSUMER_SECRET=${CONSUMER_SECRET}
-      - ACCESS_TOKEN=${ACCESS_TOKEN}
-      - ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
-      - DATABASE_URL=sqlite:////app/data/retail_os.db
+    environment: *common_env
     command: ["python3", "-m", "uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   worker:
     build: .
@@ -28,16 +38,12 @@ services:
       - ./data:/app/data
       - ./retail_os:/app/retail_os
       - ./services:/app/services
-    environment:
-      - CONSUMER_KEY=${CONSUMER_KEY}
-      - CONSUMER_SECRET=${CONSUMER_SECRET}
-      - ACCESS_TOKEN=${ACCESS_TOKEN}
-      - ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
-      - DATABASE_URL=sqlite:////app/data/retail_os.db
+    environment: *common_env
     command: ["python3", "retail_os/trademe/worker.py"]
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   web:
     image: node:22-alpine

@@ -16,9 +16,7 @@ RUN apt-get update && apt-get install -y \
 # Environment Variables
 ENV PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    STREAMLIT_SERVER_PORT=8501 \
-    STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    PYTHONUNBUFFERED=1
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -31,8 +29,8 @@ COPY . .
 RUN useradd -m myuser && chown -R myuser /app
 USER myuser
 
-# Expose Port
-EXPOSE 8501
+# Expose API Port
+EXPOSE 8000
 
 # Default Command
-CMD ["streamlit", "run", "retail_os/dashboard/app.py"]
+CMD ["python3", "-m", "uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
