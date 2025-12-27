@@ -59,6 +59,11 @@ test.describe("RetailOS MVP missions (smoke)", () => {
     await expect(page.getByRole("heading", { name: "Bulk Ops" })).toBeVisible();
   });
 
+  test("Mission O (read): Suppliers page loads", async ({ page }) => {
+    await page.goto("/suppliers");
+    await expect(page.getByRole("heading", { name: "Suppliers" })).toBeVisible();
+  });
+
   test("Mission N (read): DRY_RUN queue view loads", async ({ page }) => {
     await page.goto("/vaults/live?status=DRY_RUN");
     await expect(page.getByRole("heading", { name: "Vault 3 · Listings" })).toBeVisible();
@@ -105,6 +110,18 @@ test.describe("RetailOS MVP missions (smoke)", () => {
     const id = data.items[0]?.id;
     await page.goto(`/vaults/live/${id}`);
     await expect(page.getByText(`Listing #${id}`)).toBeVisible();
+  });
+
+  test("Mission P (drilldown): open a supplier policy page if available", async ({ page, request }) => {
+    const api = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+    const res = await request.get(`${api}/suppliers`, { headers: { "X-RetailOS-Role": "root" } });
+    if (!res.ok()) test.skip(true, `API not available: ${res.status()}`);
+    const data = (await res.json()) as Array<{ id: number }>;
+    if (!data.length) test.skip(true, "No suppliers in DB");
+
+    const id = data[0]?.id;
+    await page.goto(`/suppliers/${id}`);
+    await expect(page.getByText("Supplier policy")).toBeVisible();
   });
 });
 

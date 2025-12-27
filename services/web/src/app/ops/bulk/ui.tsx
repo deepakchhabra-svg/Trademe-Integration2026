@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { apiPostClient } from "../../_components/api_client";
+import { useEffect, useState } from "react";
+import { apiGetClient, apiPostClient } from "../../_components/api_client";
 
 type Resp = { id: string; status: string };
 type Supplier = { id: number; name: string };
@@ -36,6 +36,8 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
   const [scanLimit, setScanLimit] = useState<string>("100");
   const [msg, setMsg] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [categoryPresets, setCategoryPresets] = useState<string[]>([]);
+  const [presetsMsg, setPresetsMsg] = useState<string | null>(null);
 
   async function run(key: string, fn: () => Promise<string>) {
     if (busyKey) return;
@@ -55,6 +57,31 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
     const res = await apiPostClient<Resp>("/ops/enqueue", { type, payload, priority });
     return `Enqueued ${type} (${res.id.slice(0, 12)})`;
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPresets() {
+      setPresetsMsg(null);
+      setCategoryPresets([]);
+      const sid = Number(supplierId || "");
+      if (!sid || Number.isNaN(sid)) return;
+      try {
+        const resp = await apiGetClient<{ supplier_id: number; policy: { scrape?: { category_presets?: string[] } } }>(
+          `/suppliers/${encodeURIComponent(String(sid))}/policy`,
+        );
+        if (cancelled) return;
+        const presets = resp?.policy?.scrape?.category_presets || [];
+        setCategoryPresets(Array.isArray(presets) ? presets.filter((x) => typeof x === "string" && x.trim()) : []);
+      } catch (e) {
+        if (cancelled) return;
+        setPresetsMsg(e instanceof Error ? e.message : "Failed to load presets");
+      }
+    }
+    void loadPresets();
+    return () => {
+      cancelled = true;
+    };
+  }, [supplierId]);
 
   return (
     <div className="space-y-4">
@@ -109,6 +136,32 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             <div className="mt-1 text-[11px] text-slate-500">
               ONECHEQ / CASH_CONVERTERS / NOEL_LEEMING are supported.
             </div>
+            <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">
+              <div className="font-semibold">Category presets (from Supplier policy)</div>
+              {presetsMsg ? <div className="mt-1 text-amber-800">{presetsMsg}</div> : null}
+              <div className="mt-1">
+                {categoryPresets.length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {categoryPresets.slice(0, 12).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-900 hover:bg-slate-50"
+                        onClick={() => setSourceCategory(p)}
+                        disabled={!!busyKey}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    {categoryPresets.length > 12 ? (
+                      <span className="text-[11px] text-slate-500">+{categoryPresets.length - 12} more</span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="text-slate-600">No presets set yet. Add them in Suppliers → (supplier) → Supplier policy.</div>
+                )}
+              </div>
+            </div>
           </label>
           <label className="text-xs text-slate-600">
             <div className="mb-1 font-semibold uppercase tracking-wide">supplier_id</div>
@@ -140,6 +193,90 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
               ONECHEQ: collection handle (e.g. smartphones-and-mobilephones) · CASH_CONVERTERS: browse URL · NOEL_LEEMING: category URL
             </div>
           </label>
+        </div>
+      </Section>
+
+      <Section title="Batch-first (no manual clicking)">
+        <div className="text-xs text-slate-600">
+          Uses supplier <span className="font-semibold">category presets</span> (recommended for scale). This enqueues a batch of commands
+          so you don’t have to click per category.
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={!!busyKey || !categoryPresets.length}
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
+              busyKey || !categoryPresets.length ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+            }`}
+            onClick={() =>
+              run("SCRAPE_ALL_PRESETS", async () => {
+                const sid = supplierId ? Number(supplierId) : undefined;
+                const sname = supplierName || undefined;
+                const pgs = Number(pages || "1");
+                const presets = categoryPresets.slice(0, 50);
+                let ok = 0;
+                for (const cat of presets) {
+                  await enqueue(
+                    "SCRAPE_SUPPLIER",
+                    { supplier_id: sid, supplier_name: sname, source_category: cat, pages: pgs },
+                    70,
+                  );
+                  ok += 1;
+                  setMsg(`Working: SCRAPE_ALL_PRESETS… ${ok}/${presets.length}`);
+                }
+                return `Enqueued SCRAPE_SUPPLIER for ${ok} categories (from presets)`;
+              })
+            }
+          >
+            {busyKey === "SCRAPE_ALL_PRESETS" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Enqueuing batch…
+              </span>
+            ) : (
+              "Scrape all presets"
+            )}
+          </button>
+
+          <button
+            type="button"
+            disabled={!!busyKey || !categoryPresets.length}
+            className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${
+              busyKey || !categoryPresets.length ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
+            }`}
+            onClick={() =>
+              run("ENRICH_ALL_PRESETS", async () => {
+                const sid = supplierId ? Number(supplierId) : undefined;
+                const sname = supplierName || undefined;
+                const bs = Number(batchSize || "25");
+                const presets = categoryPresets.slice(0, 50);
+                let ok = 0;
+                for (const cat of presets) {
+                  await enqueue(
+                    "ENRICH_SUPPLIER",
+                    { supplier_id: sid, supplier_name: sname, source_category: cat, batch_size: bs, delay_seconds: 0 },
+                    60,
+                  );
+                  ok += 1;
+                  setMsg(`Working: ENRICH_ALL_PRESETS… ${ok}/${presets.length}`);
+                }
+                return `Enqueued ENRICH_SUPPLIER for ${ok} categories (from presets)`;
+              })
+            }
+          >
+            {busyKey === "ENRICH_ALL_PRESETS" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Enqueuing batch…
+              </span>
+            ) : (
+              "Enrich all presets"
+            )}
+          </button>
+
+          {!categoryPresets.length ? (
+            <span className="text-[11px] text-slate-500">Disabled until presets exist.</span>
+          ) : (
+            <span className="text-[11px] text-slate-500">Will enqueue up to 50 categories per click.</span>
+          )}
         </div>
       </Section>
 
