@@ -1,6 +1,7 @@
 "use client";
 
 export function setCookie(name: string, value: string, days = 365) {
+  if (typeof document === "undefined") return;
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
   document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(
     value,
@@ -8,6 +9,7 @@ export function setCookie(name: string, value: string, days = 365) {
 }
 
 export function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
   const cookies = document.cookie.split(";").map((c) => c.trim());
   for (const c of cookies) {
     const idx = c.indexOf("=");
