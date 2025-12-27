@@ -60,6 +60,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
                 Commerce
               </div>
               {canSee(who.role, "fulfillment") ? <NavLink href="/orders" label="Orders" /> : null}
+              {canSee(who.role, "fulfillment") ? <NavLink href="/fulfillment" label="Fulfillment" /> : null}
               <NavLink href="/suppliers" label="Suppliers" />
             </div>
 
