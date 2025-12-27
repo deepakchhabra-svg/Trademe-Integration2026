@@ -118,6 +118,10 @@ class CashConvertersAdapter:
         
         # Map Unified -> DB
         sku = data["source_listing_id"]
+        # Supplier-native SKU should not include our prefix.
+        supplier_sku = sku
+        if isinstance(supplier_sku, str) and supplier_sku.startswith("CC-"):
+            supplier_sku = supplier_sku.replace("CC-", "", 1)
         
         # Parse Price
         try:
@@ -145,14 +149,14 @@ class CashConvertersAdapter:
         # DB Logic
         sp = self.db.query(SupplierProduct).filter_by(
             supplier_id=self.supplier_id, 
-            external_sku=sku
+            external_sku=supplier_sku
         ).first()
         
         if not sp:
             # CREATE
             sp = SupplierProduct(
                 supplier_id=self.supplier_id,
-                external_sku=sku,
+                external_sku=supplier_sku,
                 title=data["title"],
                 description=data["description"],
                 cost_price=cost,
@@ -169,7 +173,7 @@ class CashConvertersAdapter:
             
             # Auto-Create Internal
             # Prefix for Internal SKU
-            my_sku = f"CC-{sku}"
+            my_sku = f"CC-{supplier_sku}"
             ip = self.db.query(InternalProduct).filter_by(sku=my_sku).first()
             if not ip:
                 ip = InternalProduct(

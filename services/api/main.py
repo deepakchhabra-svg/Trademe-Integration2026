@@ -184,8 +184,12 @@ def trademe_account_summary(_role: Role = Depends(require_role("power"))) -> dic
     """
     Trade Me account health for ops decisions (balance, reputation signals).
     """
-    api = TradeMeAPI()
-    return api.get_account_summary()
+    try:
+        api = TradeMeAPI()
+        return api.get_account_summary()
+    except Exception as e:
+        # Keep ops UI functional even when credentials are not configured in this environment.
+        return {"offline": True, "error": str(e)[:200]}
 
 
 @app.get("/ops/alerts")

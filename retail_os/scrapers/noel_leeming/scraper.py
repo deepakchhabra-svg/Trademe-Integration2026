@@ -6,6 +6,7 @@ import time
 import json
 import re
 import sys
+import os
 import shutil
 import threading
 from pathlib import Path
@@ -21,6 +22,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import httpx
 
 # Try to use webdriver-manager
 try:
@@ -152,6 +154,11 @@ def setup_driver(headless: bool = True, timeout: int = 30):
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
+
+    # Optional proxy support (required in some environments where Noel Leeming blocks datacenter IPs).
+    proxy = os.getenv("NOEL_LEEMING_PROXY")
+    if proxy:
+        options.add_argument(f"--proxy-server={proxy}")
     
     # Driver initialization logic 
     service = None
@@ -277,6 +284,21 @@ def scrape_category(headless: bool = True, max_pages: int = None, category_url: 
     """
     if not category_url:
         category_url = DEFAULT_CATEGORY_URL
+
+    # Fast preflight: if the site is returning 403 from this environment, Selenium will just spin and time out.
+    # This is NOT a mock — it's a real network check to fail fast with a clear diagnosis.
+    try:
+        r = httpx.get(BASE_URL, follow_redirects=True, timeout=10.0, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code == 403:
+            raise RuntimeError(
+                "Noel Leeming blocked this environment (HTTP 403). "
+                "Run from an allowed network or set NOEL_LEEMING_PROXY to a working proxy."
+            )
+    except RuntimeError:
+        raise
+    except Exception:
+        # If preflight fails for transient reasons, continue to Selenium attempt.
+        pass
     
     print(f"Starting Selenium WebDriver (headless={headless})...")
     driver = setup_driver(headless=headless)

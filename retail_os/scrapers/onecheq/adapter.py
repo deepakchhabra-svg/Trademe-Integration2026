@@ -101,6 +101,10 @@ class OneCheqAdapter:
         
         # Map Unified -> DB
         sku = data["source_listing_id"]
+        # Supplier-native SKU should not include our prefix.
+        supplier_sku = sku
+        if isinstance(supplier_sku, str) and supplier_sku.startswith("OC-"):
+            supplier_sku = supplier_sku.replace("OC-", "", 1)
         
         # Parse Price
         try:
@@ -136,14 +140,14 @@ class OneCheqAdapter:
         # DB Logic
         sp = self.db.query(SupplierProduct).filter_by(
             supplier_id=self.supplier_id, 
-            external_sku=sku
+            external_sku=supplier_sku
         ).first()
         
         if not sp:
             # CREATE
             sp = SupplierProduct(
                 supplier_id=self.supplier_id,
-                external_sku=sku,
+                external_sku=supplier_sku,
                 title=data["title"],
                 description=data["description"],
                 brand=data.get("brand", ""),
@@ -162,7 +166,7 @@ class OneCheqAdapter:
             self.db.flush()
             
             # Auto-Create Internal
-            my_sku = f"OC-{sku}"
+            my_sku = f"OC-{supplier_sku}"
             ip = self.db.query(InternalProduct).filter_by(sku=my_sku).first()
             if not ip:
                 ip = InternalProduct(
@@ -186,7 +190,7 @@ class OneCheqAdapter:
                 
                 # Check Price Change
                 if sp.cost_price != cost:
-                    log = AuditLog(
+                    price_log = AuditLog(
                         entity_type="SupplierProduct",
                         entity_id=str(sp.id),
                         action="PRICE_CHANGE",
@@ -195,12 +199,12 @@ class OneCheqAdapter:
                         user="System",
                         timestamp=datetime.utcnow()
                     )
-                    self.db.add(log)
+                    self.db.add(price_log)
                     print(f"   -> Audited Price Change: {sp.cost_price} -> {cost}")
 
                 # Check Title Change
                 if sp.title != data["title"]:
-                    log = AuditLog(
+                    title_log = AuditLog(
                         entity_type="SupplierProduct",
                         entity_id=str(sp.id),
                         action="TITLE_CHANGE",
@@ -209,9 +213,7 @@ class OneCheqAdapter:
                         user="System",
                         timestamp=datetime.utcnow()
                     )
-                    self.db.add(log)
-
-                self.db.add(log)
+                    self.db.add(title_log)
 
                 # Commit Updates
                 sp.title = data["title"]
