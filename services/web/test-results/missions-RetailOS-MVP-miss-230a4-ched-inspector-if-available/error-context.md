@@ -1,0 +1,109 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - link "RetailOS Admin" [ref=e6] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e7]: API ok
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e10]: Vaults
+          - link "Vault 1 · Raw" [ref=e11] [cursor=pointer]:
+            - /url: /vaults/raw
+          - link "Vault 2 · Enriched" [ref=e12] [cursor=pointer]:
+            - /url: /vaults/enriched
+          - link "Vault 3 · Listings" [ref=e13] [cursor=pointer]:
+            - /url: /vaults/live
+        - generic [ref=e14]:
+          - generic [ref=e15]: Ops
+          - link "Inbox" [ref=e16] [cursor=pointer]:
+            - /url: /ops/inbox
+          - link "Alerts" [ref=e17] [cursor=pointer]:
+            - /url: /ops/alerts
+          - link "Trade Me Health" [ref=e18] [cursor=pointer]:
+            - /url: /ops/trademe
+          - link "Bulk Ops" [ref=e19] [cursor=pointer]:
+            - /url: /ops/bulk
+          - link "Commands" [ref=e20] [cursor=pointer]:
+            - /url: /ops/commands
+          - link "Jobs" [ref=e21] [cursor=pointer]:
+            - /url: /ops/jobs
+          - link "Audits" [ref=e22] [cursor=pointer]:
+            - /url: /ops/audits
+        - generic [ref=e23]:
+          - generic [ref=e24]: Commerce
+          - link "Orders" [ref=e25] [cursor=pointer]:
+            - /url: /orders
+          - link "Suppliers" [ref=e26] [cursor=pointer]:
+            - /url: /suppliers
+        - generic [ref=e27]:
+          - generic [ref=e28]: Admin
+          - link "Settings" [ref=e29] [cursor=pointer]:
+            - /url: /admin/settings
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: "Role: root"
+          - generic [ref=e33]:
+            - generic [ref=e34]: Role
+            - combobox "Role" [ref=e35]:
+              - option "listing"
+              - option "fulfillment"
+              - option "power"
+              - option "root" [selected]
+        - generic [ref=e36]: Use RBAC to keep normal users focused.
+    - main [ref=e37]:
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic [ref=e42]:
+              - link "Vault 2" [ref=e43] [cursor=pointer]:
+                - /url: /vaults/enriched
+              - generic [ref=e44]: /
+              - generic [ref=e45]: CC-CC-162216306
+            - heading "10CT Two Tone Gold Wedder Ring" [level=1] [ref=e46]
+            - paragraph [ref=e47]:
+              - text: "Supplier product:"
+              - link "#1" [ref=e48] [cursor=pointer]:
+                - /url: /vaults/raw/1
+          - generic [ref=e49]:
+            - generic [ref=e50]: trust 60
+            - generic [ref=e51]: passes gates
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - generic [ref=e54]: Internal ID
+            - generic [ref=e55]: "1"
+          - generic [ref=e56]:
+            - generic [ref=e57]: Supplier
+            - generic [ref=e58]: CASH_CONVERTERS
+          - generic [ref=e59]:
+            - generic [ref=e60]: Cost
+            - generic [ref=e61]: $799.00
+          - generic [ref=e62]:
+            - generic [ref=e63]: Category
+            - generic [ref=e64]: https://shop.cashconverters.co.nz/Browse/R160787-R160789/North_Island-Auckland
+        - generic [ref=e65]:
+          - generic [ref=e66]: Trust blockers
+          - list [ref=e67]:
+            - listitem [ref=e68]: Missing Technical Specifications
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - generic [ref=e71]: Enriched description
+            - generic [ref=e72]: "-"
+          - generic [ref=e73]:
+            - generic [ref=e74]: Trust breakdown
+            - generic [ref=e75]: "{ \"Content\": \"PASS (Reconstructed & Clean)\", \"Specifications\": \"PENALTY (0 specs found - Score capped at 60%)\", \"Images\": \"PASS (1 available)\", \"Pricing\": \"PASS\" }"
+        - generic [ref=e76]:
+          - generic [ref=e78]:
+            - generic [ref=e79]: Actions
+            - generic [ref=e80]: Requeue enrichment, run dry-run publish, or publish.
+          - generic [ref=e81]:
+            - button "Reset enrichment" [ref=e82]
+            - button "Dry-run publish" [ref=e83]
+            - button "Publish" [ref=e84]
+  - button "Open Next.js Dev Tools" [ref=e90] [cursor=pointer]:
+    - img [ref=e91]
+  - alert [ref=e94]
+```
