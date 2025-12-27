@@ -1,0 +1,22 @@
+{
+    "commands": {
+        "total": 87,
+        "pending": 5,
+        "executing": 2,
+        "human_required": 3,
+        "failed": 1
+    },
+    "vaults": {
+        "raw_total": 142,
+        "raw_present": 138,
+        "enriched_total": 85,
+        "enriched_ready": 82,
+        "listings_total": 78,
+        "listings_dry_run": 12,
+        "listings_live": 66
+    },
+    "orders": {
+        "total": 23,
+        "pending_fulfillment": 4
+    }
+}

@@ -1,0 +1,35 @@
+{
+    "items": [
+        {
+            "id": 301,
+            "tm_listing_id": "4682341257",
+            "internal_product_id": 201,
+            "actual_state": "Active",
+            "lifecycle_state": "LIVE",
+            "actual_price": 1149.00,
+            "view_count": 47,
+            "watch_count": 3,
+            "category_id": "0344-0350-",
+            "title": "Dell Latitude 5420 Business Laptop - 14\" FHD",
+            "thumb": "/media/demo/laptop1.jpg",
+            "source_category": "Laptops",
+            "last_synced_at": "2025-12-27T11:00:00Z"
+        },
+        {
+            "id": 302,
+            "tm_listing_id": "4682341289",
+            "internal_product_id": 202,
+            "actual_state": "Active",
+            "lifecycle_state": "LIVE",
+            "actual_price": 999.00,
+            "view_count": 128,
+            "watch_count": 12,
+            "category_id": "0267-0364-6076-",
+            "title": "Apple iPhone 13 - 128GB Midnight Black Unlocked",
+            "thumb": "/media/demo/phone1.jpg",
+            "source_category": "Phones",
+            "last_synced_at": "2025-12-27T10:45:00Z"
+        }
+    ],
+    "total": 2
+}

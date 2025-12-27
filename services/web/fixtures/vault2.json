@@ -1,0 +1,39 @@
+{
+    "items": [
+        {
+            "id": 201,
+            "sku": "RETAIL-LAPTOP-001",
+            "title": "Dell Latitude 5420",
+            "supplier_product_id": 101,
+            "supplier_id": 1,
+            "cost_price": 899.99,
+            "enriched_title": "Dell Latitude 5420 Business Laptop - 14\" FHD, i5-1145G7, 16GB RAM",
+            "enriched_description": "Professional-grade laptop perfect for business users. Features Intel Core i5 processor, 16GB RAM, and crisp 14-inch Full HD display. Well-maintained with minimal usage.",
+            "images": [
+                "/media/demo/laptop1.jpg"
+            ],
+            "source_category": "Laptops",
+            "product_url": "https://onecheq.co.nz/products/dell-latitude-5420",
+            "sync_status": "PRESENT",
+            "enrichment_status": "SUCCESS"
+        },
+        {
+            "id": 202,
+            "sku": "RETAIL-PHONE-045",
+            "title": "Apple iPhone 13 128GB",
+            "supplier_product_id": 102,
+            "supplier_id": 1,
+            "cost_price": 749.00,
+            "enriched_title": "Apple iPhone 13 - 128GB, Midnight Black, Unlocked",
+            "enriched_description": "Unlocked iPhone 13 in excellent condition. 128GB storage, Midnight Black color. Includes A15 Bionic chip, advanced dual-camera system, and all-day battery life.",
+            "images": [
+                "/media/demo/phone1.jpg"
+            ],
+            "source_category": "Phones",
+            "product_url": "https://onecheq.co.nz/products/iphone-13-128gb",
+            "sync_status": "PRESENT",
+            "enrichment_status": "SUCCESS"
+        }
+    ],
+    "total": 2
+}
