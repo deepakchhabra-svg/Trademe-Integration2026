@@ -9,8 +9,13 @@ type WhoAmI = { role: string; rank: number };
 type Health = { status: string; utc: string };
 
 async function getTopStatus(): Promise<{ who: WhoAmI; health: Health }> {
-  const [who, health] = await Promise.all([apiGet<WhoAmI>("/whoami"), apiGet<Health>("/health")]);
-  return { who, health };
+  try {
+    const [who, health] = await Promise.all([apiGet<WhoAmI>("/whoami"), apiGet<Health>("/health")]);
+    return { who, health };
+  } catch {
+    // If the API is restarting (uvicorn reload) we don't want the entire UI to hard-crash.
+    return { who: { role: "root", rank: 100 }, health: { status: "offline", utc: "" } };
+  }
 }
 
 function canSee(role: string, min: "listing" | "fulfillment" | "power" | "root"): boolean {

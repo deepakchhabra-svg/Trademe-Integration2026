@@ -196,78 +196,92 @@ def ops_inbox(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
     """
     Operator Inbox: everything needing attention without checking external systems.
     """
-    with get_db_session() as session:
-        human_cmds = (
-            session.query(SystemCommand)
-            .filter(SystemCommand.status == CommandStatus.HUMAN_REQUIRED)
-            .order_by(SystemCommand.updated_at.desc())
-            .limit(200)
-            .all()
-        )
-        retry_cmds = (
-            session.query(SystemCommand)
-            .filter(SystemCommand.status.in_([CommandStatus.FAILED_RETRYABLE, CommandStatus.EXECUTING]))
-            .order_by(SystemCommand.updated_at.desc())
-            .limit(200)
-            .all()
-        )
-        failed_jobs = (
-            session.query(JobStatus).filter(JobStatus.status == "FAILED").order_by(JobStatus.start_time.desc()).limit(100).all()
-        )
-        pending_orders = session.query(Order).filter(Order.fulfillment_status == "PENDING").order_by(Order.created_at.desc()).limit(200).all()
+    try:
+        with get_db_session() as session:
+            human_cmds = (
+                session.query(SystemCommand)
+                .filter(SystemCommand.status == CommandStatus.HUMAN_REQUIRED)
+                .order_by(SystemCommand.updated_at.desc())
+                .limit(200)
+                .all()
+            )
+            retry_cmds = (
+                session.query(SystemCommand)
+                .filter(SystemCommand.status.in_([CommandStatus.FAILED_RETRYABLE, CommandStatus.EXECUTING]))
+                .order_by(SystemCommand.updated_at.desc())
+                .limit(200)
+                .all()
+            )
+            failed_jobs = (
+                session.query(JobStatus).filter(JobStatus.status == "FAILED").order_by(JobStatus.start_time.desc()).limit(100).all()
+            )
+            pending_orders = (
+                session.query(Order).filter(Order.fulfillment_status == "PENDING").order_by(Order.created_at.desc()).limit(200).all()
+            )
 
+            return {
+                "counts": {
+                    "commands_human_required": len(human_cmds),
+                    "commands_retrying": len(retry_cmds),
+                    "jobs_failed": len(failed_jobs),
+                    "orders_pending": len(pending_orders),
+                },
+                "commands_human_required": [
+                    {
+                        "id": c.id,
+                        "type": c.type,
+                        "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+                        "error_code": c.error_code,
+                        "error_message": c.error_message,
+                        "last_error": c.last_error,
+                        "updated_at": _dt(c.updated_at),
+                    }
+                    for c in human_cmds
+                ],
+                "jobs_failed": [
+                    {
+                        "id": j.id,
+                        "job_type": j.job_type,
+                        "status": j.status,
+                        "start_time": _dt(j.start_time),
+                        "end_time": _dt(j.end_time),
+                        "summary": j.summary,
+                    }
+                    for j in failed_jobs
+                ],
+                "commands_retrying": [
+                    {
+                        "id": c.id,
+                        "type": c.type,
+                        "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+                        "attempts": c.attempts,
+                        "max_attempts": c.max_attempts,
+                        "last_error": c.last_error,
+                        "updated_at": _dt(c.updated_at),
+                    }
+                    for c in retry_cmds
+                ],
+                "orders_pending": [
+                    {
+                        "id": o.id,
+                        "tm_order_ref": o.tm_order_ref,
+                        "buyer_name": o.buyer_name,
+                        "sold_price": float(o.sold_price) if o.sold_price is not None else None,
+                        "created_at": _dt(o.created_at),
+                    }
+                    for o in pending_orders
+                ],
+            }
+    except Exception as e:
+        # Keep UI functional even if the DB is mid-migration or the API is restarting.
         return {
-            "counts": {
-                "commands_human_required": len(human_cmds),
-                "commands_retrying": len(retry_cmds),
-                "jobs_failed": len(failed_jobs),
-                "orders_pending": len(pending_orders),
-            },
-            "commands_human_required": [
-                {
-                    "id": c.id,
-                    "type": c.type,
-                    "status": c.status.value if hasattr(c.status, "value") else str(c.status),
-                    "error_code": c.error_code,
-                    "error_message": c.error_message,
-                    "last_error": c.last_error,
-                    "updated_at": _dt(c.updated_at),
-                }
-                for c in human_cmds
-            ],
-            "jobs_failed": [
-                {
-                    "id": j.id,
-                    "job_type": j.job_type,
-                    "status": j.status,
-                    "start_time": _dt(j.start_time),
-                    "end_time": _dt(j.end_time),
-                    "summary": j.summary,
-                }
-                for j in failed_jobs
-            ],
-            "commands_retrying": [
-                {
-                    "id": c.id,
-                    "type": c.type,
-                    "status": c.status.value if hasattr(c.status, "value") else str(c.status),
-                    "attempts": c.attempts,
-                    "max_attempts": c.max_attempts,
-                    "last_error": c.last_error,
-                    "updated_at": _dt(c.updated_at),
-                }
-                for c in retry_cmds
-            ],
-            "orders_pending": [
-                {
-                    "id": o.id,
-                    "tm_order_ref": o.tm_order_ref,
-                    "buyer_name": o.buyer_name,
-                    "sold_price": float(o.sold_price) if o.sold_price is not None else None,
-                    "created_at": _dt(o.created_at),
-                }
-                for o in pending_orders
-            ],
+            "offline": True,
+            "error": str(e)[:300],
+            "counts": {"commands_human_required": 0, "commands_retrying": 0, "jobs_failed": 0, "orders_pending": 0},
+            "commands_human_required": [],
+            "commands_retrying": [],
+            "jobs_failed": [],
+            "orders_pending": [],
         }
 
 
