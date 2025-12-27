@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
+import { InboxCommandActions } from "./Actions";
 
 type Inbox = {
   counts: {
@@ -67,7 +68,10 @@ export default async function InboxPage() {
                       <div className="mt-1 text-sm">{c.type}</div>
                       <div className="mt-1 text-xs text-slate-600">{c.updated_at || "-"}</div>
                     </div>
-                    {c.error_code ? <Badge tone="red">{c.error_code}</Badge> : <Badge tone="amber">{c.status}</Badge>}
+                    <div className="flex items-start gap-3">
+                      {c.error_code ? <Badge tone="red">{c.error_code}</Badge> : <Badge tone="amber">{c.status}</Badge>}
+                      <InboxCommandActions commandId={c.id} />
+                    </div>
                   </div>
                   {c.error_message || c.last_error ? (
                     <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
