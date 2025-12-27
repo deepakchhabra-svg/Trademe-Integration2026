@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 import os
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -28,6 +30,56 @@ from retail_os.trademe.api import TradeMeAPI
 
 
 app = FastAPI(title="RetailOS API", version="0.1.0")
+
+# Repo-root anchored media dir (ImageDownloader writes to data/media).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_MEDIA_ROOT = (_REPO_ROOT / "data" / "media").resolve()
+
+
+def _public_image_urls(images: Any) -> list[str]:
+    """
+    Normalize DB-stored image paths into URLs a browser can fetch.
+    - Remote URLs: returned as-is.
+    - Local paths under data/media: returned as /media/<relpath>.
+    """
+    if not images:
+        return []
+    if not isinstance(images, list):
+        return []
+
+    out: list[str] = []
+    for raw in images:
+        if not raw or not isinstance(raw, str):
+            continue
+        if raw.startswith("http://") or raw.startswith("https://"):
+            out.append(raw)
+            continue
+
+        norm = raw.replace("\\", "/")
+        lower = norm.lower()
+
+        # Common cases: "data/media/x.jpg" (relative) or "C:/.../data/media/x.jpg" (absolute)
+        if lower.startswith("data/media/"):
+            rel = norm[len("data/media/") :]
+            out.append(f"/media/{rel}")
+            continue
+        idx = lower.rfind("/data/media/")
+        if idx != -1:
+            rel = norm[idx + len("/data/media/") :]
+            out.append(f"/media/{rel}")
+            continue
+
+        # As a last resort: if it is an absolute file inside media root, serve it.
+        try:
+            p = Path(raw).expanduser().resolve()
+            if _MEDIA_ROOT in p.parents:
+                rel = p.relative_to(_MEDIA_ROOT).as_posix()
+                out.append(f"/media/{rel}")
+                continue
+        except Exception:
+            pass
+
+    return out
 
 
 @app.on_event("startup")
@@ -116,6 +168,22 @@ def health() -> HealthResponse:
         return HealthResponse(status="ok", utc=datetime.utcnow(), db="ok", db_error=None)
     except Exception as e:
         return HealthResponse(status="degraded", utc=datetime.utcnow(), db="error", db_error=str(e)[:200])
+
+
+@app.get("/media/{rel_path:path}")
+def media(rel_path: str) -> FileResponse:
+    """
+    Serve locally downloaded images (data/media/*) to the web app.
+    Security: path must stay within MEDIA_ROOT.
+    """
+    # Normalize and prevent traversal
+    rel = rel_path.replace("\\", "/").lstrip("/")
+    target = (_MEDIA_ROOT / rel).resolve()
+    if _MEDIA_ROOT not in target.parents and target != _MEDIA_ROOT:
+        raise HTTPException(status_code=400, detail="Invalid media path")
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="Media not found")
+    return FileResponse(path=str(target))
 
 
 @app.get("/whoami")
