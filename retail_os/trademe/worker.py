@@ -137,10 +137,11 @@ class CommandWorker:
             return
 
         elif command_type == "UPDATE_PRICE":
-            # Logic to update price would go here
-            # For Vertical Slice, we just pretend
-            time.sleep(1)
-            print(f"   -> Updated Price for {payload.get('target_id')} to {payload.get('price')}")
+            # For now we only record intent (Trade Me price update wiring comes next).
+            time.sleep(0.2)
+            listing_id = payload.get("listing_id") or payload.get("tm_listing_id") or payload.get("target_id")
+            new_price = payload.get("new_price") or payload.get("price")
+            print(f"   -> UPDATE_PRICE requested listing_id={listing_id} new_price={new_price}")
             return
 
         elif command_type == "WITHDRAW_LISTING":
@@ -155,6 +156,10 @@ class CommandWorker:
         
         elif command_type == "SCRAPE_OC":
             self.handle_scrape_oc(command)
+            return
+
+        elif command_type == "SCAN_COMPETITORS":
+            self.handle_scan_competitors(command)
             return
 
         else:
@@ -657,6 +662,87 @@ class CommandWorker:
                     job.summary = str(e)[:2000]
                 s.commit()
             raise
+
+    def handle_scan_competitors(self, command):
+        """
+        Creates an auditable market-price snapshot for a listing/product and (optionally)
+        enqueues a price update recommendation.
+        """
+        cmd_type, payload = self.resolve_command(command)
+        listing_db_id = payload.get("listing_db_id")
+        tm_listing_id = payload.get("tm_listing_id")
+        internal_product_id = payload.get("internal_product_id")
+
+        session = SessionLocal()
+        try:
+            from retail_os.core.database import TradeMeListing, InternalProduct, AuditLog, SystemCommand, CommandStatus
+            from retail_os.scrapers.competitor_scanner import CompetitorScanner
+            import uuid
+            import json
+
+            listing = None
+            ip = None
+
+            if listing_db_id is not None:
+                listing = session.query(TradeMeListing).get(int(listing_db_id))
+            elif tm_listing_id is not None:
+                listing = session.query(TradeMeListing).filter(TradeMeListing.tm_listing_id == str(tm_listing_id)).first()
+
+            if listing is not None:
+                ip = listing.product
+
+            if ip is None and internal_product_id is not None:
+                ip = session.query(InternalProduct).get(int(internal_product_id))
+
+            if ip is None:
+                raise ValueError("SCAN_COMPETITORS requires listing_db_id, tm_listing_id, or internal_product_id")
+
+            title = ip.title or (ip.supplier_product.title if ip.supplier_product else "Unknown")
+            my_price = None
+            if listing is not None and listing.actual_price is not None:
+                my_price = float(listing.actual_price)
+            elif listing is not None and listing.desired_price is not None:
+                my_price = float(listing.desired_price)
+
+            scanner = CompetitorScanner()
+            market = scanner.find_lowest_market_price(product_title=title, ean=None)
+
+            record = {
+                "title": title,
+                "my_price": my_price,
+                "market_lowest": market,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+            session.add(
+                AuditLog(
+                    entity_type="TradeMeListing" if listing is not None else "InternalProduct",
+                    entity_id=str(listing.tm_listing_id) if listing is not None and listing.tm_listing_id else str(ip.id),
+                    action="COMPETITOR_SCAN",
+                    old_value=None,
+                    new_value=json.dumps(record, sort_keys=True),
+                    user="CompetitorScanner",
+                    timestamp=datetime.utcnow(),
+                )
+            )
+
+            # Optional recommendation: if we are priced above market by >5%, enqueue a price update suggestion.
+            if my_price is not None and market is not None and scanner.check_competitor_undercut(my_price, market):
+                suggested = round(market * 0.99, 2)  # slight undercut; final rounding is strategy-owned later
+                if listing is not None and listing.tm_listing_id:
+                    session.add(
+                        SystemCommand(
+                            id=str(uuid.uuid4()),
+                            type="UPDATE_PRICE",
+                            payload={"listing_id": str(listing.tm_listing_id), "new_price": suggested, "reason": "COMPETITOR_UNDERCUT"},
+                            status=CommandStatus.PENDING,
+                            priority=30,
+                        )
+                    )
+
+            session.commit()
+        finally:
+            session.close()
 
 # --- MAIN ENTRY POINT ---
 if __name__ == "__main__":
