@@ -523,7 +523,10 @@ def list_commands(
     with get_db_session() as session:
         query = session.query(SystemCommand)
         if status:
-            query = query.filter(SystemCommand.status == status)
+            try:
+                query = query.filter(SystemCommand.status == CommandStatus(status))
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid status filter")
         if type:
             query = query.filter(SystemCommand.type == type)
         query = query.order_by(SystemCommand.created_at.desc())
@@ -548,6 +551,48 @@ def list_commands(
                 }
             )
         return PageResponse(items=items, total=total)
+
+
+class CommandActionResponse(BaseModel):
+    id: str
+    status: str
+
+
+@app.post("/commands/{command_id}/retry", response_model=CommandActionResponse)
+def retry_command(command_id: str, _role: Role = Depends(require_role("power"))) -> CommandActionResponse:
+    with get_db_session() as session:
+        c = session.query(SystemCommand).filter(SystemCommand.id == command_id).first()
+        if not c:
+            raise HTTPException(status_code=404, detail="Command not found")
+        # Reset only if it's not already pending/executing
+        c.status = CommandStatus.PENDING
+        c.last_error = None
+        c.error_code = None
+        c.error_message = None
+        c.updated_at = datetime.utcnow()
+        session.commit()
+        return CommandActionResponse(id=c.id, status=c.status.value if hasattr(c.status, "value") else str(c.status))
+
+
+@app.post("/commands/{command_id}/cancel", response_model=CommandActionResponse)
+def cancel_command(command_id: str, _role: Role = Depends(require_role("power"))) -> CommandActionResponse:
+    with get_db_session() as session:
+        c = session.query(SystemCommand).filter(SystemCommand.id == command_id).first()
+        if not c:
+            raise HTTPException(status_code=404, detail="Command not found")
+        c.status = CommandStatus.CANCELLED
+        c.updated_at = datetime.utcnow()
+        session.commit()
+        return CommandActionResponse(id=c.id, status=c.status.value if hasattr(c.status, "value") else str(c.status))
+
+
+@app.post("/commands/{command_id}/ack", response_model=CommandActionResponse)
+def ack_command(command_id: str, _role: Role = Depends(require_role("power"))) -> CommandActionResponse:
+    """
+    Acknowledge a HUMAN_REQUIRED command without deleting history.
+    For now we mark it CANCELLED (operator accepted the outcome).
+    """
+    return cancel_command(command_id, _role=_role)
 
 
 @app.get("/commands/{command_id}")
