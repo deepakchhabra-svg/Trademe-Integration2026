@@ -1,6 +1,10 @@
-import sys
 import os
-sys.path.append(os.getcwd())
+import sys
+
+# Ensure repo root is importable when running as a script from any cwd.
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 from datetime import datetime
 from typing import List
@@ -93,6 +97,7 @@ class OneCheqAdapter:
             engine.process_orphans(self.supplier_id, sync_start_time)
         else:
             print("Adapter: Skipping Reconciliation due to Safety Guard.")
+        self.db.close()
 
     def _upsert_product(self, data: UnifiedProduct):
         # Import downloader
@@ -153,7 +158,7 @@ class OneCheqAdapter:
                 brand=data.get("brand", ""),
                 condition=data.get("condition", "Used"),
                 cost_price=cost,
-                stock_level=10,  # Mock default
+                stock_level=int(data.get("stock_level") or 1),
                 product_url=data["source_url"],
                 images=local_images if local_images else imgs,  # Prefer local
                 collection_rank=data.get("collection_rank"),
