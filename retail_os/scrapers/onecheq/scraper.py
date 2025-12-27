@@ -116,11 +116,44 @@ def scrape_onecheq_product(url: str) -> Optional[Dict]:
     # Parse with Selectolax
     doc = HTMLParser(html)
     
-    # Extract title
+    # Extract title (robust fallbacks)
     title = ""
-    title_node = doc.css_first("h1.product__title, h1[class*='product-title'], .product-info__title h1")
+    title_node = doc.css_first(
+        "h1.product__title, h1[class*='product-title'], .product-info__title h1, h1"
+    )
     if title_node:
         title = norm_ws(title_node.text())
+
+    if not title:
+        og = doc.css_first('meta[property="og:title"], meta[name="og:title"]')
+        if og:
+            title = norm_ws(og.attributes.get("content", ""))
+
+    # JSON-LD Product fallback (Shopify commonly includes this)
+    if not title:
+        try:
+            for node in doc.css('script[type="application/ld+json"]'):
+                raw = (node.text() or "").strip()
+                if not raw:
+                    continue
+                data = json.loads(raw)
+                candidates = []
+                if isinstance(data, dict):
+                    if data.get("@type") == "Product":
+                        candidates.append(data)
+                    elif "@graph" in data and isinstance(data["@graph"], list):
+                        candidates.extend([x for x in data["@graph"] if isinstance(x, dict) and x.get("@type") == "Product"])
+                elif isinstance(data, list):
+                    candidates.extend([x for x in data if isinstance(x, dict) and x.get("@type") == "Product"])
+                for p in candidates:
+                    name = p.get("name") or ""
+                    if name:
+                        title = norm_ws(str(name))
+                        raise StopIteration()
+        except StopIteration:
+            pass
+        except Exception:
+            pass
     
     # Extract SKU
     sku = product_id
@@ -134,12 +167,42 @@ def scrape_onecheq_product(url: str) -> Optional[Dict]:
     
     # Extract price
     price = 0.0
-    price_node = doc.css_first(".price__regular .price-item--regular, .product__price, [class*='price-now']")
+    price_node = doc.css_first(
+        ".price__regular .price-item--regular, .price-item--regular, .product__price, [class*='price-now'], [class*='price'] .price-item"
+    )
     if price_node:
         price_text = norm_ws(price_node.text())
         price_match = re.search(r'\$?([\\d,]+\\.?\\d*)', price_text)
         if price_match:
             price = float(price_match.group(1).replace(',', ''))
+
+    # JSON-LD price fallback
+    if not price:
+        try:
+            for node in doc.css('script[type="application/ld+json"]'):
+                raw = (node.text() or "").strip()
+                if not raw:
+                    continue
+                data = json.loads(raw)
+                candidates = []
+                if isinstance(data, dict):
+                    if data.get("@type") == "Product":
+                        candidates.append(data)
+                    elif "@graph" in data and isinstance(data["@graph"], list):
+                        candidates.extend([x for x in data["@graph"] if isinstance(x, dict) and x.get("@type") == "Product"])
+                elif isinstance(data, list):
+                    candidates.extend([x for x in data if isinstance(x, dict) and x.get("@type") == "Product"])
+                for p in candidates:
+                    offers = p.get("offers")
+                    if isinstance(offers, dict):
+                        pval = offers.get("price")
+                        if pval is not None:
+                            price = float(str(pval).replace(",", "").strip())
+                            raise StopIteration()
+        except StopIteration:
+            pass
+        except Exception:
+            pass
     
     # Extract condition
     condition = "Used"  # Default for OneCheq
@@ -166,6 +229,41 @@ def scrape_onecheq_product(url: str) -> Optional[Dict]:
     if desc_node:
         # Get text content
         description = norm_ws(desc_node.text())
+
+    if not description:
+        ogd = doc.css_first('meta[property="og:description"], meta[name="og:description"]')
+        if ogd:
+            description = norm_ws(ogd.attributes.get("content", ""))
+
+    if not description:
+        # JSON-LD description fallback
+        try:
+            for node in doc.css('script[type="application/ld+json"]'):
+                raw = (node.text() or "").strip()
+                if not raw:
+                    continue
+                data = json.loads(raw)
+                candidates = []
+                if isinstance(data, dict):
+                    if data.get("@type") == "Product":
+                        candidates.append(data)
+                    elif "@graph" in data and isinstance(data["@graph"], list):
+                        candidates.extend([x for x in data["@graph"] if isinstance(x, dict) and x.get("@type") == "Product"])
+                elif isinstance(data, list):
+                    candidates.extend([x for x in data if isinstance(x, dict) and x.get("@type") == "Product"])
+                for p in candidates:
+                    desc = p.get("description") or ""
+                    if desc:
+                        description = norm_ws(str(desc))
+                        raise StopIteration()
+        except StopIteration:
+            pass
+        except Exception:
+            pass
+
+    # Hard last resort: use slug-derived title so adapter doesn't drop the row
+    if not title:
+        title = product_id.replace("-", " ").strip() or "UNKNOWN"
     
     # Extract specs/features from description or dedicated section
     specs = {}
