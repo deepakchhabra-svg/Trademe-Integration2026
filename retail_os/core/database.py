@@ -77,7 +77,9 @@ class SupplierProduct(Base):
     collection_page = Column(Integer)
     
     supplier = relationship("Supplier", back_populates="products")
-    internal_product = relationship("InternalProduct", back_populates="supplier_product")
+    # One SupplierProduct should map to one InternalProduct (canonical).
+    # Enforce scalar relationship to match pipeline expectations.
+    internal_product = relationship("InternalProduct", back_populates="supplier_product", uselist=False)
 
     __table_args__ = (
         UniqueConstraint('supplier_id', 'external_sku', name='uix_supplier_sku'),

@@ -1,15 +1,26 @@
 """
 Scheduler with auto-enqueue and DB persistence for Spectator Mode.
 """
+import os
+import json
 import time
 import logging
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from retail_os.core.database import SessionLocal, SystemCommand, CommandStatus, Supplier, JobStatus
+from retail_os.core.database import (
+    SessionLocal,
+    SystemCommand,
+    CommandStatus,
+    Supplier,
+    SupplierProduct,
+    JobStatus,
+    SystemSetting,
+)
 import uuid
 
 # Setup logging
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -27,39 +38,126 @@ class SpectatorScheduler:
     def __init__(self, dev_mode=True):
         self.scheduler = BackgroundScheduler()
         self.dev_mode = dev_mode
-        self.interval_minutes = 1 if dev_mode else 60  # 1 min for DEV, 60 for PROD
+        self.interval_minutes = 1 if dev_mode else 60  # default; can be overridden by DB setting
+
+    def _get_setting(self, session, key: str, default: dict):
+        row = session.query(SystemSetting).filter(SystemSetting.key == key).first()
+        if not row:
+            return default
+        if isinstance(row.value, dict):
+            return {**default, **row.value}
+        return default
+
+    def _enqueue_jobstatus(self, session, job_type: str) -> JobStatus:
+        job = JobStatus(
+            job_type=job_type,
+            status="RUNNING",
+            start_time=datetime.utcnow(),
+            end_time=None,
+            items_processed=0,
+            items_created=0,
+            items_updated=0,
+            items_deleted=0,
+            items_failed=0,
+            summary=None,
+        )
+        session.add(job)
+        session.commit()
+        return job
+
+    def _finish_jobstatus(self, session, job_id: int, status: str, summary: dict):
+        job = session.query(JobStatus).get(job_id)
+        if not job:
+            return
+        job.status = status
+        job.end_time = datetime.utcnow()
+        job.summary = json.dumps(summary, sort_keys=True)
+        session.commit()
         
     def scrape_job(self):
         """Auto-enqueue scrape for all suppliers"""
         session = SessionLocal()
         try:
+            cfg = self._get_setting(
+                session,
+                "scheduler.scrape",
+                {
+                    "enabled": True,
+                    "interval_minutes": self.interval_minutes,
+                    "priority": 50,
+                    "per_category": False,
+                    "max_categories_per_supplier": 200,
+                    "batch_size": 1,
+                },
+            )
+            self.interval_minutes = int(cfg.get("interval_minutes") or self.interval_minutes)
+            if not cfg.get("enabled", True):
+                logger.info("SCHEDULER: scrape_job disabled by setting")
+                return
+
             suppliers = session.query(Supplier).all()
             logger.info(f"SCHEDULER: Running scrape job for {len(suppliers)} suppliers")
+
+            job = self._enqueue_jobstatus(session, "SCHEDULER_SCRAPE")
+            enqueued = 0
+            by_supplier = {}
             
             for supplier in suppliers:
-                cmd_id = str(uuid.uuid4())
-                cmd = SystemCommand(
-                    id=cmd_id,
-                    type="SCRAPE_SUPPLIER",
-                    payload={"supplier_id": supplier.id, "supplier_name": supplier.name},
-                    status=CommandStatus.PENDING,
-                    priority=50  # Medium priority for scheduled jobs
-                )
-                session.add(cmd)
-                logger.info(f"SCHEDULER: Enqueued SCRAPE_SUPPLIER {cmd_id[:12]} for {supplier.name}")
+                if cfg.get("per_category"):
+                    cats = (
+                        session.query(SupplierProduct.source_category)
+                        .filter(SupplierProduct.supplier_id == supplier.id)
+                        .filter(SupplierProduct.source_category.isnot(None))
+                        .distinct()
+                        .limit(int(cfg.get("max_categories_per_supplier", 200)))
+                        .all()
+                    )
+                    for (cat,) in cats:
+                        cmd_id = str(uuid.uuid4())
+                        cmd = SystemCommand(
+                            id=cmd_id,
+                            type="SCRAPE_SUPPLIER",
+                            payload={
+                                "supplier_id": supplier.id,
+                                "supplier_name": supplier.name,
+                                "source_category": cat,
+                                "pages": int(cfg.get("batch_size", 1)),
+                            },
+                            status=CommandStatus.PENDING,
+                            priority=int(cfg.get("priority", 50)),
+                        )
+                        session.add(cmd)
+                        enqueued += 1
+                        by_supplier[str(supplier.id)] = by_supplier.get(str(supplier.id), 0) + 1
+                else:
+                    cmd_id = str(uuid.uuid4())
+                    cmd = SystemCommand(
+                        id=cmd_id,
+                        type="SCRAPE_SUPPLIER",
+                        payload={"supplier_id": supplier.id, "supplier_name": supplier.name, "pages": int(cfg.get("batch_size", 1))},
+                        status=CommandStatus.PENDING,
+                        priority=int(cfg.get("priority", 50)),
+                    )
+                    session.add(cmd)
+                    enqueued += 1
+                    by_supplier[str(supplier.id)] = by_supplier.get(str(supplier.id), 0) + 1
             
             session.commit()
-            
+
             # Update JobStatus
-            job_status = session.query(JobStatus).filter_by(job_name="scrape_all").first()
-            if not job_status:
-                job_status = JobStatus(job_name="scrape_all")
-                session.add(job_status)
-            
-            job_status.last_run = datetime.utcnow()
-            job_status.next_run = datetime.utcnow() + timedelta(minutes=self.interval_minutes)
-            job_status.status = "COMPLETED"
+            job.items_processed = enqueued
             session.commit()
+            self._finish_jobstatus(
+                session,
+                job.id,
+                "COMPLETED",
+                {
+                    "enqueued": enqueued,
+                    "per_category": bool(cfg.get("per_category")),
+                    "by_supplier": by_supplier,
+                    "interval_minutes": self.interval_minutes,
+                },
+            )
             
         except Exception as e:
             logger.error(f"SCHEDULER: Scrape job failed: {e}")
@@ -71,33 +169,92 @@ class SpectatorScheduler:
         """Auto-enqueue enrich for all suppliers"""
         session = SessionLocal()
         try:
+            cfg = self._get_setting(
+                session,
+                "scheduler.enrich",
+                {
+                    "enabled": True,
+                    "interval_minutes": self.interval_minutes,
+                    "priority": 50,
+                    "per_category": True,
+                    "max_categories_per_supplier": 200,
+                    "batch_size": 25,
+                    "delay_seconds": 0,
+                },
+            )
+            self.interval_minutes = int(cfg.get("interval_minutes") or self.interval_minutes)
+            if not cfg.get("enabled", True):
+                logger.info("SCHEDULER: enrich_job disabled by setting")
+                return
+
             suppliers = session.query(Supplier).all()
             logger.info(f"SCHEDULER: Running enrich job for {len(suppliers)} suppliers")
+
+            job = self._enqueue_jobstatus(session, "SCHEDULER_ENRICH")
+            enqueued = 0
+            by_supplier = {}
             
             for supplier in suppliers:
-                cmd_id = str(uuid.uuid4())
-                cmd = SystemCommand(
-                    id=cmd_id,
-                    type="ENRICH_SUPPLIER",
-                    payload={"supplier_id": supplier.id, "supplier_name": supplier.name},
-                    status=CommandStatus.PENDING,
-                    priority=50
-                )
-                session.add(cmd)
-                logger.info(f"SCHEDULER: Enqueued ENRICH_SUPPLIER {cmd_id[:12]} for {supplier.name}")
+                if cfg.get("per_category"):
+                    cats = (
+                        session.query(SupplierProduct.source_category)
+                        .filter(SupplierProduct.supplier_id == supplier.id)
+                        .filter(SupplierProduct.source_category.isnot(None))
+                        .distinct()
+                        .limit(int(cfg.get("max_categories_per_supplier", 200)))
+                        .all()
+                    )
+                    for (cat,) in cats:
+                        cmd_id = str(uuid.uuid4())
+                        cmd = SystemCommand(
+                            id=cmd_id,
+                            type="ENRICH_SUPPLIER",
+                            payload={
+                                "supplier_id": supplier.id,
+                                "supplier_name": supplier.name,
+                                "source_category": cat,
+                                "batch_size": int(cfg.get("batch_size", 25)),
+                                "delay_seconds": int(cfg.get("delay_seconds", 0)),
+                            },
+                            status=CommandStatus.PENDING,
+                            priority=int(cfg.get("priority", 50)),
+                        )
+                        session.add(cmd)
+                        enqueued += 1
+                        by_supplier[str(supplier.id)] = by_supplier.get(str(supplier.id), 0) + 1
+                else:
+                    cmd_id = str(uuid.uuid4())
+                    cmd = SystemCommand(
+                        id=cmd_id,
+                        type="ENRICH_SUPPLIER",
+                        payload={
+                            "supplier_id": supplier.id,
+                            "supplier_name": supplier.name,
+                            "batch_size": int(cfg.get("batch_size", 25)),
+                            "delay_seconds": int(cfg.get("delay_seconds", 0)),
+                        },
+                        status=CommandStatus.PENDING,
+                        priority=int(cfg.get("priority", 50)),
+                    )
+                    session.add(cmd)
+                    enqueued += 1
+                    by_supplier[str(supplier.id)] = by_supplier.get(str(supplier.id), 0) + 1
             
             session.commit()
-            
-            # Update JobStatus
-            job_status = session.query(JobStatus).filter_by(job_name="enrich_all").first()
-            if not job_status:
-                job_status = JobStatus(job_name="enrich_all")
-                session.add(job_status)
-            
-            job_status.last_run = datetime.utcnow()
-            job_status.next_run = datetime.utcnow() + timedelta(minutes=self.interval_minutes)
-            job_status.status = "COMPLETED"
+
+            job.items_processed = enqueued
             session.commit()
+            self._finish_jobstatus(
+                session,
+                job.id,
+                "COMPLETED",
+                {
+                    "enqueued": enqueued,
+                    "per_category": bool(cfg.get("per_category")),
+                    "by_supplier": by_supplier,
+                    "interval_minutes": self.interval_minutes,
+                },
+            )
             
         except Exception as e:
             logger.error(f"SCHEDULER: Enrich job failed: {e}")
