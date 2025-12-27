@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
 
 export function apiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  // On Windows, `localhost` can resolve to IPv6 ::1 while the API binds to 127.0.0.1,
+  // which causes `fetch failed` in server components. Prefer 127.0.0.1 by default.
+  return process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 }
 
 export async function apiHeaders(): Promise<Record<string, string>> {

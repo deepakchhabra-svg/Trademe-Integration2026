@@ -3,7 +3,8 @@
 import { getCookie } from "./cookies";
 
 export function apiBaseUrlClient(): string {
-  return process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  // On Windows, `localhost` can resolve to IPv6 ::1 while the API binds to 127.0.0.1.
+  return process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 }
 
 export async function apiPostClient<T>(path: string, body: unknown): Promise<T> {
