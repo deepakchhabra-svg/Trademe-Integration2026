@@ -122,3 +122,37 @@ def test_ops_summary_endpoint_shape(tmp_path: Path):
     data = res.json()
     assert "commands" in data and "vaults" in data and "orders" in data
 
+
+def test_command_logs_endpoint_shape(tmp_path: Path):
+    """
+    Regression: per-command logs endpoint should exist and be stable-shaped.
+    """
+    import importlib
+    import os
+    from fastapi.testclient import TestClient
+
+    db_file = tmp_path / "retail_os.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+
+    import retail_os.core.database as db
+    import services.api.main as mod
+
+    importlib.reload(db)
+    db.init_db()
+    importlib.reload(mod)
+
+    # Seed one command + one log line.
+    with db.get_db_session() as session:
+        cmd = db.SystemCommand(id="cmd-1", type="TEST_COMMAND", payload={}, status=db.CommandStatus.PENDING, priority=10)
+        session.add(cmd)
+        session.flush()
+        session.add(db.CommandLog(command_id=cmd.id, level="INFO", logger="test", message="hello cmd_id=cmd-1"))
+
+    client = TestClient(mod.app)
+    res = client.get("/commands/cmd-1/logs?tail=true&limit=10", headers={"X-RetailOS-Role": "power"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["command_id"] == "cmd-1"
+    assert "next_after_id" in data
+    assert "logs" in data
+

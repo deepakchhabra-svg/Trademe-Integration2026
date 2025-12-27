@@ -4,6 +4,7 @@ import { apiGet } from "../../../_components/api";
 import { Badge } from "../../../_components/Badge";
 import { CommandActions } from "./Actions";
 import { LiveCommandPanel } from "./LivePanel";
+import { CommandLogsPanel } from "./LogsPanel";
 
 type CommandDetail = {
   id: string;
@@ -56,6 +57,7 @@ export default async function CommandDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <LiveCommandPanel commandId={cmd.id} initial={cmd} />
+      <CommandLogsPanel commandId={cmd.id} initialStatus={cmd.status} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Field label="Priority" value={cmd.priority} />
