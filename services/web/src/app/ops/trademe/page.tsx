@@ -11,6 +11,8 @@ type Summary = {
   unique_negative: number;
   feedback_count: number;
   total_items_sold: number;
+  offline?: boolean;
+  error?: string;
 };
 
 export default async function TradeMeHealthPage() {

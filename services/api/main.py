@@ -7,6 +7,7 @@ from typing import Any, Optional
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 
 from retail_os.core.database import (
     AuditLog,
@@ -56,6 +57,8 @@ app.add_middleware(
 class HealthResponse(BaseModel):
     status: str
     utc: datetime
+    db: str | None = None
+    db_error: str | None = None
 
 
 Role = str
@@ -106,7 +109,13 @@ def require_role(min_role: Role):
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse(status="ok", utc=datetime.utcnow())
+    # Include DB probe so local env issues are obvious.
+    try:
+        with get_db_session() as session:
+            session.execute(text("SELECT 1"))
+        return HealthResponse(status="ok", utc=datetime.utcnow(), db="ok", db_error=None)
+    except Exception as e:
+        return HealthResponse(status="degraded", utc=datetime.utcnow(), db="error", db_error=str(e)[:200])
 
 
 @app.get("/whoami")

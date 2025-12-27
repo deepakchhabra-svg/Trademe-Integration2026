@@ -306,6 +306,10 @@ os.makedirs(os.path.dirname(_default_db_path), exist_ok=True)
 _default_db_path_uri = Path(_default_db_path).as_posix()
 DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{_default_db_path_uri}"
 
+# Normalize user-provided sqlite URL on Windows (common pitfall: backslashes break sqlite URL parsing).
+if DATABASE_URL.startswith("sqlite") and "\\" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("\\", "/")
+
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
 else:

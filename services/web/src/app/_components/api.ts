@@ -17,7 +17,15 @@ export async function apiHeaders(): Promise<Record<string, string>> {
 
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${apiBaseUrl()}${path}`, { cache: "no-store", headers: await apiHeaders() });
-  if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
+  if (!res.ok) {
+    let detail = "";
+    try {
+      detail = (await res.text()).slice(0, 500);
+    } catch {
+      detail = "";
+    }
+    throw new Error(`API ${path} failed: ${res.status}${detail ? ` — ${detail}` : ""}`);
+  }
   return (await res.json()) as T;
 }
 
