@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -13,6 +13,7 @@ from sqlalchemy import func, text
 
 from retail_os.core.database import (
     AuditLog,
+    CommandLog,
     CommandStatus,
     InternalProduct,
     JobStatus,
@@ -1341,6 +1342,51 @@ def command_detail(
             "payload": c.payload or {},
             "created_at": _dt(c.created_at),
             "updated_at": _dt(c.updated_at),
+        }
+
+
+@app.get("/commands/{command_id}/logs")
+def command_logs(
+    command_id: str,
+    after_id: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=2000),
+    tail: bool = Query(False),
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Persisted per-command logs for operator visibility.
+    - tail=true returns the last N log lines (ascending order in response).
+    - otherwise returns logs strictly after `after_id` (for polling / streaming).
+    """
+    with get_db_session() as session:
+        exists = session.query(SystemCommand.id).filter(SystemCommand.id == command_id).first()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Command not found")
+
+        q = session.query(CommandLog).filter(CommandLog.command_id == command_id)
+        if tail:
+            rows = q.order_by(CommandLog.id.desc()).limit(limit).all()
+            rows = list(reversed(rows))
+        else:
+            if after_id:
+                q = q.filter(CommandLog.id > int(after_id))
+            rows = q.order_by(CommandLog.id.asc()).limit(limit).all()
+
+        next_after = int(rows[-1].id) if rows else int(after_id)
+        return {
+            "command_id": command_id,
+            "next_after_id": next_after,
+            "logs": [
+                {
+                    "id": int(r.id),
+                    "created_at": _dt(r.created_at),
+                    "level": r.level,
+                    "logger": r.logger,
+                    "message": r.message,
+                    "meta": r.meta,
+                }
+                for r in rows
+            ],
         }
 
 

@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text, event, ForeignKey, Enum as SQLEnum, JSON, UniqueConstraint, Numeric
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text, event, ForeignKey, Enum as SQLEnum, JSON, UniqueConstraint, Numeric, Index
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -215,6 +215,28 @@ class SystemCommand(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CommandLog(Base):
+    """
+    Persisted per-command logs for operator visibility.
+    Used by the UI to show a live tail while a command is running and a permanent record after completion.
+    """
+
+    __tablename__ = "command_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    command_id = Column(String, ForeignKey("system_commands.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    level = Column(String, default="INFO")
+    logger = Column(String)
+    message = Column(Text)
+    meta = Column(JSON)
+
+    __table_args__ = (
+        Index("idx_command_logs_command_id_id", "command_id", "id"),
+        Index("idx_command_logs_created_at", "created_at"),
+    )
 
 class AuditLog(Base):
     __tablename__ = 'audit_logs'

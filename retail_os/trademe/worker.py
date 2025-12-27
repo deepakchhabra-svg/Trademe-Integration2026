@@ -3,13 +3,28 @@ import sys
 import os
 import json
 import traceback
+import re
+import threading
 from datetime import datetime
 import logging
+from pathlib import Path
 
-# Add project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+# Add repo root to path (robust for different working dirs)
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-from retail_os.core.database import SessionLocal, SystemCommand, CommandStatus, ResourceLock, ListingDraft, InternalProduct, TradeMeListing, PhotoHash
+from retail_os.core.database import (
+    SessionLocal,
+    SystemCommand,
+    CommandStatus,
+    ResourceLock,
+    ListingDraft,
+    InternalProduct,
+    TradeMeListing,
+    PhotoHash,
+    CommandLog,
+)
 from retail_os.core.validator import LaunchLock
 from retail_os.core.standardizer import Standardizer
 from retail_os.strategy.pricing import PricingStrategy
@@ -35,6 +50,74 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+class _DBLogHandler(logging.Handler):
+    """
+    Capture log lines that include `cmd_id=<uuid>` and persist them to the DB.
+    This enables live/persisted per-command logs in the UI.
+    """
+
+    _cmd_re = re.compile(r"cmd_id=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})")
+    _lock = threading.Lock()
+    _buffer: list[dict] = []
+    _last_flush = 0.0
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = record.getMessage()
+            m = self._cmd_re.search(msg)
+            if not m:
+                return
+            cmd_id = m.group(1)
+
+            with self._lock:
+                self._buffer.append(
+                    {
+                        "command_id": cmd_id,
+                        "created_at": datetime.utcnow(),
+                        "level": record.levelname,
+                        "logger": record.name,
+                        "message": msg,
+                        "meta": None,
+                    }
+                )
+
+                now = time.time()
+                # Batch flush for performance.
+                if len(self._buffer) >= 25 or (now - self._last_flush) >= 2.0:
+                    self._flush_locked(now)
+        except Exception:
+            # Never allow logging failures to crash the worker.
+            return
+
+    def flush(self) -> None:
+        with self._lock:
+            self._flush_locked(time.time())
+
+    def _flush_locked(self, now: float) -> None:
+        if not self._buffer:
+            self._last_flush = now
+            return
+        batch = self._buffer[:]
+        self._buffer.clear()
+        self._last_flush = now
+
+        session = SessionLocal()
+        try:
+            # bulk_insert_mappings is fast and avoids ORM overhead.
+            session.bulk_insert_mappings(CommandLog, batch)
+            session.commit()
+        except Exception:
+            session.rollback()
+        finally:
+            session.close()
+
+
+# Attach DB log handler once.
+try:
+    logger.addHandler(_DBLogHandler())
+except Exception:
+    pass
 
 class CommandWorker:
     def __init__(self):
@@ -87,6 +170,7 @@ class CommandWorker:
             cmd_type, payload = self.resolve_command(command)
             
             print(f"Processing Command {command.id} [{cmd_type}]")
+            logger.info(f"CMD_START cmd_id={command.id} type={cmd_type}")
 
             # 2. Move to EXECUTING
             command.status = CommandStatus.EXECUTING
@@ -98,14 +182,17 @@ class CommandWorker:
                 self.execute_logic(command)
                 command.status = CommandStatus.SUCCEEDED
                 print(f"Command {command.id} SUCCEEDED")
+                logger.info(f"CMD_SUCCEEDED cmd_id={command.id} type={cmd_type}")
             except Exception as logic_error:
                 print(f"Command {command.id} FAILED: {logic_error}")
                 command.last_error = str(logic_error)
+                logger.error(f"CMD_FAILED cmd_id={command.id} type={cmd_type} err={logic_error}")
                 
                 # CRITICAL: Do NOT overwrite HUMAN_REQUIRED status set by handler
                 if command.status == CommandStatus.HUMAN_REQUIRED:
                     # Handler already set terminal status, don't increment attempts
                     print(f"   -> Status: HUMAN_REQUIRED (set by handler)")
+                    logger.warning(f"CMD_HUMAN_REQUIRED cmd_id={command.id} type={cmd_type}")
                 else:
                     command.attempts += 1
                     if command.attempts < command.max_attempts:
@@ -115,6 +202,13 @@ class CommandWorker:
             
             command.updated_at = datetime.utcnow()
             session.commit()
+            # Flush any buffered log lines for this command.
+            try:
+                for h in logger.handlers:
+                    if isinstance(h, _DBLogHandler):
+                        h.flush()
+            except Exception:
+                pass
 
         except Exception as e:
             session.rollback()
