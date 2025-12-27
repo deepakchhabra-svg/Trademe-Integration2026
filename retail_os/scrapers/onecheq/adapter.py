@@ -188,6 +188,11 @@ class OneCheqAdapter:
         else:
             # UPDATE
             sp.last_scraped_at = datetime.utcnow()
+            # Always refresh category/ranking metadata even if content snapshot is unchanged.
+            # Otherwise older rows (or newly-added DB columns) never get populated.
+            sp.source_category = data.get("source_category")
+            sp.collection_rank = data.get("collection_rank")
+            sp.collection_page = data.get("collection_page")
             
             if sp.snapshot_hash != current_hash:
                 # Audit Logic
@@ -229,7 +234,6 @@ class OneCheqAdapter:
                 sp.images = local_images if local_images else imgs  # Prefer local
                 sp.collection_rank = data.get("collection_rank")
                 sp.collection_page = data.get("collection_page")
-                sp.source_category = data.get("source_category")
                 sp.snapshot_hash = current_hash
                 
                 self.db.commit()
