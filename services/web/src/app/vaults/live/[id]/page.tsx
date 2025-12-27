@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet } from "../../../_components/api";
 import { Badge } from "../../../_components/Badge";
+import { ListingActions } from "./Actions";
 
 type ListingDetail = {
   id: number;
@@ -111,6 +112,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           </pre>
         </div>
       </div>
+
+      <ListingActions listingDbId={l.id} tmListingId={l.tm_listing_id} internalProductId={l.internal_product_id} />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
