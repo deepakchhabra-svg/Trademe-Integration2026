@@ -22,8 +22,9 @@ export async function apiPostClient<T>(path: string, body: unknown): Promise<T> 
     let detail: string | undefined;
     try {
       const data = (await res.json()) as unknown;
-      if (data && typeof data === "object" && "detail" in data && typeof (data as any).detail === "string") {
-        detail = (data as any).detail;
+      if (data && typeof data === "object" && "detail" in data) {
+        const d = (data as { detail?: unknown }).detail;
+        if (typeof d === "string") detail = d;
       }
     } catch {
       // ignore json parse errors

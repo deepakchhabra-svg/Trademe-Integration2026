@@ -5,12 +5,26 @@ import { Badge } from "../../_components/Badge";
 import { InboxCommandActions } from "./Actions";
 
 type Inbox = {
+  offline?: boolean;
+  error?: string;
   counts: {
     commands_human_required: number;
     commands_retrying: number;
     jobs_failed: number;
     orders_pending: number;
   };
+  groups_human_required?: Array<{
+    type: string;
+    error_code: string;
+    count: number;
+    latest_updated_at: string | null;
+  }>;
+  groups_retrying?: Array<{
+    type: string;
+    status: string;
+    count: number;
+    latest_updated_at: string | null;
+  }>;
   commands_human_required: Array<{
     id: string;
     type: string;
@@ -35,6 +49,8 @@ type Inbox = {
 
 export default async function InboxPage() {
   const inbox = await apiGet<Inbox>("/ops/inbox");
+  const humanGroups = inbox.groups_human_required || [];
+  const retryGroups = inbox.groups_retrying || [];
 
   return (
     <div className="space-y-4">
@@ -50,6 +66,13 @@ export default async function InboxPage() {
         </div>
       </div>
 
+      {inbox.offline ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="font-semibold">API offline / DB unavailable</div>
+          <div className="mt-1 text-xs font-mono whitespace-pre-wrap">{inbox.error || "-"}</div>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4">
@@ -57,6 +80,36 @@ export default async function InboxPage() {
             <div className="mt-1 text-xs text-slate-600">Fix blockers (balance, creds, policy, validation).</div>
           </div>
           <div className="divide-y divide-slate-100">
+            {humanGroups.length ? (
+              <div className="p-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Top groups (scale view)</div>
+                <div className="mt-2 space-y-2">
+                  {humanGroups.slice(0, 10).map((g) => (
+                    <div key={`${g.type}:${g.error_code}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-slate-900">{g.type}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <Badge tone={g.error_code === "NONE" ? "amber" : "red"}>{g.error_code}</Badge>
+                            <Badge tone="blue">{g.count}</Badge>
+                            <span className="text-[11px] text-slate-600">{g.latest_updated_at || "-"}</span>
+                          </div>
+                        </div>
+                        <Link
+                          className="text-xs underline text-slate-700"
+                          href={`/ops/commands?status=NEEDS_ATTENTION&type=${encodeURIComponent(g.type)}`}
+                        >
+                          View in Commands
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-[11px] text-slate-500">
+                  These are grouped so you can clear issues class-by-class instead of scrolling endless rows.
+                </div>
+              </div>
+            ) : null}
             {inbox.commands_human_required.length ? (
               inbox.commands_human_required.map((c) => (
                 <div key={c.id} className="p-4">
@@ -118,6 +171,33 @@ export default async function InboxPage() {
           <div className="mt-1 text-xs text-slate-600">Good for spotting platform outages or stuck workers.</div>
         </div>
         <div className="divide-y divide-slate-100">
+          {retryGroups.length ? (
+            <div className="p-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Top groups (scale view)</div>
+              <div className="mt-2 space-y-2">
+                {retryGroups.slice(0, 10).map((g) => (
+                  <div key={`${g.type}:${g.status}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-medium text-slate-900">{g.type}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <Badge tone="amber">{g.status}</Badge>
+                          <Badge tone="blue">{g.count}</Badge>
+                          <span className="text-[11px] text-slate-600">{g.latest_updated_at || "-"}</span>
+                        </div>
+                      </div>
+                      <Link
+                        className="text-xs underline text-slate-700"
+                        href={`/ops/commands?status=ACTIVE&type=${encodeURIComponent(g.type)}`}
+                      >
+                        View in Commands
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {inbox.commands_retrying.length ? (
             inbox.commands_retrying.map((c) => (
               <div key={c.id} className="p-4">

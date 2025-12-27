@@ -198,18 +198,65 @@ def ops_inbox(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
     """
     try:
         with get_db_session() as session:
+            # True counts (not capped by UI sample limits).
+            human_total = (
+                session.query(func.count(SystemCommand.id)).filter(SystemCommand.status == CommandStatus.HUMAN_REQUIRED).scalar()
+                or 0
+            )
+            retry_total = (
+                session.query(func.count(SystemCommand.id))
+                .filter(SystemCommand.status.in_([CommandStatus.FAILED_RETRYABLE, CommandStatus.EXECUTING]))
+                .scalar()
+                or 0
+            )
+            failed_jobs_total = (
+                session.query(func.count(JobStatus.id)).filter(JobStatus.status == "FAILED").scalar() or 0
+            )
+            pending_orders_total = (
+                session.query(func.count(Order.id)).filter(Order.fulfillment_status == "PENDING").scalar() or 0
+            )
+
+            # Grouped rollups so the inbox stays usable at scale.
+            # (Link from UI to Commands filtered by `type` + `status`.)
+            human_groups_raw = (
+                session.query(
+                    SystemCommand.type.label("type"),
+                    func.coalesce(SystemCommand.error_code, "NONE").label("error_code"),
+                    func.count(SystemCommand.id).label("count"),
+                    func.max(SystemCommand.updated_at).label("latest_updated_at"),
+                )
+                .filter(SystemCommand.status == CommandStatus.HUMAN_REQUIRED)
+                .group_by(SystemCommand.type, func.coalesce(SystemCommand.error_code, "NONE"))
+                .order_by(func.count(SystemCommand.id).desc(), func.max(SystemCommand.updated_at).desc())
+                .limit(25)
+                .all()
+            )
+            retry_groups_raw = (
+                session.query(
+                    SystemCommand.type.label("type"),
+                    SystemCommand.status.label("status"),
+                    func.count(SystemCommand.id).label("count"),
+                    func.max(SystemCommand.updated_at).label("latest_updated_at"),
+                )
+                .filter(SystemCommand.status.in_([CommandStatus.FAILED_RETRYABLE, CommandStatus.EXECUTING]))
+                .group_by(SystemCommand.type, SystemCommand.status)
+                .order_by(func.count(SystemCommand.id).desc(), func.max(SystemCommand.updated_at).desc())
+                .limit(25)
+                .all()
+            )
+
             human_cmds = (
                 session.query(SystemCommand)
                 .filter(SystemCommand.status == CommandStatus.HUMAN_REQUIRED)
                 .order_by(SystemCommand.updated_at.desc())
-                .limit(200)
+                .limit(60)
                 .all()
             )
             retry_cmds = (
                 session.query(SystemCommand)
                 .filter(SystemCommand.status.in_([CommandStatus.FAILED_RETRYABLE, CommandStatus.EXECUTING]))
                 .order_by(SystemCommand.updated_at.desc())
-                .limit(200)
+                .limit(60)
                 .all()
             )
             failed_jobs = (
@@ -221,11 +268,29 @@ def ops_inbox(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
 
             return {
                 "counts": {
-                    "commands_human_required": len(human_cmds),
-                    "commands_retrying": len(retry_cmds),
-                    "jobs_failed": len(failed_jobs),
-                    "orders_pending": len(pending_orders),
+                    "commands_human_required": human_total,
+                    "commands_retrying": retry_total,
+                    "jobs_failed": failed_jobs_total,
+                    "orders_pending": pending_orders_total,
                 },
+                "groups_human_required": [
+                    {
+                        "type": str(g.type),
+                        "error_code": str(g.error_code) if g.error_code is not None else "NONE",
+                        "count": int(g.count) if g.count is not None else 0,
+                        "latest_updated_at": _dt(g.latest_updated_at),
+                    }
+                    for g in human_groups_raw
+                ],
+                "groups_retrying": [
+                    {
+                        "type": str(g.type),
+                        "status": g.status.value if hasattr(g.status, "value") else str(g.status),
+                        "count": int(g.count) if g.count is not None else 0,
+                        "latest_updated_at": _dt(g.latest_updated_at),
+                    }
+                    for g in retry_groups_raw
+                ],
                 "commands_human_required": [
                     {
                         "id": c.id,
@@ -278,6 +343,8 @@ def ops_inbox(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
             "offline": True,
             "error": str(e)[:300],
             "counts": {"commands_human_required": 0, "commands_retrying": 0, "jobs_failed": 0, "orders_pending": 0},
+            "groups_human_required": [],
+            "groups_retrying": [],
             "commands_human_required": [],
             "commands_retrying": [],
             "jobs_failed": [],
