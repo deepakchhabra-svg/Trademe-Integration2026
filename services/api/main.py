@@ -267,6 +267,11 @@ class EnqueueRequest(BaseModel):
     priority: int = 50
 
 
+class CommandCreateResponse(BaseModel):
+    id: str
+    status: str
+
+
 @app.post("/ops/enqueue", response_model=CommandCreateResponse)
 def ops_enqueue(req: EnqueueRequest, _role: Role = Depends(require_role("power"))) -> CommandCreateResponse:
     """
@@ -911,11 +916,6 @@ class CommandCreateRequest(BaseModel):
     type: str = Field(min_length=1)
     payload: dict[str, Any] = Field(default_factory=dict)
     priority: int = 10
-
-
-class CommandCreateResponse(BaseModel):
-    id: str
-    status: str
 
 
 @app.post("/commands", response_model=CommandCreateResponse)
