@@ -143,6 +143,7 @@ def vault_enriched(
                     "enriched_title": sp.enriched_title if sp else None,
                     "enriched_description": sp.enriched_description if sp else None,
                     "images": (sp.images if sp else None) or [],
+                    "source_category": getattr(sp, "source_category", None) if sp else None,
                 }
             )
 

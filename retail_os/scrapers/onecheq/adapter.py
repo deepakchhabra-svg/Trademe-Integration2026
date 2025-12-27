@@ -51,6 +51,10 @@ class OneCheqAdapter:
             try:
                 # 2. Normalize (Unified Schema)
                 unified: UnifiedProduct = normalize_onecheq_row(item)
+
+                # Category/collection partitioning (critical for 20k+ scale)
+                # Store Shopify collection handle as supplier-native category.
+                unified["source_category"] = collection
                 
                 # 3. Validation
                 if not unified["source_listing_id"] or not unified["title"]:
@@ -150,6 +154,7 @@ class OneCheqAdapter:
                 images=local_images if local_images else imgs,  # Prefer local
                 collection_rank=data.get("collection_rank"),
                 collection_page=data.get("collection_page"),
+                source_category=data.get("source_category"),
                 snapshot_hash=current_hash,
                 last_scraped_at=datetime.utcnow()
             )
@@ -217,6 +222,7 @@ class OneCheqAdapter:
                 sp.images = local_images if local_images else imgs  # Prefer local
                 sp.collection_rank = data.get("collection_rank")
                 sp.collection_page = data.get("collection_page")
+                sp.source_category = data.get("source_category")
                 sp.snapshot_hash = current_hash
                 
                 self.db.commit()
