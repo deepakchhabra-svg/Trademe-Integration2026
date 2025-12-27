@@ -1,5 +1,7 @@
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
+import Link from "next/link";
+import { buildQueryString } from "../../_components/pagination";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -22,15 +24,19 @@ export default async function AuditsPage({
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "100")));
+  const entityType = sp.entity_type || "";
+  const entityId = sp.entity_id || "";
+  const action = sp.action || "";
 
-  const qp = new URLSearchParams();
-  qp.set("page", String(page));
-  qp.set("per_page", String(perPage));
-  if (sp.entity_type) qp.set("entity_type", sp.entity_type);
-  if (sp.entity_id) qp.set("entity_id", sp.entity_id);
-  if (sp.action) qp.set("action", sp.action);
+  const qs = buildQueryString(
+    { page, per_page: perPage, entity_type: entityType, entity_id: entityId, action },
+    {},
+  );
+  const data = await apiGet<PageResponse<AuditRow>>(`/audits?${qs}`);
 
-  const data = await apiGet<PageResponse<AuditRow>>(`/audits?${qp.toString()}`);
+  const baseParams = { per_page: perPage, entity_type: entityType, entity_id: entityId, action };
+  const prevHref = `/ops/audits?${buildQueryString(baseParams, { page: Math.max(1, page - 1) })}`;
+  const nextHref = `/ops/audits?${buildQueryString(baseParams, { page: page + 1 })}`;
 
   return (
     <div className="space-y-4">
@@ -45,10 +51,58 @@ export default async function AuditsPage({
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 p-4">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-slate-700">
             Showing {data.items.length} of {data.total}
           </div>
+          <form className="flex flex-wrap items-center gap-2" method="get">
+            <input type="hidden" name="page" value="1" />
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Entity</span>
+              <input
+                name="entity_type"
+                defaultValue={entityType}
+                className="w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                placeholder="Order/Listing"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">ID</span>
+              <input
+                name="entity_id"
+                defaultValue={entityId}
+                className="w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                placeholder="entity id"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Action</span>
+              <input
+                name="action"
+                defaultValue={action}
+                className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                placeholder="VALIDATION_FAIL"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Per</span>
+              <select
+                name="per_page"
+                defaultValue={String(perPage)}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              >
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+            <button type="submit" className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+              Apply
+            </button>
+            <Link className="text-xs text-slate-600 underline" href="/ops/audits">
+              Reset
+            </Link>
+          </form>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -80,6 +134,15 @@ export default async function AuditsPage({
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="flex items-center justify-between border-t border-slate-200 p-4 text-sm">
+          <Link className={`text-slate-700 underline ${page <= 1 ? "pointer-events-none opacity-40" : ""}`} href={prevHref}>
+            Prev
+          </Link>
+          <div className="text-xs text-slate-600">Page {page}</div>
+          <Link className="text-slate-700 underline" href={nextHref}>
+            Next
+          </Link>
         </div>
       </div>
     </div>

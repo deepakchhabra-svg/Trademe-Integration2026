@@ -1,5 +1,7 @@
 import { apiGet } from "../_components/api";
 import { Badge } from "../_components/Badge";
+import Link from "next/link";
+import { buildQueryString } from "../_components/pagination";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -18,20 +20,38 @@ type OrderRow = {
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; per_page?: string }>;
+  searchParams: Promise<{ page?: string; per_page?: string; q?: string; fulfillment_status?: string; payment_status?: string; order_status?: string }>;
 }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
+  const q = sp.q || "";
+  const fulfillmentStatus = sp.fulfillment_status || "";
+  const paymentStatus = sp.payment_status || "";
+  const orderStatus = sp.order_status || "";
 
   let data: PageResponse<OrderRow> | null = null;
   let error: string | null = null;
 
   try {
-    data = await apiGet<PageResponse<OrderRow>>(`/orders?page=${page}&per_page=${perPage}`);
+    const qs = buildQueryString(
+      { page, per_page: perPage, q, fulfillment_status: fulfillmentStatus, payment_status: paymentStatus, order_status: orderStatus },
+      {},
+    );
+    data = await apiGet<PageResponse<OrderRow>>(`/orders?${qs}`);
   } catch (e) {
     error = e instanceof Error ? e.message : "Failed to load orders";
   }
+
+  const baseParams = {
+    per_page: perPage,
+    q,
+    fulfillment_status: fulfillmentStatus,
+    payment_status: paymentStatus,
+    order_status: orderStatus,
+  };
+  const prevHref = `/orders?${buildQueryString(baseParams, { page: Math.max(1, page - 1) })}`;
+  const nextHref = `/orders?${buildQueryString(baseParams, { page: page + 1 })}`;
 
   return (
     <div className="space-y-4">
@@ -53,10 +73,68 @@ export default async function OrdersPage({
 
       {data ? (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 p-4 text-sm text-slate-700">
+          <div className="flex flex-col gap-3 border-b border-slate-200 p-4 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
             <div>
               Showing {data.items.length} of {data.total}
             </div>
+            <form className="flex flex-wrap items-center gap-2" method="get">
+              <input type="hidden" name="page" value="1" />
+              <label className="text-xs text-slate-600">
+                <span className="mr-1">Search</span>
+                <input
+                  name="q"
+                  defaultValue={q}
+                  className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                  placeholder="order ref / buyer"
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                <span className="mr-1">Fulfillment</span>
+                <input
+                  name="fulfillment_status"
+                  defaultValue={fulfillmentStatus}
+                  className="w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                  placeholder="PENDING"
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                <span className="mr-1">Payment</span>
+                <input
+                  name="payment_status"
+                  defaultValue={paymentStatus}
+                  className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                  placeholder="PAID"
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                <span className="mr-1">Order</span>
+                <input
+                  name="order_status"
+                  defaultValue={orderStatus}
+                  className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                  placeholder="CONFIRMED"
+                />
+              </label>
+              <label className="text-xs text-slate-600">
+                <span className="mr-1">Per</span>
+                <select
+                  name="per_page"
+                  defaultValue={String(perPage)}
+                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                >
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </label>
+              <button type="submit" className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+                Apply
+              </button>
+              <Link className="text-xs text-slate-600 underline" href="/orders">
+                Reset
+              </Link>
+            </form>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -85,6 +163,15 @@ export default async function OrdersPage({
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="flex items-center justify-between border-t border-slate-200 p-4 text-sm">
+            <Link className={`text-slate-700 underline ${page <= 1 ? "pointer-events-none opacity-40" : ""}`} href={prevHref}>
+              Prev
+            </Link>
+            <div className="text-xs text-slate-600">Page {page}</div>
+            <Link className="text-slate-700 underline" href={nextHref}>
+              Next
+            </Link>
           </div>
         </div>
       ) : null}

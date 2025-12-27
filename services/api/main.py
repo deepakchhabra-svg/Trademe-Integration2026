@@ -445,13 +445,28 @@ def vault_live(
 def orders(
     page: int = 1,
     per_page: int = 50,
+    q: Optional[str] = None,
+    fulfillment_status: Optional[str] = None,
+    payment_status: Optional[str] = None,
+    order_status: Optional[str] = None,
     _role: Role = Depends(require_role("fulfillment")),
 ) -> PageResponse:
     if page < 1 or per_page < 1 or per_page > 1000:
         raise HTTPException(status_code=400, detail="Invalid pagination")
 
     with get_db_session() as session:
-        query = session.query(Order).order_by(Order.created_at.desc())
+        query = session.query(Order)
+        if q:
+            term = f"%{q}%"
+            query = query.filter((Order.tm_order_ref.ilike(term)) | (Order.buyer_name.ilike(term)))
+        if fulfillment_status:
+            query = query.filter(Order.fulfillment_status == fulfillment_status)
+        if payment_status:
+            query = query.filter(Order.payment_status == payment_status)
+        if order_status:
+            query = query.filter(Order.order_status == order_status)
+
+        query = query.order_by(Order.created_at.desc())
         total = query.count()
         rows = query.offset((page - 1) * per_page).limit(per_page).all()
         items = []

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
+import { buildQueryString } from "../../_components/pagination";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -24,7 +25,11 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
 
-  const data = await apiGet<PageResponse<JobRow>>(`/jobs?page=${page}&per_page=${perPage}`);
+  const baseParams = { per_page: perPage };
+  const qs = buildQueryString({ page, per_page: perPage }, {});
+  const data = await apiGet<PageResponse<JobRow>>(`/jobs?${qs}`);
+  const prevHref = `/ops/jobs?${buildQueryString(baseParams, { page: Math.max(1, page - 1) })}`;
+  const nextHref = `/ops/jobs?${buildQueryString(baseParams, { page: page + 1 })}`;
 
   return (
     <div className="space-y-4">
@@ -75,6 +80,15 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="flex items-center justify-between border-t border-slate-200 p-4 text-sm">
+          <Link className={`text-slate-700 underline ${page <= 1 ? "pointer-events-none opacity-40" : ""}`} href={prevHref}>
+            Prev
+          </Link>
+          <div className="text-xs text-slate-600">Page {page}</div>
+          <Link className="text-slate-700 underline" href={nextHref}>
+            Next
+          </Link>
         </div>
       </div>
     </div>
