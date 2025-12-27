@@ -193,9 +193,8 @@ def scrape_single_item(url: str) -> Optional[Dict]:
     # Extract prices
     current_price, buy_now_price = extract_prices(doc)
     
-    # Extract images
+    # Extract images (up to 4)
     images = parse_images(doc, max_images=4)
-    primary_image = images[0] if images else None
     
     # Extract description
     description = ""
@@ -223,6 +222,12 @@ def scrape_single_item(url: str) -> Optional[Dict]:
     # Use buy_now_price if available, otherwise current_price
     price = buy_now_price if buy_now_price else current_price
     
+    # Expand into photo1..photo4 to align with unified schema
+    photo1 = images[0] if len(images) > 0 else None
+    photo2 = images[1] if len(images) > 1 else None
+    photo3 = images[2] if len(images) > 2 else None
+    photo4 = images[3] if len(images) > 3 else None
+
     return {
         "source_id": f"CC-{item_id}",
         "source_url": url,
@@ -230,7 +235,10 @@ def scrape_single_item(url: str) -> Optional[Dict]:
         "description": description,
         "buy_now_price": price or 0.0,
         "stock_level": 1,
-        "photo1": primary_image,  # Real Azure blob URL or None
+        "photo1": photo1,  # Real Azure blob URL or None
+        "photo2": photo2,
+        "photo3": photo3,
+        "photo4": photo4,
         "source_status": "Available",
         "specs": specs
     }

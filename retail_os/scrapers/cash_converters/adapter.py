@@ -40,7 +40,7 @@ class CashConvertersAdapter:
             "buy_now_price": raw.get("buy_now_price"),
             "source_url": raw.get("source_url"),
             "source_status": raw.get("source_status"),
-            "images": [raw.get("photo1")] if raw.get("photo1") else [],
+            "images": [p for p in [raw.get("photo1"), raw.get("photo2"), raw.get("photo3"), raw.get("photo4")] if p],
             # Standard Fields
             "stock_level": raw.get("stock_level", 0),
             "condition": "Used",
@@ -122,16 +122,16 @@ class CashConvertersAdapter:
             
         imgs = data.get("images", [])
         
-        # PHYSICAL IMAGE DOWNLOAD
+        # PHYSICAL IMAGE DOWNLOAD (up to 4)
         local_images = []
-        if imgs and len(imgs) > 0:
-            primary_url = imgs[0]
-            result = downloader.download_image(primary_url, sku)
+        for idx, img_url in enumerate(imgs[:4], 1):
+            img_sku = f"{sku}_{idx}" if idx > 1 else sku
+            result = downloader.download_image(img_url, img_sku)
             if result["success"]:
                 local_images.append(result["path"])
-                print(f"   -> Downloaded image: {result['path']} ({result['size']} bytes)")
+                print(f"   -> Downloaded image {idx}: {result['path']} ({result['size']} bytes)")
             else:
-                print(f"   -> Image download failed: {result['error']}")
+                print(f"   -> Image {idx} download failed: {result['error']}")
         
         # Calculate Snapshot Hash
         content = f"{data['title']}|{cost}|{data['source_status']}|{local_images}"
