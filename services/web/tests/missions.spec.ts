@@ -83,7 +83,14 @@ test.describe("RetailOS MVP missions (smoke)", () => {
 
     const id = data.items[0]?.id;
     await page.goto(`/vaults/enriched/${id}`);
-    await expect(page.getByText("Trust blockers").or(page.getByText("passes gates"))).toBeVisible();
+    // Either state is acceptable; avoid strict-mode violations by checking each explicitly.
+    const blockers = page.getByText("Trust blockers").first();
+    const passes = page.getByText("passes gates").first();
+    try {
+      await expect(blockers).toBeVisible({ timeout: 3000 });
+    } catch {
+      await expect(passes).toBeVisible();
+    }
   });
 
   test("Mission I (drilldown): open a listing inspector if available", async ({ page, request }) => {
