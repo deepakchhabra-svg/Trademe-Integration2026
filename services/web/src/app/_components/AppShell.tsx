@@ -47,7 +47,9 @@ export default async function AppShell({ children }: { children: React.ReactNode
                 Ops
               </div>
               {canSee(who.role, "power") ? <NavLink href="/ops/inbox" label="Inbox" /> : null}
+              {canSee(who.role, "power") ? <NavLink href="/ops/alerts" label="Alerts" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/trademe" label="Trade Me Health" /> : null}
+              {canSee(who.role, "power") ? <NavLink href="/ops/bulk" label="Bulk Ops" /> : null}
               <NavLink href="/ops/commands" label="Commands" />
               {canSee(who.role, "power") ? <NavLink href="/ops/jobs" label="Jobs" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/audits" label="Audits" /> : null}

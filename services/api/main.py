@@ -188,6 +188,105 @@ def trademe_account_summary(_role: Role = Depends(require_role("power"))) -> dic
     return api.get_account_summary()
 
 
+@app.get("/ops/alerts")
+def ops_alerts(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
+    """
+    Lightweight alert surface (computed from DB + optional Trade Me health).
+    This avoids introducing a new alerts table while still making issues visible.
+    """
+    alerts: list[dict[str, Any]] = []
+
+    # 1) DB-backed alerts
+    with get_db_session() as session:
+        human_count = session.query(SystemCommand).filter(SystemCommand.status == CommandStatus.HUMAN_REQUIRED).count()
+        if human_count:
+            alerts.append(
+                {
+                    "severity": "high",
+                    "code": "COMMANDS_HUMAN_REQUIRED",
+                    "title": "Commands need human attention",
+                    "detail": f"{human_count} commands are HUMAN_REQUIRED",
+                }
+            )
+
+        failed_jobs = session.query(JobStatus).filter(JobStatus.status == "FAILED").count()
+        if failed_jobs:
+            alerts.append(
+                {
+                    "severity": "high",
+                    "code": "JOBS_FAILED",
+                    "title": "Jobs failed",
+                    "detail": f"{failed_jobs} jobs are FAILED",
+                }
+            )
+
+        pending_orders = session.query(Order).filter(Order.fulfillment_status == "PENDING").count()
+        if pending_orders:
+            alerts.append(
+                {
+                    "severity": "medium",
+                    "code": "ORDERS_PENDING",
+                    "title": "Pending fulfillment",
+                    "detail": f"{pending_orders} orders pending fulfillment",
+                }
+            )
+
+    # 2) Trade Me balance alert (best-effort)
+    try:
+        api = TradeMeAPI()
+        summary = api.get_account_summary()
+        balance = float(summary.get("account_balance") or 0.0)
+
+        # Default threshold can be overridden by setting: ops.balance_min
+        min_balance = float(os.getenv("RETAIL_OS_MIN_BALANCE") or 20.0)
+        if balance < min_balance:
+            alerts.append(
+                {
+                    "severity": "high",
+                    "code": "LOW_BALANCE",
+                    "title": "Trade Me account balance low",
+                    "detail": f"Balance ${balance:.2f} is below ${min_balance:.2f}",
+                }
+            )
+    except Exception as e:
+        alerts.append(
+            {
+                "severity": "medium",
+                "code": "TRADEME_HEALTH_UNAVAILABLE",
+                "title": "Trade Me health unavailable",
+                "detail": str(e)[:200],
+            }
+        )
+
+    return {"alerts": alerts, "count": len(alerts)}
+
+
+class EnqueueRequest(BaseModel):
+    type: str = Field(min_length=1)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    priority: int = 50
+
+
+@app.post("/ops/enqueue", response_model=CommandCreateResponse)
+def ops_enqueue(req: EnqueueRequest, _role: Role = Depends(require_role("power"))) -> CommandCreateResponse:
+    """
+    Power-user enqueue endpoint for bulk operations (scrape/enrich/sync).
+    """
+    import uuid
+
+    with get_db_session() as session:
+        cmd = SystemCommand(
+            id=str(uuid.uuid4()),
+            type=req.type,
+            payload=req.payload,
+            status=CommandStatus.PENDING,
+            priority=req.priority,
+        )
+        session.add(cmd)
+        session.commit()
+        return CommandCreateResponse(id=cmd.id, status=cmd.status.value if hasattr(cmd.status, "value") else str(cmd.status))
+
+
 class PageResponse(BaseModel):
     items: list[dict[str, Any]]
     total: int
