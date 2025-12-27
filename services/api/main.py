@@ -89,6 +89,7 @@ def vault_raw(
                     "cost_price": float(sp.cost_price) if sp.cost_price is not None else None,
                     "stock_level": sp.stock_level,
                     "sync_status": sp.sync_status,
+                    "source_category": getattr(sp, "source_category", None),
                     "product_url": sp.product_url,
                     "images": sp.images or [],
                     "specs": sp.specs or {},

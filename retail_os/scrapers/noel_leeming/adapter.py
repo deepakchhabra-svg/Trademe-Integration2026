@@ -66,6 +66,8 @@ class NoelLeemingAdapter:
                     "images": [p for p in [unified.get("photo1"), unified.get("photo2"), unified.get("photo3"), unified.get("photo4")] if p],
                     "stock_level": 1,
                     "specs": {},  # NL specs not extracted yet in this pipeline
+                    # Category partitioning (prefer GTM category; fallback to configured category URL)
+                    "source_category": unified.get("source_category") or category_url,
                 }
 
                 if not data["source_listing_id"] or not data["title"]:
@@ -145,6 +147,7 @@ class NoelLeemingAdapter:
                 product_url=data["source_url"],
                 images=local_images if local_images else imgs, 
                 specs=data.get("specs", {}),
+                source_category=data.get("source_category"),
                 snapshot_hash=current_hash,
                 last_scraped_at=datetime.utcnow()
             )
@@ -175,6 +178,7 @@ class NoelLeemingAdapter:
                 sp.cost_price = cost
                 sp.images = local_images if local_images else imgs
                 sp.specs = data.get("specs", {})
+                sp.source_category = data.get("source_category")
                 sp.snapshot_hash = current_hash
                 
                 self.db.commit()

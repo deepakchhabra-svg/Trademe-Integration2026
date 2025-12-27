@@ -67,6 +67,10 @@ class SupplierProduct(Base):
     last_scraped_at = Column(DateTime)
     snapshot_hash = Column(String) # For Variant Drift detection
     sync_status = Column(String, default="PRESENT") # PRESENT, MISSING_ONCE, REMOVED
+
+    # Categorization (for scaling to 20k+ listings)
+    # Supplier-native category/collection path or identifier.
+    source_category = Column(String)
     
     # Ranking Data (Added for Noel Leeming prioritization)
     collection_rank = Column(Integer)

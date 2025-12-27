@@ -17,7 +17,10 @@ def run_migration():
     migrations = [
         "ALTER TABLE job_status ADD COLUMN items_created INTEGER DEFAULT 0",
         "ALTER TABLE job_status ADD COLUMN items_updated INTEGER DEFAULT 0",
-        "ALTER TABLE job_status ADD COLUMN items_deleted INTEGER DEFAULT 0"
+        "ALTER TABLE job_status ADD COLUMN items_deleted INTEGER DEFAULT 0",
+
+        # SupplierProduct categorization for scale (20k+ listings)
+        "ALTER TABLE supplier_products ADD COLUMN source_category VARCHAR"
     ]
     
     with engine.connect() as conn:
