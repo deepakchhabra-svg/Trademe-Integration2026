@@ -199,6 +199,37 @@ Add new tests in `tests/*.spec.ts` for new features.
 2. Clear `.next` cache: `rm -rf .next` (or `rmdir /s .next` on Windows)
 3. Restart dev server
 
+## Automated Testing
+
+Automated tests are powered by **Playwright** and run in **Demo Mode**.
+
+### Running Tests Locally
+
+```bash
+cd services/web
+# Install dependencies
+npm install
+
+# Run all tests
+npm run test:e2e
+```
+
+### Test Mode (Deterministic Testing)
+
+For CI and deterministic testing, use `NEXT_PUBLIC_TEST_MODE=1`. This forces Demo Mode even if the API is reachable, ensuring tests run against consistent fixture data.
+
+```bash
+# Force test mode and run playwright
+NEXT_PUBLIC_TEST_MODE=1 npx playwright test
+```
+
+### Coverage Goals
+- **Route Visibility**: Every page loads without crashes or console errors.
+- **Link Integrity**: No broken internal links.
+- **Functional Flows**: Core workflows (Vaults, Ops) are exercised.
+
+---
+
 ## Changes Checklist
 
 When making changes to the frontend:

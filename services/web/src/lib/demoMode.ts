@@ -27,6 +27,12 @@ export async function checkApiHealth(): Promise<boolean> {
  * Call this once on app load
  */
 export async function initDemoMode(): Promise<void> {
+    if (process.env.NEXT_PUBLIC_TEST_MODE === "1") {
+        demoModeState = true;
+        console.log("[Demo Mode] Forced ON via TEST_MODE environment variable.");
+        return;
+    }
+
     const isHealthy = await checkApiHealth();
     demoModeState = !isHealthy;
 
@@ -39,6 +45,7 @@ export async function initDemoMode(): Promise<void> {
  * Check if demo mode is enabled
  */
 export function isDemoMode(): boolean {
+    if (process.env.NEXT_PUBLIC_TEST_MODE === "1") return true;
     return demoModeState === true;
 }
 
