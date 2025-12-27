@@ -8,16 +8,20 @@ import sys
 import os
 sys.path.append(os.getcwd())
 
+from typing import Optional
+
 from retail_os.core.database import SessionLocal, SupplierProduct
 from retail_os.core.marketplace_adapter import MarketplaceAdapter
 
-def enrich_batch(batch_size=10, delay_seconds=5):
+def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Optional[int] = None, source_category: Optional[str] = None):
     """
     Process a batch of pending products.
     
     Args:
         batch_size: How many to process in one run
         delay_seconds: Delay between items to respect rate limits
+        supplier_id: Optional supplier scope
+        source_category: Optional category/collection scope within supplier
     """
     db = SessionLocal()
     
@@ -28,10 +32,18 @@ def enrich_batch(batch_size=10, delay_seconds=5):
         # Then newest items first
         from sqlalchemy import desc
         
-        pending = db.query(SupplierProduct).filter(
+        q = db.query(SupplierProduct).filter(
             SupplierProduct.enrichment_status == "PENDING",
             SupplierProduct.cost_price > 0  # Skip invalid prices
-        ).order_by(
+        )
+
+        if supplier_id is not None:
+            q = q.filter(SupplierProduct.supplier_id == int(supplier_id))
+
+        if source_category:
+            q = q.filter(SupplierProduct.source_category == source_category)
+
+        pending = q.order_by(
             SupplierProduct.collection_rank.asc(), # Low rank number = High priority
             SupplierProduct.last_scraped_at.desc()
         ).limit(batch_size).all()
@@ -159,7 +171,8 @@ def enrich_batch(batch_size=10, delay_seconds=5):
                 db.commit()
                 
                 # Rate limit protection
-                time.sleep(delay_seconds)
+                if delay_seconds and delay_seconds > 0:
+                    time.sleep(delay_seconds)
                 
             except Exception as e:
                 item.enrichment_status = "FAILED"
@@ -177,10 +190,12 @@ if __name__ == "__main__":
     
     batch_size = int(sys.argv[1]) if len(sys.argv) > 1 else 10
     delay = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+    supplier_id = int(sys.argv[3]) if len(sys.argv) > 3 else None
+    source_category = sys.argv[4] if len(sys.argv) > 4 else None
     
     print(f"Starting enrichment worker")
     print(f"   Batch size: {batch_size}")
     print(f"   Delay: {delay}s between items")
     print()
     
-    enrich_batch(batch_size, delay)
+    enrich_batch(batch_size=batch_size, delay_seconds=delay, supplier_id=supplier_id, source_category=source_category)
