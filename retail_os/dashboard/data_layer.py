@@ -114,7 +114,7 @@ def fetch_vault_metrics(_session_maker):
         return metrics
 
 @st.cache_data(ttl=60)
-def fetch_vault1_data(search_term=None, page=1, per_page=50):
+def fetch_vault1_data(search_term=None, supplier_id=None, sync_status=None, page=1, per_page=50):
     """Fetch raw supplier products for Vault 1."""
     from retail_os.core.database import get_db_session
     
@@ -127,6 +127,12 @@ def fetch_vault1_data(search_term=None, page=1, per_page=50):
                 (SupplierProduct.title.ilike(term)) |
                 (SupplierProduct.external_sku.ilike(term))
             )
+
+        if supplier_id:
+            query = query.filter(SupplierProduct.supplier_id == int(supplier_id))
+
+        if sync_status and sync_status != "All":
+            query = query.filter(SupplierProduct.sync_status == sync_status)
             
         total = query.count()
         offset = (page - 1) * per_page
@@ -153,7 +159,7 @@ def fetch_vault1_data(search_term=None, page=1, per_page=50):
         return data, total
 
 @st.cache_data(ttl=60)
-def fetch_vault2_data(search_term=None, page=1, per_page=50):
+def fetch_vault2_data(search_term=None, supplier_id=None, enrichment_filter="All", page=1, per_page=50):
     """Fetch sanitized internal products for Vault 2."""
     from retail_os.core.database import get_db_session
     
@@ -166,6 +172,14 @@ def fetch_vault2_data(search_term=None, page=1, per_page=50):
                 (InternalProduct.title.ilike(term)) |
                 (SupplierProduct.enriched_description.ilike(term))
             )
+
+        if supplier_id:
+            query = query.filter(SupplierProduct.supplier_id == int(supplier_id))
+
+        if enrichment_filter == "Enriched":
+            query = query.filter(SupplierProduct.enriched_description.isnot(None))
+        elif enrichment_filter == "Not Enriched":
+            query = query.filter(SupplierProduct.enriched_description.is_(None))
             
         total = query.count()
         offset = (page - 1) * per_page
@@ -192,7 +206,8 @@ def fetch_vault2_data(search_term=None, page=1, per_page=50):
                 "trust_score": None,  # Calculated on-demand in inspector only # FIXED: Real Score
                 "sp_title": sp.title, # For comparison
                 "sp_desc": sp.description,
-                "enriched_desc": sp.enriched_description
+                "enriched_desc": sp.enriched_description,
+                "images": sp.images or [],
             })
             
         return data, total
@@ -222,7 +237,9 @@ def fetch_vault3_data(search_term=None, status_filter="All", page=1, per_page=50
             )
         
         # Ensure we have access to cost price for profit calcs
-        query = query.join(InternalProduct).join(SupplierProduct)
+        query = query.join(InternalProduct, TradeMeListing.internal_product_id == InternalProduct.id).join(
+            SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id
+        )
             
         total = query.count()
         offset = (page - 1) * per_page
@@ -296,12 +313,22 @@ def fetch_orders(limit=50):
     
     with get_db_session() as session:
         orders = session.query(Order).order_by(Order.created_at.desc()).limit(limit).all()
-        return [{
-             "ref": o.tm_order_ref,
-             "buyer": o.buyer_name,
-             "status": o.status, 
-             "date": o.created_at
-         } for o in orders]
+        return [
+            {
+                "ref": o.tm_order_ref,
+                "buyer": o.buyer_name,
+                "sold_price": float(o.sold_price) if o.sold_price is not None else None,
+                "sold_date": o.sold_date,
+                "order_status": o.order_status,
+                "payment_status": o.payment_status,
+                "fulfillment_status": o.fulfillment_status,
+                "tracking_reference": o.tracking_reference,
+                "carrier": o.carrier,
+                "created_at": o.created_at,
+                "updated_at": o.updated_at,
+            }
+            for o in orders
+        ]
 
 def fetch_system_health():
     """Fetch aggregated system health metrics (Heartbeat, Locks, Throughput)."""
