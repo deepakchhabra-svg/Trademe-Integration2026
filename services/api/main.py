@@ -8,8 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from retail_os.core.database import (
+    AuditLog,
     CommandStatus,
     InternalProduct,
+    JobStatus,
+    ListingDraft,
+    ListingMetricSnapshot,
     Order,
     Supplier,
     SupplierProduct,
@@ -46,11 +50,81 @@ class PageResponse(BaseModel):
     total: int
 
 
+def _dt(v: Any) -> Any:
+    if isinstance(v, datetime):
+        return v.isoformat()
+    return v
+
+
+def _serialize_supplier_product(sp: SupplierProduct) -> dict[str, Any]:
+    return {
+        "id": sp.id,
+        "supplier_id": sp.supplier_id,
+        "supplier_name": sp.supplier.name if getattr(sp, "supplier", None) else None,
+        "external_sku": sp.external_sku,
+        "title": sp.title,
+        "description": sp.description,
+        "brand": sp.brand,
+        "condition": sp.condition,
+        "cost_price": float(sp.cost_price) if sp.cost_price is not None else None,
+        "stock_level": sp.stock_level,
+        "product_url": sp.product_url,
+        "images": sp.images or [],
+        "specs": sp.specs or {},
+        "enrichment_status": sp.enrichment_status,
+        "enrichment_error": sp.enrichment_error,
+        "enriched_title": sp.enriched_title,
+        "enriched_description": sp.enriched_description,
+        "last_scraped_at": _dt(sp.last_scraped_at),
+        "snapshot_hash": sp.snapshot_hash,
+        "sync_status": sp.sync_status,
+        "source_category": getattr(sp, "source_category", None),
+        "collection_rank": sp.collection_rank,
+        "collection_page": sp.collection_page,
+    }
+
+
+def _serialize_internal_product(ip: InternalProduct) -> dict[str, Any]:
+    sp = ip.supplier_product
+    return {
+        "id": ip.id,
+        "sku": ip.sku,
+        "title": ip.title,
+        "primary_supplier_product_id": ip.primary_supplier_product_id,
+        "supplier_product": _serialize_supplier_product(sp) if sp else None,
+    }
+
+
+def _serialize_listing(l: TradeMeListing) -> dict[str, Any]:
+    ip = l.product
+    sp = ip.supplier_product if ip else None
+    return {
+        "id": l.id,
+        "tm_listing_id": l.tm_listing_id,
+        "internal_product_id": l.internal_product_id,
+        "actual_state": l.actual_state,
+        "desired_state": l.desired_state,
+        "lifecycle_state": str(l.lifecycle_state) if l.lifecycle_state is not None else None,
+        "is_locked": l.is_locked,
+        "desired_price": float(l.desired_price) if l.desired_price is not None else None,
+        "actual_price": float(l.actual_price) if l.actual_price is not None else None,
+        "view_count": l.view_count,
+        "watch_count": l.watch_count,
+        "category_id": l.category_id,
+        "payload_snapshot": l.payload_snapshot,
+        "payload_hash": l.payload_hash,
+        "last_synced_at": _dt(l.last_synced_at),
+        "internal_product": _serialize_internal_product(ip) if ip else None,
+        "supplier_product": _serialize_supplier_product(sp) if sp else None,
+    }
+
+
 @app.get("/vaults/raw", response_model=PageResponse)
 def vault_raw(
     q: Optional[str] = None,
     supplier_id: Optional[int] = None,
     sync_status: Optional[str] = None,
+    source_category: Optional[str] = None,
     page: int = 1,
     per_page: int = 50,
 ) -> PageResponse:
@@ -69,6 +143,9 @@ def vault_raw(
 
         if sync_status and sync_status != "All":
             query = query.filter(SupplierProduct.sync_status == sync_status)
+
+        if source_category:
+            query = query.filter(SupplierProduct.source_category == source_category)
 
         total = query.count()
         rows = (
@@ -93,7 +170,9 @@ def vault_raw(
                     "product_url": sp.product_url,
                     "images": sp.images or [],
                     "specs": sp.specs or {},
-                    "last_scraped_at": sp.last_scraped_at,
+                    "last_scraped_at": _dt(sp.last_scraped_at),
+                    "enrichment_status": sp.enrichment_status,
+                    "enriched_title": sp.enriched_title,
                 }
             )
 
@@ -104,6 +183,7 @@ def vault_raw(
 def vault_enriched(
     q: Optional[str] = None,
     supplier_id: Optional[int] = None,
+    source_category: Optional[str] = None,
     enrichment: str = "All",  # All | Enriched | Not Enriched
     page: int = 1,
     per_page: int = 50,
@@ -120,6 +200,9 @@ def vault_enriched(
 
         if supplier_id:
             query = query.filter(SupplierProduct.supplier_id == supplier_id)
+
+        if source_category:
+            query = query.filter(SupplierProduct.source_category == source_category)
 
         if enrichment == "Enriched":
             query = query.filter(SupplierProduct.enriched_description.isnot(None))
@@ -144,6 +227,9 @@ def vault_enriched(
                     "enriched_description": sp.enriched_description if sp else None,
                     "images": (sp.images if sp else None) or [],
                     "source_category": getattr(sp, "source_category", None) if sp else None,
+                    "product_url": sp.product_url if sp else None,
+                    "sync_status": sp.sync_status if sp else None,
+                    "enrichment_status": sp.enrichment_status if sp else None,
                 }
             )
 
@@ -154,6 +240,8 @@ def vault_enriched(
 def vault_live(
     q: Optional[str] = None,
     status: str = "All",  # All | Live | Withdrawn | DRY_RUN
+    supplier_id: Optional[int] = None,
+    source_category: Optional[str] = None,
     page: int = 1,
     per_page: int = 50,
 ) -> PageResponse:
@@ -165,6 +253,16 @@ def vault_live(
 
         if status != "All":
             query = query.filter(TradeMeListing.actual_state == status)
+
+        if supplier_id is not None or source_category:
+            query = (
+                query.join(InternalProduct, TradeMeListing.internal_product_id == InternalProduct.id)
+                .join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+            )
+            if supplier_id is not None:
+                query = query.filter(SupplierProduct.supplier_id == int(supplier_id))
+            if source_category:
+                query = query.filter(SupplierProduct.source_category == source_category)
 
         if q:
             term = f"%{q}%"
@@ -193,7 +291,7 @@ def vault_live(
                     "view_count": l.view_count,
                     "watch_count": l.watch_count,
                     "category_id": l.category_id,
-                    "last_synced_at": l.last_synced_at,
+                    "last_synced_at": _dt(l.last_synced_at),
                 }
             )
 
@@ -217,11 +315,11 @@ def orders(page: int = 1, per_page: int = 50) -> PageResponse:
                     "tm_order_ref": o.tm_order_ref,
                     "buyer_name": o.buyer_name,
                     "sold_price": float(o.sold_price) if o.sold_price is not None else None,
-                    "sold_date": o.sold_date,
+                    "sold_date": _dt(o.sold_date),
                     "order_status": o.order_status,
                     "payment_status": o.payment_status,
                     "fulfillment_status": o.fulfillment_status,
-                    "created_at": o.created_at,
+                    "created_at": _dt(o.created_at),
                 }
             )
         return PageResponse(items=items, total=total)
@@ -282,9 +380,259 @@ def list_commands(page: int = 1, per_page: int = 50) -> PageResponse:
                     "attempts": c.attempts,
                     "max_attempts": c.max_attempts,
                     "last_error": c.last_error,
-                    "created_at": c.created_at,
-                    "updated_at": c.updated_at,
+                    "error_code": c.error_code,
+                    "error_message": c.error_message,
+                    "payload": c.payload or {},
+                    "created_at": _dt(c.created_at),
+                    "updated_at": _dt(c.updated_at),
                 }
             )
         return PageResponse(items=items, total=total)
+
+
+@app.get("/commands/{command_id}")
+def command_detail(command_id: str) -> dict[str, Any]:
+    with get_db_session() as session:
+        c = session.query(SystemCommand).filter(SystemCommand.id == command_id).first()
+        if not c:
+            raise HTTPException(status_code=404, detail="Command not found")
+        return {
+            "id": c.id,
+            "type": c.type,
+            "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "priority": c.priority,
+            "attempts": c.attempts,
+            "max_attempts": c.max_attempts,
+            "last_error": c.last_error,
+            "error_code": c.error_code,
+            "error_message": c.error_message,
+            "payload": c.payload or {},
+            "created_at": _dt(c.created_at),
+            "updated_at": _dt(c.updated_at),
+        }
+
+
+@app.get("/supplier-products/{supplier_product_id}")
+def supplier_product_detail(supplier_product_id: int) -> dict[str, Any]:
+    with get_db_session() as session:
+        sp = session.query(SupplierProduct).filter(SupplierProduct.id == supplier_product_id).first()
+        if not sp:
+            raise HTTPException(status_code=404, detail="SupplierProduct not found")
+        return _serialize_supplier_product(sp)
+
+
+@app.get("/internal-products/{internal_product_id}")
+def internal_product_detail(internal_product_id: int) -> dict[str, Any]:
+    with get_db_session() as session:
+        ip = session.query(InternalProduct).filter(InternalProduct.id == internal_product_id).first()
+        if not ip:
+            raise HTTPException(status_code=404, detail="InternalProduct not found")
+        return _serialize_internal_product(ip)
+
+
+@app.get("/listings/{listing_id}")
+def listing_detail(listing_id: int) -> dict[str, Any]:
+    with get_db_session() as session:
+        l = session.query(TradeMeListing).filter(TradeMeListing.id == listing_id).first()
+        if not l:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        data = _serialize_listing(l)
+
+        # Derived diagnostics for power users
+        try:
+            from retail_os.analysis.profitability import ProfitabilityAnalyzer
+
+            sp = l.product.supplier_product if l.product else None
+            if sp and sp.cost_price is not None and (l.actual_price is not None or l.desired_price is not None):
+                price = float(l.actual_price if l.actual_price is not None else l.desired_price)
+                cost = float(sp.cost_price)
+                data["profitability_preview"] = ProfitabilityAnalyzer.predict_profitability(price, cost)
+        except Exception as e:
+            data["profitability_preview_error"] = str(e)[:500]
+
+        try:
+            from retail_os.strategy.lifecycle import LifecycleManager
+
+            data["lifecycle_recommendation"] = LifecycleManager.evaluate_state(l)
+            data["repricing_recommendation"] = LifecycleManager.get_repricing_recommendation(l)
+        except Exception as e:
+            data["lifecycle_error"] = str(e)[:500]
+
+        return data
+
+
+@app.get("/listings/by-tm/{tm_listing_id}")
+def listing_detail_by_tm(tm_listing_id: str) -> dict[str, Any]:
+    with get_db_session() as session:
+        l = session.query(TradeMeListing).filter(TradeMeListing.tm_listing_id == tm_listing_id).first()
+        if not l:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        return listing_detail(l.id)
+
+
+@app.get("/listing-drafts/{command_id}")
+def listing_draft(command_id: str) -> dict[str, Any]:
+    with get_db_session() as session:
+        d = session.query(ListingDraft).filter(ListingDraft.command_id == command_id).first()
+        if not d:
+            raise HTTPException(status_code=404, detail="ListingDraft not found")
+        return {
+            "id": d.id,
+            "command_id": d.command_id,
+            "payload_json": d.payload_json,
+            "validation_results": d.validation_results,
+            "created_at": _dt(d.created_at),
+        }
+
+
+@app.get("/audits", response_model=PageResponse)
+def audits(
+    entity_type: Optional[str] = None,
+    entity_id: Optional[str] = None,
+    action: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 100,
+) -> PageResponse:
+    if page < 1 or per_page < 1 or per_page > 1000:
+        raise HTTPException(status_code=400, detail="Invalid pagination")
+    with get_db_session() as session:
+        q = session.query(AuditLog)
+        if entity_type:
+            q = q.filter(AuditLog.entity_type == entity_type)
+        if entity_id:
+            q = q.filter(AuditLog.entity_id == entity_id)
+        if action:
+            q = q.filter(AuditLog.action == action)
+
+        total = q.count()
+        rows = q.order_by(AuditLog.timestamp.desc()).offset((page - 1) * per_page).limit(per_page).all()
+        items = []
+        for a in rows:
+            items.append(
+                {
+                    "id": a.id,
+                    "timestamp": _dt(a.timestamp),
+                    "user": a.user,
+                    "action": a.action,
+                    "entity_type": a.entity_type,
+                    "entity_id": a.entity_id,
+                    "old_value": a.old_value,
+                    "new_value": a.new_value,
+                }
+            )
+        return PageResponse(items=items, total=total)
+
+
+@app.get("/metrics/listings/{listing_id}", response_model=PageResponse)
+def listing_metrics(listing_id: int, page: int = 1, per_page: int = 200) -> PageResponse:
+    if page < 1 or per_page < 1 or per_page > 1000:
+        raise HTTPException(status_code=400, detail="Invalid pagination")
+    with get_db_session() as session:
+        q = session.query(ListingMetricSnapshot).filter(ListingMetricSnapshot.listing_id == listing_id)
+        total = q.count()
+        rows = (
+            q.order_by(ListingMetricSnapshot.captured_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+        items = []
+        for m in rows:
+            items.append(
+                {
+                    "id": m.id,
+                    "listing_id": m.listing_id,
+                    "captured_at": _dt(m.captured_at),
+                    "view_count": m.view_count,
+                    "watch_count": m.watch_count,
+                    "is_sold": m.is_sold,
+                }
+            )
+        return PageResponse(items=items, total=total)
+
+
+@app.get("/jobs", response_model=PageResponse)
+def jobs(job_type: Optional[str] = None, status: Optional[str] = None, page: int = 1, per_page: int = 50) -> PageResponse:
+    if page < 1 or per_page < 1 or per_page > 1000:
+        raise HTTPException(status_code=400, detail="Invalid pagination")
+    with get_db_session() as session:
+        q = session.query(JobStatus)
+        if job_type:
+            q = q.filter(JobStatus.job_type == job_type)
+        if status:
+            q = q.filter(JobStatus.status == status)
+
+        total = q.count()
+        rows = q.order_by(JobStatus.start_time.desc()).offset((page - 1) * per_page).limit(per_page).all()
+        items = []
+        for j in rows:
+            items.append(
+                {
+                    "id": j.id,
+                    "job_type": j.job_type,
+                    "status": j.status,
+                    "start_time": _dt(j.start_time),
+                    "end_time": _dt(j.end_time),
+                    "items_processed": j.items_processed,
+                    "items_created": j.items_created,
+                    "items_updated": j.items_updated,
+                    "items_deleted": j.items_deleted,
+                    "items_failed": j.items_failed,
+                    "summary": j.summary,
+                }
+            )
+        return PageResponse(items=items, total=total)
+
+
+@app.get("/jobs/{job_id}")
+def job_detail(job_id: int) -> dict[str, Any]:
+    with get_db_session() as session:
+        j = session.query(JobStatus).filter(JobStatus.id == job_id).first()
+        if not j:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {
+            "id": j.id,
+            "job_type": j.job_type,
+            "status": j.status,
+            "start_time": _dt(j.start_time),
+            "end_time": _dt(j.end_time),
+            "items_processed": j.items_processed,
+            "items_created": j.items_created,
+            "items_updated": j.items_updated,
+            "items_deleted": j.items_deleted,
+            "items_failed": j.items_failed,
+            "summary": j.summary,
+        }
+
+
+class SettingUpsertRequest(BaseModel):
+    value: Any
+
+
+@app.get("/settings/{key}")
+def get_setting(key: str) -> dict[str, Any]:
+    with get_db_session() as session:
+        row = session.query(SystemCommand)  # dummy to keep formatting consistent
+        _ = row  # silence unused in some linters
+        from retail_os.core.database import SystemSetting
+
+        s = session.query(SystemSetting).filter(SystemSetting.key == key).first()
+        if not s:
+            raise HTTPException(status_code=404, detail="Setting not found")
+        return {"key": s.key, "value": s.value, "updated_at": _dt(s.updated_at)}
+
+
+@app.put("/settings/{key}")
+def put_setting(key: str, req: SettingUpsertRequest) -> dict[str, Any]:
+    from retail_os.core.database import SystemSetting
+
+    with get_db_session() as session:
+        s = session.query(SystemSetting).filter(SystemSetting.key == key).first()
+        if not s:
+            s = SystemSetting(key=key, value=req.value)
+            session.add(s)
+        else:
+            s.value = req.value
+        session.commit()
+        return {"key": s.key, "value": s.value, "updated_at": _dt(s.updated_at)}
 
