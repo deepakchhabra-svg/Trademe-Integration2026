@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+import os
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -40,9 +41,60 @@ class HealthResponse(BaseModel):
     utc: datetime
 
 
+Role = str
+
+
+ROLE_RANK: dict[Role, int] = {
+    "listing": 10,
+    "fulfillment": 20,
+    "power": 80,
+    "root": 100,
+}
+
+
+def _role_rank(role: Optional[str]) -> int:
+    if not role:
+        return 0
+    return ROLE_RANK.get(role.strip().lower(), 0)
+
+
+def get_request_role(request: Request) -> Role:
+    """
+    Minimal RBAC without interactive login (by design for now).
+    - Set `X-RetailOS-Role` header from the web app (cookie-backed).
+    - If a root token is configured, `X-RetailOS-Token` must match.
+    """
+    role = (request.headers.get("X-RetailOS-Role") or os.getenv("RETAIL_OS_DEFAULT_ROLE") or "root").lower()
+
+    root_token = os.getenv("RETAIL_OS_ROOT_TOKEN")
+    if root_token:
+        supplied = request.headers.get("X-RetailOS-Token")
+        if role == "root" and supplied != root_token:
+            # Don't allow claiming root without token.
+            return "power"
+
+    if role not in ROLE_RANK:
+        return "listing"
+    return role
+
+
+def require_role(min_role: Role):
+    def _dep(role: Role = Depends(get_request_role)) -> Role:
+        if _role_rank(role) < _role_rank(min_role):
+            raise HTTPException(status_code=403, detail=f"Forbidden (requires {min_role})")
+        return role
+
+    return _dep
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", utc=datetime.utcnow())
+
+
+@app.get("/whoami")
+def whoami(role: Role = Depends(get_request_role)) -> dict[str, Any]:
+    return {"role": role, "rank": _role_rank(role)}
 
 
 class PageResponse(BaseModel):
@@ -299,7 +351,11 @@ def vault_live(
 
 
 @app.get("/orders", response_model=PageResponse)
-def orders(page: int = 1, per_page: int = 50) -> PageResponse:
+def orders(
+    page: int = 1,
+    per_page: int = 50,
+    _role: Role = Depends(require_role("fulfillment")),
+) -> PageResponse:
     if page < 1 or per_page < 1 or per_page > 1000:
         raise HTTPException(status_code=400, detail="Invalid pagination")
 
@@ -344,7 +400,10 @@ class CommandCreateResponse(BaseModel):
 
 
 @app.post("/commands", response_model=CommandCreateResponse)
-def create_command(req: CommandCreateRequest) -> CommandCreateResponse:
+def create_command(
+    req: CommandCreateRequest,
+    _role: Role = Depends(require_role("listing")),
+) -> CommandCreateResponse:
     import uuid
 
     with get_db_session() as session:
@@ -391,7 +450,10 @@ def list_commands(page: int = 1, per_page: int = 50) -> PageResponse:
 
 
 @app.get("/commands/{command_id}")
-def command_detail(command_id: str) -> dict[str, Any]:
+def command_detail(
+    command_id: str,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
     with get_db_session() as session:
         c = session.query(SystemCommand).filter(SystemCommand.id == command_id).first()
         if not c:
@@ -471,7 +533,10 @@ def listing_detail_by_tm(tm_listing_id: str) -> dict[str, Any]:
 
 
 @app.get("/listing-drafts/{command_id}")
-def listing_draft(command_id: str) -> dict[str, Any]:
+def listing_draft(
+    command_id: str,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
     with get_db_session() as session:
         d = session.query(ListingDraft).filter(ListingDraft.command_id == command_id).first()
         if not d:
@@ -492,6 +557,7 @@ def audits(
     action: Optional[str] = None,
     page: int = 1,
     per_page: int = 100,
+    _role: Role = Depends(require_role("power")),
 ) -> PageResponse:
     if page < 1 or per_page < 1 or per_page > 1000:
         raise HTTPException(status_code=400, detail="Invalid pagination")
@@ -524,7 +590,12 @@ def audits(
 
 
 @app.get("/metrics/listings/{listing_id}", response_model=PageResponse)
-def listing_metrics(listing_id: int, page: int = 1, per_page: int = 200) -> PageResponse:
+def listing_metrics(
+    listing_id: int,
+    page: int = 1,
+    per_page: int = 200,
+    _role: Role = Depends(require_role("power")),
+) -> PageResponse:
     if page < 1 or per_page < 1 or per_page > 1000:
         raise HTTPException(status_code=400, detail="Invalid pagination")
     with get_db_session() as session:
@@ -552,7 +623,13 @@ def listing_metrics(listing_id: int, page: int = 1, per_page: int = 200) -> Page
 
 
 @app.get("/jobs", response_model=PageResponse)
-def jobs(job_type: Optional[str] = None, status: Optional[str] = None, page: int = 1, per_page: int = 50) -> PageResponse:
+def jobs(
+    job_type: Optional[str] = None,
+    status: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 50,
+    _role: Role = Depends(require_role("power")),
+) -> PageResponse:
     if page < 1 or per_page < 1 or per_page > 1000:
         raise HTTPException(status_code=400, detail="Invalid pagination")
     with get_db_session() as session:
@@ -585,7 +662,7 @@ def jobs(job_type: Optional[str] = None, status: Optional[str] = None, page: int
 
 
 @app.get("/jobs/{job_id}")
-def job_detail(job_id: int) -> dict[str, Any]:
+def job_detail(job_id: int, _role: Role = Depends(require_role("power"))) -> dict[str, Any]:
     with get_db_session() as session:
         j = session.query(JobStatus).filter(JobStatus.id == job_id).first()
         if not j:
@@ -610,7 +687,7 @@ class SettingUpsertRequest(BaseModel):
 
 
 @app.get("/settings/{key}")
-def get_setting(key: str) -> dict[str, Any]:
+def get_setting(key: str, _role: Role = Depends(require_role("root"))) -> dict[str, Any]:
     with get_db_session() as session:
         row = session.query(SystemCommand)  # dummy to keep formatting consistent
         _ = row  # silence unused in some linters
@@ -623,7 +700,7 @@ def get_setting(key: str) -> dict[str, Any]:
 
 
 @app.put("/settings/{key}")
-def put_setting(key: str, req: SettingUpsertRequest) -> dict[str, Any]:
+def put_setting(key: str, req: SettingUpsertRequest, _role: Role = Depends(require_role("root"))) -> dict[str, Any]:
     from retail_os.core.database import SystemSetting
 
     with get_db_session() as session:
