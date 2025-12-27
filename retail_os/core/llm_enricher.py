@@ -72,15 +72,15 @@ class LLMEnricher:
                 return self._call_gemini(prompt)
         except Exception as e:
             # Graceful fallback: return original description if API fails
-            error_msg = f"LLM Enrichment failed (using original): {str(e)[:100]}"
+            error_msg = f"LLM Enrichment failed (using original): {str(e)[:200]}"
             # ASCII-safe error logging
             try:
                 print(error_msg)
             except UnicodeEncodeError:
                 print("LLM Enrichment failed (using original): API error")
             
-            # Return original description as fallback
-            return raw_desc
+            # Return original description with a marker so downstream can template-fallback
+            return f"⚠️ LLM FAILURE\n\n{raw_desc}"
 
     def _call_openai(self, prompt: str) -> str:
         headers = {

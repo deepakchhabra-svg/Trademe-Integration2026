@@ -10,8 +10,68 @@ sys.path.append(os.getcwd())
 
 from typing import Optional
 
-from retail_os.core.database import SessionLocal, SupplierProduct
+from retail_os.core.database import SessionLocal, SupplierProduct, SystemSetting
 from retail_os.core.marketplace_adapter import MarketplaceAdapter
+
+
+def _get_enrichment_policy(db) -> dict:
+    """
+    SystemSetting key: `enrichment.policy`
+    Value shape:
+      {
+        "default": "NONE" | "TEMPLATE" | "AI",
+        "by_supplier": {
+           "CASH_CONVERTERS": "AI",
+           "NOEL_LEEMING": "NONE",
+           "ONECHEQ": "NONE"
+        }
+      }
+    """
+    default_policy = {
+        # Cost-aware default: no LLM calls unless explicitly enabled
+        "default": "NONE",
+        "by_supplier": {
+            "CASH_CONVERTERS": "AI",
+            "NOEL_LEEMING": "NONE",
+            "ONECHEQ": "NONE",
+        },
+    }
+    row = db.query(SystemSetting).filter(SystemSetting.key == "enrichment.policy").first()
+    if not row or not isinstance(row.value, dict):
+        return default_policy
+    merged = {**default_policy, **row.value}
+    if "by_supplier" in row.value and isinstance(row.value["by_supplier"], dict):
+        merged["by_supplier"] = {**default_policy["by_supplier"], **row.value["by_supplier"]}
+    return merged
+
+
+def _build_minimal_template(title: str, specs: dict) -> str:
+    """
+    Deterministic, premium-minimal template. No hallucinations: uses only known specs.
+    """
+    title_lower = title.lower()
+    if any(word in title_lower for word in ["ring", "pendant", "necklace", "bracelet", "earring"]):
+        intro = f"Minimal, premium piece: {title}."
+    elif any(word in title_lower for word in ["laptop", "computer", "tablet", "phone", "ipad", "macbook"]):
+        intro = f"Minimal, premium device: {title}."
+    else:
+        intro = f"Minimal, premium item: {title}."
+
+    parts = [intro, ""]
+
+    if specs:
+        parts.append("**Specifications**")
+        for k, v in list(specs.items())[:10]:
+            parts.append(f"• **{str(k).replace('_', ' ').title()}**: {v}")
+        parts.append("")
+
+    parts.append("**Condition & Inclusions**")
+    condition = specs.get("Condition", specs.get("condition", "See listing details"))
+    parts.append(f"Condition: {condition}")
+    parts.append("")
+    parts.append("**Notes**")
+    parts.append("Please review the specifications carefully before purchase.")
+    return "\n".join(parts)
 
 def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Optional[int] = None, source_category: Optional[str] = None):
     """
@@ -26,6 +86,8 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
     db = SessionLocal()
     
     try:
+        policy = _get_enrichment_policy(db)
+
         # Get pending products
         # Get pending products
         # Prioritize Priority 1 items (Noel Leeming has collection_rank > 0)
@@ -43,7 +105,9 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
         if source_category:
             q = q.filter(SupplierProduct.source_category == source_category)
 
-        pending = q.order_by(
+        # Eager load supplier to avoid extra queries per row (and to apply supplier policy)
+        from sqlalchemy.orm import joinedload
+        pending = q.options(joinedload(SupplierProduct.supplier)).order_by(
             SupplierProduct.collection_rank.asc(), # Low rank number = High priority
             SupplierProduct.last_scraped_at.desc()
         ).limit(batch_size).all()
@@ -57,116 +121,46 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
         for item in pending:
             try:
                 print(f"  Processing {item.external_sku}...")
-                
-                # Run enrichment
-                result = MarketplaceAdapter.prepare_for_trademe(item)
-                
-                # Check if LLM failed - use smart factual template
-                if "⚠️ LLM FAILURE" in result['description']:
-                    print(f"    LLM failed, generating smart template...")
-                    
-                    title = result['title']
-                    specs = item.specs or {}
-                    
-                    # Detect category from title
-                    title_lower = title.lower()
-                    
-                    # Category-specific intros (factual only)
-                    if any(word in title_lower for word in ['ring', 'pendant', 'necklace', 'bracelet', 'earring']):
-                        category = 'jewelry'
-                        intro = f"Add elegance to your collection with this {title.lower()}."
-                    elif any(word in title_lower for word in ['laptop', 'computer', 'tablet', 'phone', 'ipad', 'macbook']):
-                        category = 'electronics'
-                        intro = f"Enhance your productivity with this {title.lower()}."
-                    elif any(word in title_lower for word in ['drill', 'saw', 'tool', 'hammer', 'wrench']):
-                        category = 'tools'
-                        intro = f"Complete your workshop with this {title.lower()}."
-                    elif any(word in title_lower for word in ['watch', 'clock']):
-                        category = 'timepiece'
-                        intro = f"Keep time in style with this {title.lower()}."
+
+                supplier_name = (item.supplier.name if getattr(item, "supplier", None) else "").upper()
+                mode = (policy.get("by_supplier", {}).get(supplier_name) or policy.get("default") or "NONE").upper()
+
+                if mode == "AI":
+                    result = MarketplaceAdapter.prepare_for_trademe(item, use_ai=True)
+                    if "⚠️ LLM FAILURE" in (result.get("description") or ""):
+                        # AI failed or rate-limited -> deterministic minimal template (no hallucinations)
+                        title = result["title"]
+                        template_desc = _build_minimal_template(title=title, specs=item.specs or {})
+                        item.enriched_title = title
+                        item.enriched_description = template_desc
+                        item.enrichment_status = "SUCCESS"
+                        item.enrichment_error = None
+                        print("    SUCCESS (AI failed -> template)")
                     else:
-                        category = 'general'
-                        intro = f"Discover this quality {title.lower()}."
-                    
-                    desc_parts = [intro, ""]
-                    
-                    # Add specs - formatted by category
-                    if specs:
-                        desc_parts.append("**Product Details**")
-                        
-                        # Smart spec ordering based on category
-                        priority_keys = {
-                            'jewelry': ['Material', 'Weight', 'Size', 'Condition', 'Stamp'],
-                            'electronics': ['Model', 'Processor', 'RAM', 'Storage', 'Condition'],
-                            'tools': ['Brand', 'Model', 'Power', 'Condition'],
-                            'general': []
-                        }
-                        
-                        ordered_specs = []
-                        priority = priority_keys.get(category, [])
-                        
-                        # Add priority specs first
-                        for key in priority:
-                            for spec_key, spec_value in specs.items():
-                                if key.lower() in spec_key.lower():
-                                    ordered_specs.append((spec_key, spec_value))
-                                    break
-                        
-                        # Add remaining specs
-                        for spec_key, spec_value in specs.items():
-                            if (spec_key, spec_value) not in ordered_specs:
-                                ordered_specs.append((spec_key, spec_value))
-                        
-                        # Format specs cleanly
-                        for key, value in ordered_specs[:8]:  # Max 8 specs
-                            formatted_key = key.replace('_', ' ').title()
-                            desc_parts.append(f"• **{formatted_key}**: {value}")
-                        
-                        desc_parts.append("")
-                    
-                    # Factual condition statement
-                    condition = specs.get('Condition', specs.get('condition', 'See description'))
-                    desc_parts.append("**Item Condition**")
-                    desc_parts.append(f"Condition: {condition}")
-                    desc_parts.append("")
-                    
-                    # Category-specific value propositions (factual)
-                    desc_parts.append("**Why Buy?**")
-                    if category == 'jewelry':
-                        desc_parts.append("✓ Authenticated materials as described")
-                        desc_parts.append("✓ Detailed specifications provided")
-                        desc_parts.append("✓ Quality pre-owned jewelry")
-                    elif category == 'electronics':
-                        desc_parts.append("✓ Tested and functional")
-                        desc_parts.append("✓ Full specifications listed")
-                        desc_parts.append("✓ Ready to use")
-                    elif category == 'tools':
-                        desc_parts.append("✓ Professional-grade equipment")
-                        desc_parts.append("✓ Specifications verified")
-                        desc_parts.append("✓ Ready for your next project")
-                    else:
-                        desc_parts.append("✓ Quality item as described")
-                        desc_parts.append("✓ Full details provided")
-                        desc_parts.append("✓ Ready for purchase")
-                    
-                    desc_parts.append("")
-                    desc_parts.append("**Purchase Information**")
-                    desc_parts.append("All items sold as described. Please review specifications carefully before purchase.")
-                    
-                    template_desc = "\n".join(desc_parts)
-                    
+                        item.enrichment_status = "SUCCESS"
+                        item.enrichment_error = None
+                        item.enriched_title = result["title"]
+                        item.enriched_description = result["description"]
+                        print("    SUCCESS (AI)")
+
+                elif mode == "TEMPLATE":
+                    # No LLM calls even if key exists.
+                    result = MarketplaceAdapter.prepare_for_trademe(item, use_ai=False)
+                    title = result["title"]
+                    item.enriched_title = title
+                    item.enriched_description = _build_minimal_template(title=title, specs=item.specs or {})
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None
-                    item.enriched_title = result['title']
-                    item.enriched_description = template_desc
-                    print(f"    SUCCESS (smart template - {category})")
+                    print("    SUCCESS (TEMPLATE)")
+
                 else:
-                    # LLM succeeded
+                    # NONE = heuristic-only (SEO + Standardizer), no LLM calls.
+                    result = MarketplaceAdapter.prepare_for_trademe(item, use_ai=False)
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None
-                    item.enriched_title = result['title']
-                    item.enriched_description = result['description']
-                    print(f"    SUCCESS (LLM)")
+                    item.enriched_title = result["title"]
+                    item.enriched_description = result["description"]
+                    print("    SUCCESS (NONE)")
                 
                 db.commit()
                 

@@ -15,7 +15,7 @@ from retail_os.strategy.pricing import PricingStrategy
 class MarketplaceAdapter:
     
     @staticmethod
-    def prepare_for_trademe(item: Any) -> Dict[str, Any]:
+    def prepare_for_trademe(item: Any, use_ai: bool | None = None) -> Dict[str, Any]:
         """
         Takes a SupplierProduct (DB Object) and transforms it into a Retail-Ready Dictionary.
         Applies:
@@ -32,11 +32,15 @@ class MarketplaceAdapter:
         # 2. Build Description
         # LOGIC BRANCH: GEN AI vs HEURISTIC
         from retail_os.core.llm_enricher import enricher
+        enrichment_failed = False
         
         # Check explicit env var to avoid singleton state issues
         api_key = os.getenv("GEMINI_API_KEY")
+        if use_ai is True and not api_key:
+            # Explicitly requested AI but no key is configured.
+            use_ai = False
         
-        if api_key:
+        if (use_ai is True) or (use_ai is None and api_key):
             # PATH A: GENERATIVE AI (Gemini 2.0)
             from retail_os.utils.seo import clean_description
             clean_input = clean_description(item.description or "")
