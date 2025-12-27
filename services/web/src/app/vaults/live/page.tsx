@@ -13,64 +13,78 @@ type LiveItem = {
   last_synced_at: string | null;
 };
 
-async function getLive(): Promise<PageResponse<LiveItem>> {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-  const res = await fetch(`${base}/vaults/live?page=1&per_page=50`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Failed: ${res.status}`);
-  return (await res.json()) as PageResponse<LiveItem>;
-}
+import Link from "next/link";
+import { apiGet } from "../../_components/api";
+import { Badge } from "../../_components/Badge";
 
-export default async function LiveVault() {
-  const data = await getLive();
+export default async function LiveVault({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; per_page?: string; q?: string; status?: string }>;
+}) {
+  const sp = await searchParams;
+  const page = Math.max(1, Number(sp.page || "1"));
+  const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
+
+  const qp = new URLSearchParams();
+  qp.set("page", String(page));
+  qp.set("per_page", String(perPage));
+  if (sp.q) qp.set("q", sp.q);
+  if (sp.status) qp.set("status", sp.status);
+
+  const data = await apiGet<PageResponse<LiveItem>>(`/vaults/live?${qp.toString()}`);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Vault 3 (Live)</h1>
-            <p className="mt-1 text-sm text-slate-600">Trade Me listings</p>
-          </div>
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a className="text-sm text-slate-700 underline" href="/">
-            Home
-          </a>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Vault 3 · Listings</h1>
+          <p className="mt-1 text-sm text-slate-600">Click to inspect trust, profitability, payload drift, lifecycle.</p>
         </div>
+        <Badge tone="blue">
+          Page {page} · {perPage}/page
+        </Badge>
+      </div>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 p-4">
-            <div className="text-sm text-slate-700">
-              Showing {data.items.length} of {data.total}
-            </div>
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-200 p-4">
+          <div className="text-sm text-slate-700">
+            Showing {data.items.length} of {data.total}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">TM ID</th>
-                  <th className="px-4 py-3">State</th>
-                  <th className="px-4 py-3">Lifecycle</th>
-                  <th className="px-4 py-3">Price</th>
-                  <th className="px-4 py-3">Views</th>
-                  <th className="px-4 py-3">Watch</th>
-                  <th className="px-4 py-3">Synced</th>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">TM ID</th>
+                <th className="px-4 py-3">State</th>
+                <th className="px-4 py-3">Lifecycle</th>
+                <th className="px-4 py-3">Price</th>
+                <th className="px-4 py-3">Views</th>
+                <th className="px-4 py-3">Watch</th>
+                <th className="px-4 py-3">Synced</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((it) => (
+                <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    <Link className="underline" href={`/vaults/live/${it.id}`}>
+                      {it.id}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs">{it.tm_listing_id || "-"}</td>
+                  <td className="px-4 py-3">{it.actual_state || "-"}</td>
+                  <td className="px-4 py-3">{it.lifecycle_state || "-"}</td>
+                  <td className="px-4 py-3">{it.actual_price == null ? "-" : `$${it.actual_price.toFixed(2)}`}</td>
+                  <td className="px-4 py-3">{it.view_count ?? 0}</td>
+                  <td className="px-4 py-3">{it.watch_count ?? 0}</td>
+                  <td className="px-4 py-3">{it.last_synced_at || "-"}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {data.items.map((it) => (
-                  <tr key={it.id} className="border-t border-slate-100">
-                    <td className="px-4 py-3 font-mono text-xs">{it.tm_listing_id || "-"}</td>
-                    <td className="px-4 py-3">{it.actual_state || "-"}</td>
-                    <td className="px-4 py-3">{it.lifecycle_state || "-"}</td>
-                    <td className="px-4 py-3">{it.actual_price == null ? "-" : `$${it.actual_price.toFixed(2)}`}</td>
-                    <td className="px-4 py-3">{it.view_count ?? 0}</td>
-                    <td className="px-4 py-3">{it.watch_count ?? 0}</td>
-                    <td className="px-4 py-3">{it.last_synced_at || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

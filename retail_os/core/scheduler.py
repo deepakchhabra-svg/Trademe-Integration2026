@@ -78,6 +78,8 @@ class SpectatorScheduler:
         """Auto-enqueue scrape for all suppliers"""
         session = SessionLocal()
         try:
+            store_mode = self._get_setting(session, "store.mode", {"mode": "NORMAL"})
+            mode = str(store_mode.get("mode", "NORMAL")).upper()
             cfg = self._get_setting(
                 session,
                 "scheduler.scrape",
@@ -91,8 +93,13 @@ class SpectatorScheduler:
                 },
             )
             self.interval_minutes = int(cfg.get("interval_minutes") or self.interval_minutes)
+            # Seasonality / holiday throttling
+            if mode in ["HOLIDAY", "PAUSED"]:
+                cfg["enabled"] = False
+            elif mode in ["SLOW"]:
+                cfg["interval_minutes"] = max(int(cfg.get("interval_minutes") or self.interval_minutes), 240)
             if not cfg.get("enabled", True):
-                logger.info("SCHEDULER: scrape_job disabled by setting")
+                logger.info(f"SCHEDULER: scrape_job disabled (store_mode={mode})")
                 return
 
             suppliers = session.query(Supplier).all()
@@ -169,6 +176,8 @@ class SpectatorScheduler:
         """Auto-enqueue enrich for all suppliers"""
         session = SessionLocal()
         try:
+            store_mode = self._get_setting(session, "store.mode", {"mode": "NORMAL"})
+            mode = str(store_mode.get("mode", "NORMAL")).upper()
             cfg = self._get_setting(
                 session,
                 "scheduler.enrich",
@@ -183,8 +192,13 @@ class SpectatorScheduler:
                 },
             )
             self.interval_minutes = int(cfg.get("interval_minutes") or self.interval_minutes)
+            # Seasonality / holiday throttling
+            if mode in ["HOLIDAY", "PAUSED"]:
+                cfg["enabled"] = False
+            elif mode in ["SLOW"]:
+                cfg["interval_minutes"] = max(int(cfg.get("interval_minutes") or self.interval_minutes), 360)
             if not cfg.get("enabled", True):
-                logger.info("SCHEDULER: enrich_job disabled by setting")
+                logger.info(f"SCHEDULER: enrich_job disabled (store_mode={mode})")
                 return
 
             suppliers = session.query(Supplier).all()
