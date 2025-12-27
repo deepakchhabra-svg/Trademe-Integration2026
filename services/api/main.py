@@ -22,6 +22,7 @@ from retail_os.core.database import (
     TradeMeListing,
     get_db_session,
 )
+from retail_os.core.validator import LaunchLock
 
 
 app = FastAPI(title="RetailOS API", version="0.1.0")
@@ -520,7 +521,58 @@ def listing_detail(listing_id: int) -> dict[str, Any]:
         except Exception as e:
             data["lifecycle_error"] = str(e)[:500]
 
+        try:
+            if l.product:
+                report = LaunchLock(session).trust_engine.get_product_trust_report(l.product)
+                data["trust_report"] = {
+                    "score": report.score,
+                    "is_trusted": report.is_trusted,
+                    "blockers": report.blockers,
+                    "breakdown": report.breakdown,
+                }
+        except Exception as e:
+            data["trust_error"] = str(e)[:500]
+
         return data
+
+
+@app.get("/trust/internal-products/{internal_product_id}")
+def trust_internal_product(
+    internal_product_id: int,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    with get_db_session() as session:
+        ip = session.query(InternalProduct).filter(InternalProduct.id == internal_product_id).first()
+        if not ip:
+            raise HTTPException(status_code=404, detail="InternalProduct not found")
+        report = LaunchLock(session).trust_engine.get_product_trust_report(ip)
+        return {
+            "internal_product_id": ip.id,
+            "score": report.score,
+            "is_trusted": report.is_trusted,
+            "blockers": report.blockers,
+            "breakdown": report.breakdown,
+        }
+
+
+@app.get("/validate/internal-products/{internal_product_id}")
+def validate_internal_product(
+    internal_product_id: int,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Runs LaunchLock validation without making Trade Me API calls.
+    Useful for surfacing gate reasons in the UI.
+    """
+    with get_db_session() as session:
+        ip = session.query(InternalProduct).filter(InternalProduct.id == internal_product_id).first()
+        if not ip:
+            raise HTTPException(status_code=404, detail="InternalProduct not found")
+        try:
+            LaunchLock(session).validate_publish(ip, test_mode=True)
+            return {"internal_product_id": ip.id, "ok": True, "reason": None}
+        except Exception as e:
+            return {"internal_product_id": ip.id, "ok": False, "reason": str(e)[:2000]}
 
 
 @app.get("/listings/by-tm/{tm_listing_id}")
