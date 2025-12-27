@@ -161,9 +161,11 @@ def scrape_onecheq_product(url: str) -> Optional[Dict]:
                         title = norm_ws(str(name))
                         raise StopIteration()
         except StopIteration:
+            # Used for control flow to break out of nested JSON-LD parsing loops once a title is found.
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            # Best-effort JSON-LD parsing; ignore failures but log for debugging.
+            print(f"Error parsing JSON-LD product data: {e}")
     
     # Extract SKU
     sku = product_id
@@ -210,9 +212,11 @@ def scrape_onecheq_product(url: str) -> Optional[Dict]:
                             price = float(str(pval).replace(",", "").strip())
                             raise StopIteration()
         except StopIteration:
+            # Used to break out of nested loops once a valid price has been found.
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            # Best-effort JSON-LD parsing; ignore failures but log for debugging.
+            print(f"Error while parsing JSON-LD price data: {e}")
     
     # Extract condition
     condition = "Used"  # Default for OneCheq
@@ -267,9 +271,11 @@ def scrape_onecheq_product(url: str) -> Optional[Dict]:
                         description = norm_ws(str(desc))
                         raise StopIteration()
         except StopIteration:
+            # Used for early exit once a valid description has been found.
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            # Best-effort JSON-LD parsing; ignore failures but log for debugging.
+            print(f"Error parsing JSON-LD for description: {e}")
 
     # Hard last resort: use slug-derived title so adapter doesn't drop the row
     if not title:

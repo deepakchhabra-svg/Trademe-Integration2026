@@ -884,7 +884,6 @@ class CommandWorker:
             from retail_os.core.database import TradeMeListing, InternalProduct, AuditLog, SystemCommand, CommandStatus
             from retail_os.scrapers.competitor_scanner import CompetitorScanner
             import uuid
-            import json
 
             listing = None
             ip = None

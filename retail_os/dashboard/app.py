@@ -201,7 +201,6 @@ def render_vault1(session) -> None:
         per_page = st.selectbox("Per page", [50, 100, 200, 500], index=1, key="v1_per_page")
 
     # Use data layer for count + page rows (same filters)
-    page = 1
     products, total = fetch_vault1_data(
         search_term=search or None,
         supplier_id=supplier_id,
