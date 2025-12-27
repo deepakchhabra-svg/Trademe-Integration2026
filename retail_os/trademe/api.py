@@ -8,6 +8,7 @@ from requests_oauthlib import OAuth1
 from datetime import datetime
 from sqlalchemy.orm import Session
 from retail_os.core.database import PhotoHash
+from dotenv import load_dotenv
 
 # Config
 # Ideally this comes from a Config class, but simple env vars for now
@@ -17,6 +18,15 @@ MAX_RETRIES = 3
 
 class TradeMeAPI:
     def __init__(self):
+        # Load dotenv if present (repo-root anchored), without requiring callers to do it.
+        # This does NOT print secrets; it just allows local/dev to work when a .env exists.
+        try:
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            load_dotenv(os.path.join(repo_root, ".env"), override=False)
+            load_dotenv(override=False)
+        except Exception:
+            pass
+
         consumer_key = os.getenv("CONSUMER_KEY")
         consumer_secret = os.getenv("CONSUMER_SECRET")
         access_token = os.getenv("ACCESS_TOKEN")
