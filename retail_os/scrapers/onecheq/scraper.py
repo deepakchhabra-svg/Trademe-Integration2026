@@ -5,6 +5,7 @@ Extracts: title, description, price, specs, images, SKU, condition
 """
 import re
 import json
+import time
 from typing import Optional, Dict, List
 from selectolax.parser import HTMLParser
 import httpx
@@ -12,20 +13,29 @@ import httpx
 
 def get_html_via_httpx(url: str) -> Optional[str]:
     """Fetch HTML using httpx with proper headers."""
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-        }
-        
-        with httpx.Client(headers=headers, follow_redirects=True, timeout=15.0) as client:
-            response = client.get(url)
-            response.raise_for_status()
-            return response.text
-    except Exception as e:
-        print(f"HTTP Error: {e}")
-        return None
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-NZ,en;q=0.9",
+    }
+
+    # Real retry/backoff for transient supplier instability (503/429/timeouts).
+    # This is not a mock: it just makes the scraper resilient to real-world flakiness.
+    for attempt in range(1, 5):
+        try:
+            with httpx.Client(headers=headers, follow_redirects=True, timeout=20.0) as client:
+                response = client.get(url)
+                if response.status_code in (429, 503, 502, 504):
+                    raise httpx.HTTPStatusError(f"{response.status_code} from supplier", request=response.request, response=response)
+                response.raise_for_status()
+                return response.text
+        except Exception as e:
+            wait = min(8.0, 0.7 * (2 ** (attempt - 1)))
+            print(f"HTTP Error (attempt {attempt}/4): {e}")
+            if attempt < 4:
+                time.sleep(wait)
+                continue
+            return None
 
 
 def norm_ws(text: str) -> str:

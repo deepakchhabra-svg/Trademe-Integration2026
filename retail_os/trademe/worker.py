@@ -330,9 +330,147 @@ class CommandWorker:
                 session.close()
                 return
             
-            # --- REAL PUBLISH MODE (Original Logic) ---
+            # --- REAL PUBLISH MODE (Guardrails + Original Logic) ---
             if not self.api:
                 raise Exception("API wrapper not available.")
+
+            # Guardrails (store mode, quotas, rate limits, stale-truth checks)
+            from retail_os.core.database import SystemSetting
+
+            def _get_setting(key: str, default: dict) -> dict:
+                row = session.query(SystemSetting).filter(SystemSetting.key == key).first()
+                if not row:
+                    return default
+                if isinstance(row.value, dict):
+                    return {**default, **row.value}
+                return default
+
+            store = _get_setting("store.mode", {"mode": "NORMAL"})
+            store_mode = str(store.get("mode", "NORMAL")).upper()
+            if store_mode in ["PAUSED", "HOLIDAY"]:
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "PUBLISH_DISABLED_STORE_MODE"
+                command.error_message = f"Publishing disabled in store.mode={store_mode}"
+                session.commit()
+                raise ValueError(command.error_message)
+
+            policy = _get_setting(
+                "publishing.policy",
+                {
+                    "enabled": True,
+                    "max_publishes_per_day": 100,
+                    "max_publishes_per_minute": 6,
+                    "min_account_balance_nzd": 20.0,
+                    "require_recent_scrape_minutes": 1440,
+                },
+            )
+            if not bool(policy.get("enabled", True)):
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "PUBLISH_DISABLED"
+                command.error_message = "Publishing disabled by publishing.policy"
+                session.commit()
+                raise ValueError(command.error_message)
+
+            # Stale truth: enforce fresh supplier scrape + (if approved_from_dryrun exists) hash must match
+            sp = prod.supplier_product
+            if not sp:
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "MISSING_SUPPLIER_PRODUCT"
+                command.error_message = "Cannot publish: InternalProduct has no linked SupplierProduct"
+                session.commit()
+                raise ValueError(command.error_message)
+
+            require_minutes = int(policy.get("require_recent_scrape_minutes") or 0)
+            if require_minutes and sp.last_scraped_at:
+                age = datetime.utcnow() - sp.last_scraped_at
+                if age.total_seconds() > (require_minutes * 60):
+                    command.status = CommandStatus.HUMAN_REQUIRED
+                    command.error_code = "STALE_SUPPLIER_TRUTH"
+                    command.error_message = f"Supplier truth too old ({int(age.total_seconds()/60)}m); scrape before publish"
+                    session.commit()
+                    raise ValueError(command.error_message)
+
+            # If this publish was approved from a DRY_RUN, require snapshot hash match (drift-safe)
+            approved_from = (payload or {}).get("approved_from_dryrun")
+            if approved_from:
+                dr = session.query(SystemCommand).filter(SystemCommand.id == str(approved_from)).first()
+                expected_hash = None
+                try:
+                    expected_hash = (dr.payload or {}).get("supplier_snapshot_hash") if dr else None
+                except Exception:
+                    expected_hash = None
+                if expected_hash and sp.snapshot_hash and str(expected_hash) != str(sp.snapshot_hash):
+                    command.status = CommandStatus.HUMAN_REQUIRED
+                    command.error_code = "DRYRUN_DRIFT_DETECTED"
+                    command.error_message = "Supplier product changed since DRY_RUN approval; regenerate DRY_RUN"
+                    session.commit()
+                    raise ValueError(command.error_message)
+
+            # Daily quota check (non-dry-run publishes)
+            max_per_day = int(policy.get("max_publishes_per_day") or 0)
+            if max_per_day:
+                from datetime import date
+
+                today = date.today()
+                rows = (
+                    session.query(SystemCommand)
+                    .filter(SystemCommand.type == "PUBLISH_LISTING")
+                    .filter(SystemCommand.status == CommandStatus.SUCCEEDED)
+                    .filter(SystemCommand.updated_at.isnot(None))
+                    .all()
+                )
+                published_today = 0
+                for r in rows:
+                    try:
+                        if r.updated_at and r.updated_at.date() == today and not bool((r.payload or {}).get("dry_run", False)):
+                            published_today += 1
+                    except Exception:
+                        continue
+                if published_today >= max_per_day:
+                    command.status = CommandStatus.HUMAN_REQUIRED
+                    command.error_code = "PUBLISH_DAILY_QUOTA_REACHED"
+                    command.error_message = f"Daily publish quota reached ({published_today}/{max_per_day})"
+                    session.commit()
+                    raise ValueError(command.error_message)
+
+            # Per-minute rate limit: sleep if we're at/over limit
+            max_per_min = int(policy.get("max_publishes_per_minute") or 0)
+            if max_per_min:
+                window_start = datetime.utcnow() - timedelta(seconds=60)
+                recent = (
+                    session.query(SystemCommand)
+                    .filter(SystemCommand.type == "PUBLISH_LISTING")
+                    .filter(SystemCommand.status == CommandStatus.SUCCEEDED)
+                    .filter(SystemCommand.updated_at >= window_start)
+                    .all()
+                )
+                recent_real = 0
+                for r in recent:
+                    try:
+                        if not bool((r.payload or {}).get("dry_run", False)):
+                            recent_real += 1
+                    except Exception:
+                        continue
+                if recent_real >= max_per_min:
+                    # Simple deterministic backoff to keep TM happy.
+                    time.sleep(12)
+
+            # Balance check (preflight) to prevent fee explosions
+            min_bal = float(policy.get("min_account_balance_nzd") or 0.0)
+            if min_bal > 0:
+                try:
+                    summary = self.api.get_account_summary()
+                    bal = summary.get("account_balance") or summary.get("balance")
+                    bal_f = float(bal) if bal is not None else None
+                    if bal_f is not None and bal_f < min_bal:
+                        command.status = CommandStatus.HUMAN_REQUIRED
+                        command.error_code = "INSUFFICIENT_BALANCE"
+                        command.error_message = f"Needs top-up. Current Balance: ${bal_f:.2f} (min ${min_bal:.2f})"
+                        session.commit()
+                        raise ValueError(command.error_message)
+                except Exception:
+                    # If balance check fails (API hiccup), continue and let publish handler decide.
+                    pass
             
             # Phase 1: Pre-Flight (Lock)
             print(f"   -> [Phase 1] Validation for InternalProduct {internal_id}")
@@ -795,9 +933,41 @@ class CommandWorker:
             )
 
             # Optional recommendation: if we are priced above market by >5%, enqueue a price update suggestion.
+            # Throttle + profit guardrails (configurable)
+            from retail_os.core.database import SystemSetting
+            cfg = session.query(SystemSetting).filter(SystemSetting.key == "competitor.policy").first()
+            pol = cfg.value if cfg and isinstance(cfg.value, dict) else {}
+            if pol.get("enabled") is False:
+                market = market  # no-op, keep audit record
+            else:
+                max_per_hour = int(pol.get("max_scans_per_hour") or 0)
+                if max_per_hour:
+                    window = datetime.utcnow() - timedelta(hours=1)
+                    scans = (
+                        session.query(AuditLog)
+                        .filter(AuditLog.action == "COMPETITOR_SCAN")
+                        .filter(AuditLog.timestamp >= window)
+                        .count()
+                    )
+                    if scans >= max_per_hour:
+                        session.commit()
+                        return
+
             if my_price is not None and market is not None and scanner.check_competitor_undercut(my_price, market):
                 suggested = round(market * 0.99, 2)  # slight undercut; final rounding is strategy-owned later
                 if listing is not None and listing.tm_listing_id:
+                    # Optional profit floor: don't chase market into unprofitable territory
+                    min_profit = float(pol.get("min_profit_nzd") or 0.0) if isinstance(pol, dict) else 0.0
+                    if min_profit and ip.supplier_product and ip.supplier_product.cost_price is not None:
+                        try:
+                            from retail_os.analysis.profitability import ProfitabilityAnalyzer
+
+                            check = ProfitabilityAnalyzer.predict_profitability(suggested, float(ip.supplier_product.cost_price))
+                            if float(check.get("net_profit") or 0.0) < min_profit:
+                                session.commit()
+                                return
+                        except Exception:
+                            pass
                     session.add(
                         SystemCommand(
                             id=str(uuid.uuid4()),

@@ -55,6 +55,7 @@ def test_live_cash_converters_scrape_writes_db():
 @pytest.mark.live
 def test_live_noel_leeming_scrape_writes_db():
     # NOTE: Noel Leeming scraper is selenium-based and requires a working browser/driver.
+    # Noel Leeming blocks some hosted environments (HTTP 403). If blocked, this run is not feasible.
     from retail_os.core.database import init_db, SessionLocal, Supplier, SupplierProduct
     from retail_os.scrapers.noel_leeming.adapter import NoelLeemingAdapter
 
@@ -66,7 +67,12 @@ def test_live_noel_leeming_scrape_writes_db():
     )
     pages = int(os.getenv("RETAILOS_NL_PAGES", "1"))
 
-    NoelLeemingAdapter().run_sync(pages=pages, category_url=category_url, deep_scrape=False, headless=True)
+    try:
+        NoelLeemingAdapter().run_sync(pages=pages, category_url=category_url, deep_scrape=False, headless=True)
+    except RuntimeError as e:
+        if "HTTP 403" in str(e):
+            pytest.skip(str(e))
+        raise
 
     session = SessionLocal()
     try:
@@ -83,6 +89,16 @@ def test_live_trademe_account_summary():
     # Real code, real credentials (must be present in env).
     # This is non-destructive.
     from retail_os.trademe.api import TradeMeAPI
+
+    if not all(
+        [
+            os.getenv("CONSUMER_KEY"),
+            os.getenv("CONSUMER_SECRET"),
+            os.getenv("ACCESS_TOKEN"),
+            os.getenv("ACCESS_TOKEN_SECRET"),
+        ]
+    ):
+        pytest.skip("Trade Me credentials not set in environment")
 
     api = TradeMeAPI()
     summary = api.get_account_summary()

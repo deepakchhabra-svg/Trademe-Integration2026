@@ -235,6 +235,28 @@ def ops_alerts(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
                 }
             )
 
+        # Supplier removals that still appear live on marketplace (withdraw should be queued)
+        try:
+            removed_live = (
+                session.query(SupplierProduct)
+                .join(InternalProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+                .join(TradeMeListing, TradeMeListing.internal_product_id == InternalProduct.id)
+                .filter(SupplierProduct.sync_status == "REMOVED")
+                .filter(TradeMeListing.actual_state == "Live")
+                .count()
+            )
+            if removed_live:
+                alerts.append(
+                    {
+                        "severity": "high",
+                        "code": "REMOVED_ITEMS_STILL_LIVE",
+                        "title": "Removed supplier items still live",
+                        "detail": f"{removed_live} supplier-REMOVED items are still Live on Trade Me (withdraw should run)",
+                    }
+                )
+        except Exception:
+            pass
+
     # 2) Trade Me balance alert (best-effort)
     try:
         api = TradeMeAPI()
@@ -420,6 +442,34 @@ def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(r
         if store_mode in ["HOLIDAY", "PAUSED"]:
             raise HTTPException(status_code=409, detail=f"Publishing disabled in store.mode={store_mode}")
 
+        # Enforce publishing policy quotas to avoid runaway spend
+        pub = session.query(SystemSetting).filter(SystemSetting.key == "publishing.policy").first()
+        pub_cfg: dict[str, Any] = pub.value if pub and isinstance(pub.value, dict) else {}
+        max_per_day = int(pub_cfg.get("max_publishes_per_day") or 0)
+        if max_per_day:
+            from datetime import date
+
+            today = date.today()
+            rows_today = (
+                session.query(SystemCommand)
+                .filter(SystemCommand.type == "PUBLISH_LISTING")
+                .filter(SystemCommand.status == CommandStatus.SUCCEEDED)
+                .filter(SystemCommand.updated_at.isnot(None))
+                .all()
+            )
+            published_today = 0
+            for c in rows_today:
+                try:
+                    if c.updated_at and c.updated_at.date() == today and not bool((c.payload or {}).get("dry_run", False)):
+                        published_today += 1
+                except Exception:
+                    continue
+            remaining = max(0, max_per_day - published_today)
+            if remaining <= 0:
+                raise HTTPException(status_code=409, detail=f"Daily publish quota reached ({published_today}/{max_per_day})")
+            # Hard cap this enqueue to remaining quota
+            req.limit = min(int(req.limit), int(remaining))
+
         q = session.query(TradeMeListing).join(InternalProduct).join(SupplierProduct)
         q = q.filter(TradeMeListing.actual_state == "DRY_RUN")
         if req.supplier_id is not None:
@@ -512,6 +562,7 @@ def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(r
             "skipped_bad_dryrun_id": skipped_bad_dryrun_id,
             "requested_limit": req.limit,
             "store_mode": store_mode,
+            "quota_max_per_day": int(pub_cfg.get("max_publishes_per_day") or 0),
         }
 
 
