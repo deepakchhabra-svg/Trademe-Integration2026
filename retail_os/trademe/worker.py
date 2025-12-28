@@ -5,7 +5,7 @@ import json
 import traceback
 import re
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from pathlib import Path
 
@@ -74,7 +74,7 @@ class _DBLogHandler(logging.Handler):
                 self._buffer.append(
                     {
                         "command_id": cmd_id,
-                        "created_at": datetime.utcnow(),
+                        "created_at": datetime.now(timezone.utc),
                         "level": record.levelname,
                         "logger": record.name,
                         "message": msg,
@@ -174,7 +174,7 @@ class CommandWorker:
 
             # 2. Move to EXECUTING
             command.status = CommandStatus.EXECUTING
-            command.updated_at = datetime.utcnow()
+            command.updated_at = datetime.now(timezone.utc)
             session.commit()
 
             # 3. Execute Logic (Simulated for Vertical Slice Phase 1)
@@ -200,7 +200,7 @@ class CommandWorker:
                     else:
                         command.status = CommandStatus.HUMAN_REQUIRED
             
-            command.updated_at = datetime.utcnow()
+            command.updated_at = datetime.now(timezone.utc)
             session.commit()
             # Flush any buffered log lines for this command.
             try:
@@ -263,13 +263,13 @@ class CommandWorker:
                 tm = session.query(TradeMeListing).filter(TradeMeListing.tm_listing_id == str(listing_id)).first()
                 if tm:
                     tm.actual_price = float(new_price)
-                    tm.last_synced_at = datetime.utcnow()
+                    tm.last_synced_at = datetime.now(timezone.utc)
                     session.add(
                         PriceHistory(
                             listing_id=tm.id,
                             price=float(new_price),
                             change_type="STRATEGY",
-                            timestamp=datetime.utcnow(),
+                            timestamp=datetime.now(timezone.utc),
                         )
                     )
                 session.commit()
@@ -388,7 +388,7 @@ class CommandWorker:
                     sp = prod.supplier_product
                     if cmd_row and sp:
                         cmd_payload = cmd_row.payload or {}
-                        cmd_payload["dry_run_generated_at"] = datetime.utcnow().isoformat()
+                        cmd_payload["dry_run_generated_at"] = datetime.now(timezone.utc).isoformat()
                         cmd_payload["supplier_snapshot_hash"] = sp.snapshot_hash
                         cmd_payload["supplier_last_scraped_at"] = (
                             sp.last_scraped_at.isoformat() if sp.last_scraped_at else None
@@ -415,14 +415,14 @@ class CommandWorker:
                         actual_state="DRY_RUN",
                         payload_snapshot=payload_json,
                         payload_hash=payload_hash,
-                        last_synced_at=datetime.utcnow()
+                        last_synced_at=datetime.now(timezone.utc)
                     )
                     session.add(tm_listing)
                 else:
                     tm_listing.actual_state = "DRY_RUN"
                     tm_listing.payload_snapshot = payload_json
                     tm_listing.payload_hash = payload_hash
-                    tm_listing.last_synced_at = datetime.utcnow()
+                    tm_listing.last_synced_at = datetime.now(timezone.utc)
 
                 # ListingDraft is the single source-of-truth review object for payloads
                 draft = session.query(ListingDraft).filter_by(command_id=command.id).first()
@@ -508,7 +508,7 @@ class CommandWorker:
 
             require_minutes = int(policy.get("require_recent_scrape_minutes") or 0)
             if require_minutes and sp.last_scraped_at:
-                age = datetime.utcnow() - sp.last_scraped_at
+                age = datetime.now(timezone.utc) - sp.last_scraped_at
                 if age.total_seconds() > (require_minutes * 60):
                     command.status = CommandStatus.HUMAN_REQUIRED
                     command.error_code = "STALE_SUPPLIER_TRUTH"
@@ -562,7 +562,7 @@ class CommandWorker:
             # Per-minute rate limit: sleep if we're at/over limit
             max_per_min = int(policy.get("max_publishes_per_minute") or 0)
             if max_per_min:
-                window_start = datetime.utcnow() - timedelta(seconds=60)
+                window_start = datetime.now(timezone.utc) - timedelta(seconds=60)
                 recent = (
                     session.query(SystemCommand)
                     .filter(SystemCommand.type == "PUBLISH_LISTING")
@@ -1263,7 +1263,7 @@ class CommandWorker:
                                 old_value=None,
                                 new_value=str(details)[:2000],
                                 user="SellingSyncer",
-                                timestamp=datetime.utcnow(),
+                                timestamp=datetime.now(timezone.utc),
                             )
                         )
                         session.commit()
@@ -1277,13 +1277,13 @@ class CommandWorker:
                     parsed_price = details.get("ParsedPrice")
                     if parsed_price is not None:
                         tm.actual_price = float(parsed_price)
-                    tm.last_synced_at = datetime.utcnow()
+                    tm.last_synced_at = datetime.now(timezone.utc)
 
                     # Snapshot metrics
                     session.add(
                         ListingMetricSnapshot(
                             listing_id=tm.id,
-                            captured_at=datetime.utcnow(),
+                            captured_at=datetime.now(timezone.utc),
                             view_count=tm.view_count,
                             watch_count=tm.watch_count,
                             is_sold=False,
