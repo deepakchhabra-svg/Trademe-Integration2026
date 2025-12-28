@@ -25,6 +25,7 @@ from retail_os.core.database import (
     PhotoHash,
     CommandLog,
 )
+from retail_os.core.database import init_db
 from retail_os.core.validator import LaunchLock
 from retail_os.core.standardizer import Standardizer
 from retail_os.strategy.pricing import PricingStrategy
@@ -35,6 +36,13 @@ from dotenv import load_dotenv
 
 # Load Environment for Workers
 load_dotenv()
+
+# Ensure schema exists before the worker starts polling.
+# (Playwright/CI can start the worker before any API request hits init_db.)
+try:
+    init_db()
+except Exception as e:
+    print(f"Worker startup: init_db failed: {e}")
 
 # Setup Logging
 log_dir = os.path.join(os.path.dirname(__file__), '../../logs')

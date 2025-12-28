@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiGet } from "../../../_components/api";
 import { Badge } from "../../../_components/Badge";
+import { ErrorState } from "../../../../components/ui/ErrorState";
 import { CommandActions } from "./Actions";
 import { LiveCommandPanel } from "./LivePanel";
 import { CommandLogsPanel } from "./LogsPanel";
@@ -32,7 +33,24 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default async function CommandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const cmd = await apiGet<CommandDetail>(`/commands/${encodeURIComponent(id)}`);
+  let cmd: CommandDetail | null = null;
+  try {
+    cmd = await apiGet<CommandDetail>(`/commands/${encodeURIComponent(id)}`);
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error("Command not found");
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Link className="text-sm text-slate-600 underline" href="/ops/commands">
+            Commands
+          </Link>
+          <span className="text-sm text-slate-400">/</span>
+          <span className="text-sm font-medium text-slate-900">{id}</span>
+        </div>
+        <ErrorState error={err} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

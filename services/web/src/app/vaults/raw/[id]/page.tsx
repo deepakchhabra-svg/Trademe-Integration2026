@@ -52,7 +52,7 @@ export default async function RawDetailPage({ params }: { params: Promise<{ id: 
         Vault 1
       </Link>
       <span className="text-slate-400">/</span>
-      <span className="font-medium text-slate-900">Product #{sp.id}</span>
+      <span className="font-medium text-slate-900">SupplierProduct #{sp.id}</span>
     </div>
   );
 

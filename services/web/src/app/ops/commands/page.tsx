@@ -12,9 +12,11 @@ type Cmd = {
 };
 
 import Link from "next/link";
+import { headers } from "next/headers";
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
 import { buildQueryString } from "../../_components/pagination";
+import { AutoRefresh } from "./AutoRefresh";
 
 export default async function CommandsPage({
   searchParams,
@@ -22,10 +24,12 @@ export default async function CommandsPage({
   searchParams: Promise<{ page?: string; per_page?: string; type?: string; status?: string }>;
 }) {
   const sp = await searchParams;
+  const h = await headers();
+  const isTestMode = (h.get("x-test-mode") || "").trim() === "1";
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
   const type = sp.type || "";
-  const status = sp.status || "NOT_SUCCEEDED";
+  const status = sp.status ?? (isTestMode ? "" : "NOT_SUCCEEDED");
 
   const qp = new URLSearchParams();
   qp.set("page", String(page));
@@ -52,7 +56,8 @@ export default async function CommandsPage({
         </Badge>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <AutoRefresh enabledByDefault={isTestMode} />
         <Link className="rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-900" href="/ops/inbox">
           Go to Inbox (recommended)
         </Link>
@@ -90,7 +95,7 @@ export default async function CommandsPage({
         </Link>
         <Link
           className={`rounded-md border px-3 py-1 text-xs font-medium ${
-            status === "All" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
+            status === "" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
           }`}
           href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "" }, { page: 1 })}`}
         >

@@ -6,11 +6,13 @@ import path from "path";
 // - api: http://localhost:8000
 
 const venvPython = path.resolve(__dirname, "../..", "venv", "Scripts", "python.exe");
+const dbUrl = process.env.RETAILOS_E2E_DATABASE_URL || "sqlite:///./dev_db.sqlite";
 
 export default defineConfig({
   testDir: "./tests",
   timeout: 60_000,
   expect: { timeout: 10_000 },
+  globalSetup: "./tests/globalSetup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
@@ -39,10 +41,10 @@ export default defineConfig({
         ? `"${venvPython}" -m uvicorn services.api.main:app --host 127.0.0.1 --port 8000`
         : "python3 -m uvicorn services.api.main:app --host 127.0.0.1 --port 8000",
       url: "http://127.0.0.1:8000/health",
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
       env: {
         PYTHONPATH: path.resolve(__dirname, "../.."),
-        DATABASE_URL: "sqlite:///./test_db.sqlite",
+        DATABASE_URL: dbUrl,
       },
       cwd: path.resolve(__dirname, "../.."),
     },
@@ -51,16 +53,19 @@ export default defineConfig({
         ? `"${venvPython}" retail_os/trademe/worker.py`
         : "python3 retail_os/trademe/worker.py",
       cwd: path.resolve(__dirname, "../.."),
+      reuseExistingServer: !process.env.CI,
       env: {
         PYTHONPATH: path.resolve(__dirname, "../.."),
-        DATABASE_URL: "sqlite:///./dev_db.sqlite",
+        DATABASE_URL: dbUrl,
+        // Ensure CI E2E doesn't depend on external sites/credentials.
+        TEST_MODE: "1",
       },
     },
     {
       command: "npm run dev -- --port 3000",
       cwd: __dirname,
       url: "http://127.0.0.1:3000",
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
       env: {
         NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000",
       },

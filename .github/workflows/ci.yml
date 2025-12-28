@@ -85,24 +85,11 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      - name: Initialize Database (Real Mode)
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: sqlite:///dev_db.sqlite
-        run: python scripts/seed_smoke_data.py
-
-      - name: Start Backend & Worker
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: sqlite:///dev_db.sqlite
-        run: |
-          python -m uvicorn services.api.main:app --host 127.0.0.1 --port 8000 &
-          python retail_os/trademe/worker.py &
-          sleep 5
-
       - name: Run Playwright
         env:
           NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+          PYTHONPATH: ${{ github.workspace }}
+          RETAILOS_E2E_DATABASE_URL: sqlite:///./dev_db.sqlite
         run: npx playwright test --project=chromium --shard=${{ matrix.shard }}/4
 
       - name: Upload Playwright report

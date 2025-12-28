@@ -129,61 +129,63 @@ export function DataTable<T extends Record<string, unknown>>({
                 </table>
             </div>
 
-            <div className="flex items-center justify-between text-sm" data-testid="table-pagination-controls">
-                <div className="flex gap-2">
-                    <Link
-                        href="?page=1"
-                        data-testid="pagination-first"
-                        className={`rounded-md border px-3 py-1.5 ${currentPage === 1
-                            ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                            }`}
-                        aria-disabled={currentPage === 1}
-                    >
-                        First
-                    </Link>
-                    <Link
-                        href={`?page=${Math.max(1, currentPage - 1)}`}
-                        data-testid="pagination-prev"
-                        className={`rounded-md border px-3 py-1.5 ${currentPage === 1
-                            ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                            }`}
-                        aria-disabled={currentPage === 1}
-                    >
-                        Prev
-                    </Link>
-                </div>
+            {totalPages > 1 ? (
+                <div className="flex items-center justify-between text-sm" data-testid="table-pagination-controls">
+                    <div className="flex gap-2">
+                        <Link
+                            href="?page=1"
+                            data-testid="pagination-first"
+                            className={`rounded-md border px-3 py-1.5 ${currentPage === 1
+                                ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                }`}
+                            aria-disabled={currentPage === 1}
+                        >
+                            First
+                        </Link>
+                        <Link
+                            href={`?page=${Math.max(1, currentPage - 1)}`}
+                            data-testid="pagination-prev"
+                            className={`rounded-md border px-3 py-1.5 ${currentPage === 1
+                                ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                }`}
+                            aria-disabled={currentPage === 1}
+                        >
+                            Prev
+                        </Link>
+                    </div>
 
-                <div className="text-xs text-slate-600" data-testid="pagination-current">
-                    Page {currentPage} of {totalPages}
-                </div>
+                    <div className="text-xs text-slate-600" data-testid="pagination-current">
+                        Page {currentPage} of {totalPages}
+                    </div>
 
-                <div className="flex gap-2">
-                    <Link
-                        href={`?page=${Math.min(totalPages, currentPage + 1)}`}
-                        data-testid="pagination-next"
-                        className={`rounded-md border px-3 py-1.5 ${currentPage === totalPages
-                            ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                            }`}
-                        aria-disabled={currentPage === totalPages}
-                    >
-                        Next
-                    </Link>
-                    <Link
-                        href={`?page=${totalPages}`}
-                        data-testid="pagination-last"
-                        className={`rounded-md border px-3 py-1.5 ${currentPage === totalPages
-                            ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                            }`}
-                        aria-disabled={currentPage === totalPages}
-                    >
-                        Last
-                    </Link>
+                    <div className="flex gap-2">
+                        <Link
+                            href={`?page=${Math.min(totalPages, currentPage + 1)}`}
+                            data-testid="pagination-next"
+                            className={`rounded-md border px-3 py-1.5 ${currentPage === totalPages
+                                ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                }`}
+                            aria-disabled={currentPage === totalPages}
+                        >
+                            Next
+                        </Link>
+                        <Link
+                            href={`?page=${totalPages}`}
+                            data-testid="pagination-last"
+                            className={`rounded-md border px-3 py-1.5 ${currentPage === totalPages
+                                ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                }`}
+                            aria-disabled={currentPage === totalPages}
+                        >
+                            Last
+                        </Link>
+                    </div>
                 </div>
-            </div>
+            ) : null}
         </div>
     );
 }
