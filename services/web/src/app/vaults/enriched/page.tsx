@@ -18,11 +18,13 @@ type EnrichedItem = {
 
 import Link from "next/link";
 import { apiGet } from "../../_components/api";
-import { Badge } from "../../_components/Badge";
-import { buildQueryString } from "../../_components/pagination";
+import { PageHeader } from "../../../components/ui/PageHeader";
+import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { buttonClass } from "../../_components/ui";
 
 function imgSrc(raw: string): string {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
   if (raw.startsWith("/media/")) return `${base}${raw}`;
   return raw;
 }
@@ -50,158 +52,121 @@ export default async function EnrichedVault({
 
   const data = await apiGet<PageResponse<EnrichedItem>>(`/vaults/enriched?${qp.toString()}`);
 
-  const baseParams = {
-    per_page: perPage,
-    q,
-    supplier_id: supplierId,
-    enrichment,
-    source_category: sourceCategory,
-  };
-  const prevHref = `/vaults/enriched?${buildQueryString(baseParams, { page: Math.max(1, page - 1) })}`;
-  const nextHref = `/vaults/enriched?${buildQueryString(baseParams, { page: page + 1 })}`;
+  const columns: ColumnDef<EnrichedItem>[] = [
+    {
+      key: "id",
+      label: "ID",
+      render: (val) => (
+        <Link className="text-slate-900 underline" href={`/vaults/enriched/${val}`} data-testid={`lnk-id-${val}`}>
+          {val as number}
+        </Link>
+      )
+    },
+    {
+      key: "images",
+      label: "Img",
+      render: (val, row) => (val as string[])?.length ? (
+        <Link href={`/vaults/enriched/${row.id}`} className="block w-12" data-testid={`lnk-img-${row.id}`}>
+          <img
+            alt=""
+            src={imgSrc((val as string[])[0])}
+            className="h-10 w-12 rounded-md border border-slate-200 object-cover"
+          />
+        </Link>
+      ) : (
+        <div className="h-10 w-12 rounded-md border border-dashed border-slate-200 bg-slate-50" />
+      )
+    },
+    { key: "sku", label: "SKU", className: "font-mono text-xs" },
+    {
+      key: "title",
+      label: "Title",
+      render: (val, row) => (
+        <Link className="text-slate-900 hover:underline" href={`/vaults/enriched/${row.id}`} data-testid={`lnk-title-${row.id}`}>
+          {val as string || "-"}
+        </Link>
+      )
+    },
+    { key: "cost_price", label: "Cost", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
+    { key: "sync_status", label: "Sync", render: (val) => <StatusBadge status={val as string} /> },
+    { key: "source_category", label: "Category", className: "font-mono text-[11px] text-slate-700" },
+    {
+      key: "enrichment_status",
+      label: "Enrichment",
+      render: (val, row) => <StatusBadge status={val as string || (row.enriched_description ? "SUCCESS" : "NOT_ENRICHED")} />
+    },
+  ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Vault 2 · Enriched</h1>
-          <p className="mt-1 text-sm text-slate-600">Internal products (click a row for trust + gate inspector)</p>
-        </div>
-        <Badge tone="blue">
-          Page {page} · {perPage}/page
-        </Badge>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Vault 2 · Enriched"
+        subtitle="Internal products (click a row for trust + gate inspector)"
+      />
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-slate-700">
-            Showing {data.items.length} of {data.total}
-          </div>
-          <form className="flex flex-wrap items-center gap-2" method="get">
+          <form className="flex flex-wrap items-center gap-4" method="get" data-testid="search-form">
             <input type="hidden" name="page" value="1" />
-            <label className="text-xs text-slate-600">
-              <span className="mr-1">Search</span>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+              <span>Search Title/Text</span>
               <input
                 name="q"
                 defaultValue={q}
-                className="w-56 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-                placeholder="title or enriched text"
+                data-testid="inp-search-q"
+                className="w-56 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none"
+                placeholder="search..."
               />
             </label>
-            <label className="text-xs text-slate-600">
-              <span className="mr-1">Supplier</span>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+              <span>Supplier ID</span>
               <input
                 name="supplier_id"
                 defaultValue={supplierId}
-                className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                data-testid="inp-search-supplier"
+                className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none"
                 placeholder="id"
               />
             </label>
-            <label className="text-xs text-slate-600">
-              <span className="mr-1">Enrichment</span>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+              <span>Enrichment</span>
               <select
                 name="enrichment"
                 defaultValue={enrichment}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                data-testid="sel-search-enrichment"
+                className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none"
               >
                 <option value="">All</option>
                 <option value="Enriched">Enriched</option>
                 <option value="Not Enriched">Not Enriched</option>
               </select>
             </label>
-            <label className="text-xs text-slate-600">
-              <span className="mr-1">Category</span>
-              <input
-                name="source_category"
-                defaultValue={sourceCategory}
-                className="w-56 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-                placeholder="collection/url"
-              />
-            </label>
-            <label className="text-xs text-slate-600">
-              <span className="mr-1">Per</span>
-              <select
-                name="per_page"
-                defaultValue={String(perPage)}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+            <div className="flex items-end gap-2">
+              <button
+                type="submit"
+                className={buttonClass({ variant: "primary" })}
+                data-testid="btn-search-apply"
               >
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="200">200</option>
-              </select>
-            </label>
-            <button type="submit" className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white">
-              Apply
-            </button>
-            <Link className="text-xs text-slate-600 underline" href="/vaults/enriched">
-              Reset
-            </Link>
+                Apply
+              </button>
+              <Link
+                className="flex h-8 items-center text-xs text-slate-500 hover:text-slate-800"
+                href="/vaults/enriched"
+                data-testid="lnk-search-reset"
+              >
+                Reset
+              </Link>
+            </div>
           </form>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Img</th>
-                <th className="px-4 py-3">SKU</th>
-                <th className="px-4 py-3">Title</th>
-                <th className="px-4 py-3">Cost</th>
-                <th className="px-4 py-3">Sync</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Enrichment</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((it) => (
-                <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50 align-top">
-                  <td className="px-4 py-3">
-                    <Link className="text-slate-900 underline" href={`/vaults/enriched/${it.id}`}>
-                      {it.id}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    {it.images?.length ? (
-                      <Link href={`/vaults/enriched/${it.id}`} className="block w-12">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          alt=""
-                          src={imgSrc(it.images[0])}
-                          className="h-10 w-12 rounded-md border border-slate-200 object-cover"
-                        />
-                      </Link>
-                    ) : (
-                      <div className="h-10 w-12 rounded-md border border-dashed border-slate-200 bg-slate-50" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">{it.sku}</td>
-                  <td className="px-4 py-3">
-                    <Link className="text-slate-900 hover:underline" href={`/vaults/enriched/${it.id}`}>
-                      {it.title || "-"}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">{it.cost_price == null ? "-" : `$${it.cost_price.toFixed(2)}`}</td>
-                  <td className="px-4 py-3">{it.sync_status || "-"}</td>
-                  <td className="px-4 py-3 font-mono text-[11px] text-slate-700">{it.source_category || "-"}</td>
-                  <td className="px-4 py-3">{it.enrichment_status || (it.enriched_description ? "SUCCESS" : "-")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between border-t border-slate-200 p-4 text-sm">
-          <Link
-            className={`text-slate-700 underline ${page <= 1 ? "pointer-events-none opacity-40" : ""}`}
-            href={prevHref}
-          >
-            Prev
-          </Link>
-          <div className="text-xs text-slate-600">Page {page}</div>
-          <Link className="text-slate-700 underline" href={nextHref}>
-            Next
-          </Link>
-        </div>
+
+        <DataTable
+          columns={columns}
+          data={data.items}
+          totalCount={data.total}
+          currentPage={page}
+          pageSize={perPage}
+        />
       </div>
     </div>
   );

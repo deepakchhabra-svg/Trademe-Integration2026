@@ -9,14 +9,17 @@ export interface SectionCardProps {
 
 export function SectionCard({ title, children, actions, className = "" }: SectionCardProps) {
     return (
-        <div className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
+        <div
+            className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}
+            data-testid={title ? `section-card-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : "section-card"}
+        >
             {title && (
                 <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                    <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-                    {actions && <div className="flex gap-2">{actions}</div>}
+                    <h2 className="text-sm font-semibold text-slate-900" data-testid="section-title">{title}</h2>
+                    {actions && <div className="flex gap-2" data-testid="section-actions">{actions}</div>}
                 </div>
             )}
-            <div className="p-5">{children}</div>
+            <div className="p-5" data-testid="section-content">{children}</div>
         </div>
     );
 }

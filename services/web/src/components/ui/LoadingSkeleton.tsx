@@ -1,6 +1,6 @@
 export function TableSkeleton({ rows = 5, columns = 6 }: { rows?: number; columns?: number }) {
     return (
-        <div className="w-full animate-pulse">
+        <div className="w-full animate-pulse" data-testid="skeleton-table">
             <div className="mb-3 h-8 w-full rounded bg-slate-100" />
             {Array.from({ length: rows }).map((_, i) => (
                 <div key={i} className="mb-2 flex gap-4">
@@ -15,7 +15,7 @@ export function TableSkeleton({ rows = 5, columns = 6 }: { rows?: number; column
 
 export function CardSkeleton({ count = 3 }: { count?: number }) {
     return (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" data-testid="skeleton-cards">
             {Array.from({ length: count }).map((_, i) => (
                 <div key={i} className="h-32 animate-pulse rounded-xl bg-slate-100" />
             ))}
@@ -25,7 +25,7 @@ export function CardSkeleton({ count = 3 }: { count?: number }) {
 
 export function TextSkeleton({ lines = 3 }: { lines?: number }) {
     return (
-        <div className="space-y-2 animate-pulse">
+        <div className="space-y-2 animate-pulse" data-testid="skeleton-text">
             {Array.from({ length: lines }).map((_, i) => (
                 <div
                     key={i}

@@ -1,6 +1,6 @@
 import clsx from "clsx";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "success";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "success" | "outline";
 export type ButtonSize = "sm" | "md";
 
 export function buttonClass(opts?: { variant?: ButtonVariant; size?: ButtonSize; disabled?: boolean }): string {

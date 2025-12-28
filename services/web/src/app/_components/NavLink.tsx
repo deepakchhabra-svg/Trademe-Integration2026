@@ -19,6 +19,7 @@ export function NavLink({
     <Link
       href={href}
       suppressHydrationWarning
+      data-testid={`lnk-nav-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
       className={clsx(
         "block rounded-md px-3 py-2 text-sm",
         active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100",

@@ -40,6 +40,7 @@ export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
     return (
         <span
             className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${colorClass} ${className}`}
+            data-testid={`badge-status-${status.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
         >
             {status}
         </span>

@@ -1,0 +1,69 @@
+/**
+ * UI Map for E2E tests.
+ * This file serves as a single source of truth for selecting interactive elements.
+ */
+
+export const UI = {
+    // Layout
+    layout: {
+        nav: {
+            dashboard: 'lnk-nav-ops-workbench',
+            vaultRaw: 'lnk-nav-vault-1-raw',
+            vaultEnriched: 'lnk-nav-vault-2-enriched',
+            vaultLive: 'lnk-nav-vault-3-listings',
+            suppliers: 'lnk-nav-ops-suppliers',
+            orders: 'lnk-nav-ops-orders',
+        }
+    },
+
+    // Common Components
+    common: {
+        table: {
+            container: 'data-table',
+            loading: 'table-loading',
+            empty: 'table-empty',
+            pagination: {
+                current: 'pagination-current',
+                next: 'pagination-next',
+                prev: 'pagination-prev',
+                first: 'pagination-first',
+                last: 'pagination-last',
+            }
+        },
+        pageHeader: {
+            title: 'page-title',
+            actions: 'page-actions',
+        },
+        error: {
+            container: 'error-state',
+            retry: 'btn-error-retry',
+        }
+    },
+
+    // Pages
+    pages: {
+        dashboard: {
+            bulkBatch: 'btn-nav-bulk',
+            inbox: 'btn-nav-inbox',
+            stats: {
+                pending: 'val-pending',
+                executing: 'val-executing',
+                human: 'val-human',
+                failed: 'val-failed',
+            },
+            actions: {
+                scrape: 'btn-scrape-enqueue',
+                enrich: 'btn-enrich-enqueue',
+                dryRun: 'btn-dryrun-enqueue',
+                publish: 'btn-publish-enqueue',
+            }
+        },
+        vaults: {
+            searchForm: 'search-form',
+            searchInp: 'inp-search-q',
+            searchApply: 'btn-search-apply',
+            searchReset: 'lnk-search-reset',
+            // Table specific links are dynamic lnk-id-{id}
+        }
+    }
+};
