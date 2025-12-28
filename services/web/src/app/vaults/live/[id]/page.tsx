@@ -1,7 +1,8 @@
 import Link from "next/link";
-
 import { apiGet } from "../../../_components/api";
-import { Badge } from "../../../_components/Badge";
+import { PageHeader } from "../../../../components/ui/PageHeader";
+import { SectionCard } from "../../../../components/ui/SectionCard";
+import { StatusBadge } from "../../../../components/ui/StatusBadge";
 import { ListingActions } from "./Actions";
 
 type ListingDetail = {
@@ -27,9 +28,9 @@ type ListingDetail = {
   internal_product?: { id: number; sku: string; title: string | null } | null;
 };
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Field({ label, value, testId }: { label: string; value: React.ReactNode; testId?: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="rounded-lg border border-slate-200 bg-white p-3" data-testid={testId}>
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-1 text-sm text-slate-900">{value}</div>
     </div>
@@ -40,91 +41,97 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const l = await apiGet<ListingDetail>(`/listings/${encodeURIComponent(id)}`);
 
-  const trustTone = l.trust_report?.is_trusted ? "emerald" : "amber";
+  const breadcrumbs = (
+    <div className="flex items-center gap-2 text-sm">
+      <Link className="text-slate-600 hover:text-slate-900 underline" href="/vaults/live" data-testid="lnk-breadcrumb-vault3">
+        Vault 3
+      </Link>
+      <span className="text-slate-400">/</span>
+      <span className="font-medium text-slate-900">Listing #{l.id}</span>
+    </div>
+  );
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <StatusBadge status={l.actual_state || "UNKNOWN"} />
+      {l.trust_report ? (
+        <StatusBadge status={l.trust_report.is_trusted ? "SUCCESS" : "FAILED"} label={`Trust: ${l.trust_report.score}`} />
+      ) : null}
+    </div>
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link className="text-sm text-slate-600 underline" href="/vaults/live">
-              Vault 3
-            </Link>
-            <span className="text-sm text-slate-400">/</span>
-            <span className="text-sm font-medium text-slate-900">Listing #{l.id}</span>
+    <div className="space-y-6">
+      <PageHeader
+        title={l.tm_listing_id ? `TradeMe Listing ${l.tm_listing_id}` : "Unpublished Vault Listing"}
+        subtitle={
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Internal:</span>
+              {l.internal_product ? (
+                <Link className="underline hover:text-slate-900 font-medium" href={`/vaults/enriched/${l.internal_product.id}`} data-testid="lnk-internal-ref">
+                  {l.internal_product.sku}
+                </Link>
+              ) : (
+                "-"
+              )}
+            </div>
+            <div className="hidden sm:block text-slate-300">|</div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Supplier SKUs:</span>
+              {l.supplier_product ? (
+                <Link className="underline hover:text-slate-900 font-medium font-mono text-xs" href={`/vaults/raw/${l.supplier_product.id}`} data-testid="lnk-supplier-ref">
+                  {l.supplier_product.external_sku}
+                </Link>
+              ) : (
+                "-"
+              )}
+            </div>
           </div>
-          <h1 className="mt-2 text-lg font-semibold tracking-tight">{l.tm_listing_id ? `TM ${l.tm_listing_id}` : "Unpublished listing"}</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Internal:{" "}
-            {l.internal_product ? (
-              <Link className="underline" href={`/vaults/enriched/${l.internal_product.id}`}>
-                {l.internal_product.sku}
-              </Link>
-            ) : (
-              "-"
-            )}
-            {" · "}
-            Supplier product:{" "}
-            {l.supplier_product ? (
-              <Link className="underline" href={`/vaults/raw/${l.supplier_product.id}`}>
-                #{l.supplier_product.id}
-              </Link>
-            ) : (
-              "-"
-            )}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge tone={l.actual_state === "Live" ? "emerald" : "slate"}>{l.actual_state || "unknown"}</Badge>
-          {l.trust_report ? <Badge tone={trustTone}>trust {l.trust_report.score}</Badge> : null}
-        </div>
-      </div>
+        }
+        actions={headerActions}
+        breadcrumbs={breadcrumbs}
+      />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Field label="Price" value={l.actual_price == null ? "-" : `$${l.actual_price.toFixed(2)}`} />
-        <Field label="Views" value={l.view_count ?? 0} />
-        <Field label="Watchers" value={l.watch_count ?? 0} />
-        <Field label="Synced" value={l.last_synced_at || "-"} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Field label="Current Price" value={l.actual_price == null ? "-" : `$${l.actual_price.toFixed(2)}`} testId="field-price" />
+        <Field label="Views" value={l.view_count ?? 0} testId="field-views" />
+        <Field label="Watchers" value={l.watch_count ?? 0} testId="field-watchers" />
+        <Field label="Last Synced" value={l.last_synced_at || "-"} testId="field-last-synced" />
       </div>
 
       {l.trust_report && !l.trust_report.is_trusted ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          <div className="font-semibold">Trust blockers</div>
-          <ul className="mt-2 list-disc pl-5">
+        <SectionCard title="Trust Blockers" className="border-amber-200 bg-amber-50">
+          <ul className="list-disc pl-5 text-sm text-amber-950" data-testid="trust-blocker-list">
             {l.trust_report.blockers.map((b) => (
               <li key={b}>{b}</li>
             ))}
           </ul>
-        </div>
+        </SectionCard>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-sm font-semibold">Profitability preview</div>
-          <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <SectionCard title="Profitability Preview">
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="profitability-preview">
             {JSON.stringify(l.profitability_preview || {}, null, 2)}
           </pre>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-sm font-semibold">Lifecycle recommendation</div>
-          <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900">
+        </SectionCard>
+        <SectionCard title="Lifecycle Recommendation">
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="lifecycle-recommendation">
             {JSON.stringify(l.lifecycle_recommendation || {}, null, 2)}
           </pre>
-        </div>
+        </SectionCard>
       </div>
 
-      <ListingActions listingDbId={l.id} tmListingId={l.tm_listing_id} internalProductId={l.internal_product_id} />
+      <SectionCard title="Operator Actions" className="bg-slate-50/50">
+        <ListingActions listingDbId={l.id} tmListingId={l.tm_listing_id} internalProductId={l.internal_product_id} />
+      </SectionCard>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold">Payload snapshot</div>
-          <div className="text-xs text-slate-500 font-mono">{l.payload_hash || "-"}</div>
-        </div>
-        <pre className="mt-3 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900">
+      <SectionCard title="Payload Snapshot" subtitle={`Hash: ${l.payload_hash || "-"}`}>
+        <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="payload-snapshot">
           {l.payload_snapshot || "-"}
         </pre>
-      </div>
+      </SectionCard>
     </div>
   );
 }
-

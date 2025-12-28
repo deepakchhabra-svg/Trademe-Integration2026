@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { apiGet } from "../../../_components/api";
-import { Badge } from "../../../_components/Badge";
+import { PageHeader } from "../../../../components/ui/PageHeader";
+import { SectionCard } from "../../../../components/ui/SectionCard";
+import { StatusBadge } from "../../../../components/ui/StatusBadge";
 
 type SupplierProduct = {
   id: number;
@@ -25,9 +27,9 @@ type SupplierProduct = {
   snapshot_hash: string | null;
 };
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Field({ label, value, testId }: { label: string; value: React.ReactNode; testId?: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="rounded-lg border border-slate-200 bg-white p-3" data-testid={testId}>
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-1 text-sm text-slate-900">{value}</div>
     </div>
@@ -35,7 +37,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function imgSrc(raw: string): string {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
   if (raw.startsWith("/media/")) return `${base}${raw}`;
   return raw;
 }
@@ -44,106 +46,99 @@ export default async function RawDetailPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const sp = await apiGet<SupplierProduct>(`/supplier-products/${encodeURIComponent(id)}`);
 
+  const breadcrumbs = (
+    <div className="flex items-center gap-2 text-sm">
+      <Link className="text-slate-600 hover:text-slate-900 underline" href="/vaults/raw" data-testid="lnk-breadcrumb-vault1">
+        Vault 1
+      </Link>
+      <span className="text-slate-400">/</span>
+      <span className="font-medium text-slate-900">Product #{sp.id}</span>
+    </div>
+  );
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <StatusBadge status={sp.sync_status || "UNKNOWN"} data-testid="badge-sync-status" />
+      <StatusBadge status={sp.enrichment_status || "UNKNOWN"} data-testid="badge-enrichment-status" />
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <div className="space-y-6">
+      <PageHeader
+        title={sp.title || "(no title)"}
+        subtitle={
           <div className="flex items-center gap-2">
-            <Link className="text-sm text-slate-600 underline" href="/vaults/raw">
-              Vault 1
-            </Link>
-            <span className="text-sm text-slate-400">/</span>
-            <span className="text-sm font-medium text-slate-900">SupplierProduct #{sp.id}</span>
+            <span>Supplier: {sp.supplier_name || sp.supplier_id || "-"}</span>
+            <span className="text-slate-300">|</span>
+            <span>SKU: <span className="font-mono text-xs">{sp.external_sku}</span></span>
           </div>
-          <h1 className="mt-2 text-lg font-semibold tracking-tight">{sp.title || "(no title)"}</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Supplier: {sp.supplier_name || sp.supplier_id || "-"} · SKU:{" "}
-            <span className="font-mono text-xs">{sp.external_sku}</span>
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge tone={sp.sync_status === "PRESENT" ? "emerald" : sp.sync_status === "REMOVED" ? "red" : "amber"}>
-            {sp.sync_status || "unknown"}
-          </Badge>
-          <Badge tone={sp.enrichment_status === "SUCCESS" ? "emerald" : sp.enrichment_status === "FAILED" ? "red" : "slate"}>
-            enrich: {sp.enrichment_status || "unknown"}
-          </Badge>
-        </div>
+        }
+        actions={headerActions}
+        breadcrumbs={breadcrumbs}
+      />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Field label="Cost price" value={sp.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} testId="field-cost" />
+        <Field label="Stock level" value={sp.stock_level ?? "-"} testId="field-stock" />
+        <Field label="Source category" value={<span className="font-mono text-xs">{sp.source_category || "-"}</span>} testId="field-category" />
+        <Field label="Last scraped" value={sp.last_scraped_at || "-"} testId="field-last-scraped" />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Field label="Cost price" value={sp.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} />
-        <Field label="Stock level" value={sp.stock_level ?? "-"} />
-        <Field label="Source category" value={<span className="font-mono text-xs">{sp.source_category || "-"}</span>} />
-        <Field label="Last scraped" value={sp.last_scraped_at || "-"} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold">Raw description</div>
-            {sp.product_url ? (
-              <a
-                className="text-xs text-slate-700 underline"
-                href={sp.product_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open supplier page
-              </a>
-            ) : null}
-          </div>
-          <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <SectionCard
+          title="Raw Description"
+          actions={sp.product_url ? (
+            <a className="text-xs text-slate-600 underline hover:text-slate-900" href={sp.product_url} target="_blank" rel="noreferrer" data-testid="lnk-supplier-page">
+              Open supplier page
+            </a>
+          ) : null}
+        >
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-sans" data-testid="raw-description">
             {sp.description || "-"}
           </pre>
-        </div>
+        </SectionCard>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold">Enriched copy</div>
-            <div className="text-xs text-slate-500">{sp.enriched_title ? "title+desc" : "desc only"}</div>
-          </div>
+        <SectionCard
+          title="Enriched Copy"
+          subtitle={sp.enriched_title ? "Generated title + description" : "Description only"}
+        >
           {sp.enrichment_error ? (
-            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+            <div className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-800" data-testid="enrichment-error">
               {sp.enrichment_error}
             </div>
           ) : null}
-          <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900">
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-sans" data-testid="enriched-description">
             {sp.enriched_description || "-"}
           </pre>
-        </div>
+        </SectionCard>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-sm font-semibold">Images</div>
+      <SectionCard title="Product Images">
         {sp.images?.length ? (
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {sp.images.map((src, idx) => (
               <a key={idx} href={imgSrc(src)} target="_blank" rel="noreferrer" className="group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   alt={`image-${idx + 1}`}
                   src={imgSrc(src)}
-                  className="h-28 w-full rounded-lg border border-slate-200 object-cover group-hover:opacity-90"
+                  className="h-32 w-full rounded-lg border border-slate-200 object-cover transition-opacity group-hover:opacity-80"
+                  data-testid={`product-img-${idx}`}
                 />
               </a>
             ))}
           </div>
         ) : (
-          <div className="mt-2 text-sm text-slate-600">No images.</div>
+          <div className="text-sm text-slate-500" data-testid="no-images">No images available for this product.</div>
         )}
-      </div>
+      </SectionCard>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-sm font-semibold">Specs (JSON)</div>
-        <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900">
+      <SectionCard title="Technical Specifications" subtitle={`Snapshot: ${sp.snapshot_hash || "-"}`}>
+        <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="tech-specs">
           {JSON.stringify(sp.specs || {}, null, 2)}
         </pre>
-        <div className="mt-2 text-xs text-slate-500">
-          Snapshot: <span className="font-mono">{sp.snapshot_hash || "-"}</span>
-        </div>
-      </div>
+      </SectionCard>
     </div>
   );
 }
-

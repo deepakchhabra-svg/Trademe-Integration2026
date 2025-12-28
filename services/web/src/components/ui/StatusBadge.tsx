@@ -15,6 +15,8 @@ export type StatusType =
 
 export interface StatusBadgeProps {
     status: StatusType | string;
+    label?: string;
+    children?: React.ReactNode;
     className?: string;
 }
 
@@ -34,7 +36,7 @@ const statusColors: Record<string, string> = {
     NOT_ENRICHED: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
-export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
+export function StatusBadge({ status, label, children, className = "" }: StatusBadgeProps) {
     const colorClass = statusColors[status.toUpperCase()] || "bg-slate-100 text-slate-600 border-slate-200";
 
     return (
@@ -42,7 +44,7 @@ export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
             className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${colorClass} ${className}`}
             data-testid={`badge-status-${status.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
         >
-            {status}
+            {label || children || status}
         </span>
     );
 }
