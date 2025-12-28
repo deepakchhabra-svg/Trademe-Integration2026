@@ -29,7 +29,8 @@ test.describe("UI Map Click-Through", () => {
             const locator = page.getByTestId(link.id);
             await expect(locator).toBeVisible();
             await locator.click();
-            await expect(page.getByTestId(UI.common.pageHeader.title)).toContainText(link.title);
+            const titleLoc = page.getByRole('heading', { name: link.title, exact: false });
+            await expect(titleLoc).toBeVisible();
         }
     });
 

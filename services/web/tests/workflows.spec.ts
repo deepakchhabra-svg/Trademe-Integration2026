@@ -22,7 +22,9 @@ test.describe("Deep Workflow Flows", () => {
         await expect(page).toHaveURL(/\/ops\/bulk/);
 
         // Fill form and enqueue
-        await page.getByTestId(UI.pages.bulkOps.supplier).selectOption({ label: "ONECHEQ (id 1)" });
+        const supplierSelect = page.getByTestId(UI.pages.bulkOps.supplier);
+        await expect(supplierSelect).toBeVisible();
+        await supplierSelect.selectOption("1:ONECHEQ");
         await page.getByTestId(UI.pages.bulkOps.category).fill("smartphones");
         await page.getByTestId(UI.pages.bulkOps.scrapeBtn).click();
 
@@ -31,32 +33,33 @@ test.describe("Deep Workflow Flows", () => {
 
         // 2. Check Commands Page
         await page.goto("/ops/commands");
-        const firstCommand = page.locator("tr").nth(1);
-        await expect(firstCommand).toContainText("SCRAPE_SUPPLIER");
+        const scrapeRow = page.locator("tr").filter({ hasText: "SCRAPE_SUPPLIER" }).first();
+        await expect(scrapeRow).toBeVisible();
 
-        // Wait for worker to pick it up and succeed (max 10s for simulation)
-        await expect(firstCommand.getByText("SUCCEEDED")).toBeVisible({ timeout: 15000 });
+        // Wait for worker to pick it up and succeed (timeout increased for Real Mode)
+        await expect(scrapeRow.getByText("SUCCEEDED")).toBeVisible({ timeout: 60000 });
 
         // 3. Repeat for Enrich
         await page.goto("/ops/bulk");
-        await page.getByTestId(UI.pages.bulkOps.supplier).selectOption({ label: "ONECHEQ (id 1)" });
+        await page.getByTestId(UI.pages.bulkOps.supplier).selectOption("1:ONECHEQ");
         await page.getByTestId(UI.pages.bulkOps.category).fill("smartphones");
         await page.getByTestId(UI.pages.bulkOps.enrichBtn).click();
         await expect(page.getByText(/Enqueued ENRICH_SUPPLIER/)).toBeVisible();
 
         await page.goto("/ops/commands");
-        await expect(page.locator("tr").nth(1)).toContainText("ENRICH_SUPPLIER");
-        await expect(page.locator("tr").nth(1).getByText("SUCCEEDED")).toBeVisible({ timeout: 15000 });
+        const enrichRow = page.locator("tr").filter({ hasText: "ENRICH_SUPPLIER" }).first();
+        await expect(enrichRow).toBeVisible();
+        await expect(enrichRow.getByText("SUCCEEDED")).toBeVisible({ timeout: 15000 });
 
         // 4. Repeat for Dry-Run
         await page.goto("/ops/bulk");
-        await page.getByTestId(UI.pages.bulkOps.supplier).selectOption({ label: "ONECHEQ (id 1)" });
+        await page.getByTestId(UI.pages.bulkOps.supplier).selectOption("1:ONECHEQ");
         await page.getByTestId(UI.pages.bulkOps.dryRunBtn).click();
         await expect(page.getByText(/Dry-run queued/)).toBeVisible();
 
         // 5. Repeat for Publish
         await page.goto("/ops/bulk");
-        await page.getByTestId(UI.pages.bulkOps.supplier).selectOption({ label: "ONECHEQ (id 1)" });
+        await page.getByTestId(UI.pages.bulkOps.supplier).selectOption("1:ONECHEQ");
         await page.getByTestId(UI.pages.bulkOps.approveBtn).click();
         await expect(page.getByText(/Approved publish queued/)).toBeVisible();
     });

@@ -11,8 +11,8 @@ export const UI = {
             vaultRaw: 'lnk-nav-vault-1-raw',
             vaultEnriched: 'lnk-nav-vault-2-enriched',
             vaultLive: 'lnk-nav-vault-3-listings',
-            suppliers: 'lnk-nav-ops-suppliers',
-            orders: 'lnk-nav-ops-orders',
+            suppliers: 'lnk-nav-suppliers',
+            orders: 'lnk-nav-orders',
         }
     },
 

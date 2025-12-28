@@ -83,6 +83,15 @@ export function RawVaultClient({
             )
         },
         { key: "cost_price", label: "Cost", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
+        {
+            key: "product_url",
+            label: "Source",
+            render: (val) => val ? (
+                <a href={val as string} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    Link
+                </a>
+            ) : "-"
+        },
         { key: "sync_status", label: "Sync", render: (val) => <StatusBadge status={val as string} /> },
         { key: "source_category", label: "Category", className: "font-mono text-[11px] text-slate-700" },
         { key: "enrichment_status", label: "Enrichment", render: (val) => <StatusBadge status={val as string} /> },
