@@ -13,7 +13,7 @@ test.describe("Link Integrity", () => {
         },
     });
 
-    test("should have no broken internal links", async ({ page }) => {
+    test("should have no broken internal links @smoke", async ({ page }) => {
         const visited = new Set<string>();
         const queue: string[] = ["/"];
         const brokenLinks: { from: string; to: string; reason: string }[] = [];

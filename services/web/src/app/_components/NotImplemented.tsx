@@ -10,7 +10,7 @@ export function NotImplemented({
   notes?: Array<{ label: string; detail: string }>;
 }) {
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4" data-testid="coming-soon">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-amber-900">{title}</div>

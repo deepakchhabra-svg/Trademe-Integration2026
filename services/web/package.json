@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui --project=chromium",
+    "test:e2e:smoke": "playwright test --grep @smoke --project=chromium --workers=6 --max-failures=1",
+    "test:e2e:lf": "playwright test --last-failed --project=chromium --workers=1 --max-failures=1",
+    "test:e2e:full": "playwright test --project=chromium --workers=6"
   },
   "dependencies": {
     "clsx": "^2.1.1",

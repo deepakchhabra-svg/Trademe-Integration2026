@@ -16,7 +16,7 @@ test.describe("Route Coverage", () => {
     });
 
     for (const route of ROUTES) {
-        test(`page "${route}" should load without errors`, async ({ page }) => {
+        test(`page "${route}" should load without errors @smoke`, async ({ page }) => {
             const consoleErrors: string[] = [];
             const failedRequests: string[] = [];
 
@@ -41,6 +41,18 @@ test.describe("Route Coverage", () => {
             // Wait for a reasonable indication of rendering
             await expect(page.locator("aside")).toBeVisible({ timeout: 10000 });
             await expect(page.locator("main")).toBeVisible();
+
+            // Special check for skeleton pages
+            const skeletonRoutes = [
+                "/fulfillment/shipments",
+                "/fulfillment/messages",
+                "/fulfillment/returns",
+                "/fulfillment/refunds",
+                "/fulfillment/risk",
+            ];
+            if (skeletonRoutes.includes(route)) {
+                await expect(page.getByTestId("coming-soon")).toBeVisible();
+            }
 
             // Check for console errors
             if (consoleErrors.length > 0) {

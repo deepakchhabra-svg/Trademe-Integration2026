@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("RetailOS MVP missions (smoke)", () => {
-  test("Mission 0: Home loads and shows API status", async ({ page }) => {
+  test("Mission 0: Home loads and shows API status @smoke", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Ops Workbench" })).toBeVisible();
     await expect(page.getByText("API")).toBeVisible();
@@ -9,22 +9,22 @@ test.describe("RetailOS MVP missions (smoke)", () => {
     await expect(page.getByText("Scrape → Enrich → Dry-run → Publish")).toBeVisible();
   });
 
-  test("Mission A (read): Vault 1 raw page loads", async ({ page }) => {
+  test("Mission A (read): Vault 1 raw page loads @smoke", async ({ page }) => {
     await page.goto("/vaults/raw");
     await expect(page.getByRole("heading", { name: "Vault 1 · Raw" })).toBeVisible();
   });
 
-  test("Mission B (read): Vault 2 enriched page loads", async ({ page }) => {
+  test("Mission B (read): Vault 2 enriched page loads @smoke", async ({ page }) => {
     await page.goto("/vaults/enriched");
     await expect(page.getByRole("heading", { name: "Vault 2 · Enriched" })).toBeVisible();
   });
 
-  test("Mission C (read): Vault 3 listings page loads", async ({ page }) => {
+  test("Mission C (read): Vault 3 listings page loads @smoke", async ({ page }) => {
     await page.goto("/vaults/live");
     await expect(page.getByRole("heading", { name: "Vault 3 · Listings" })).toBeVisible();
   });
 
-  test("Mission D (read): Commands page loads", async ({ page }) => {
+  test("Mission D (read): Commands page loads @smoke", async ({ page }) => {
     await page.goto("/ops/commands");
     await expect(page.getByRole("heading", { name: "Commands (debug)" })).toBeVisible();
   });
@@ -39,7 +39,7 @@ test.describe("RetailOS MVP missions (smoke)", () => {
     await expect(page.getByRole("heading", { name: "Audits" })).toBeVisible();
   });
 
-  test("Mission J (read): Operator Inbox loads", async ({ page }) => {
+  test("Mission J (read): Operator Inbox loads @smoke", async ({ page }) => {
     await page.goto("/ops/inbox");
     await expect(page.getByRole("heading", { name: "Operator Inbox" })).toBeVisible();
   });

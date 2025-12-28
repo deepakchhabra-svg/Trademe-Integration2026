@@ -222,6 +222,13 @@ class CommandWorker:
         The routing logic. In real app, this calls API Client.
         For Vertical Slice Phase 2 verification, we simulate success.
         """
+        if os.getenv("NEXT_PUBLIC_TEST_MODE") == "1" or os.getenv("TEST_MODE") == "1":
+            command_type, _ = self.resolve_command(command)
+            print(f"   -> [TEST_MODE] Simulating {command_type}...")
+            time.sleep(0.5)
+            # For ENRICH, we might want to ensure some data exists, but for now simple success is okay.
+            return
+
         command_type, payload = self.resolve_command(command)
 
         if command_type == "TEST_COMMAND":

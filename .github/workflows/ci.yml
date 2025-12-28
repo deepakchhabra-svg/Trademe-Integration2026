@@ -35,6 +35,10 @@ jobs:
 
   web:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     defaults:
       run:
         working-directory: services/web
@@ -42,12 +46,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python (for API webServer)
+      - name: Setup Python (for API + Worker)
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
 
-      - name: Install Python deps (for API webServer)
+      - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
           pip install -r ../../requirements.txt
@@ -65,11 +70,41 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('services/web/package-lock.json') }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Run Playwright
         env:
           NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
-        run: npx playwright test
+          NEXT_PUBLIC_TEST_MODE: "1"
+          TEST_MODE: "1"
+        run: npx playwright test --project=chromium --shard=${{ matrix.shard }}/4
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: services/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload Test Results (Traces/Videos)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.shard }}
+          path: services/web/test-results/
+          retention-days: 30
 

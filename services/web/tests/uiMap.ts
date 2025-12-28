@@ -58,6 +58,15 @@ export const UI = {
                 publish: 'btn-publish-enqueue',
             }
         },
+        bulkOps: {
+            supplier: 'sel-bulk-supplier',
+            category: 'inp-bulk-category',
+            pages: 'inp-bulk-pages',
+            scrapeBtn: 'btn-bulk-scrape',
+            enrichBtn: 'btn-bulk-enrich',
+            dryRunBtn: 'btn-bulk-dryrun',
+            approveBtn: 'btn-bulk-approve',
+        },
         vaults: {
             searchForm: 'search-form',
             searchInp: 'inp-search-q',

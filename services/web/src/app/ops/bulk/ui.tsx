@@ -113,6 +113,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             <div className="mb-1 font-semibold uppercase tracking-wide">Supplier picker</div>
             <select
               className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              data-testid="sel-bulk-supplier"
               value={supplierId && supplierName ? `${supplierId}:${supplierName}` : ""}
               onChange={(e) => {
                 const v = e.target.value;
@@ -185,6 +186,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             <div className="mb-1 font-semibold uppercase tracking-wide">source_category</div>
             <input
               className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              data-testid="inp-bulk-category"
               value={sourceCategory}
               onChange={(e) => setSourceCategory(e.target.value)}
               placeholder="CC browse_url / NL category_url / OC collection handle"
@@ -205,9 +207,8 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           <button
             type="button"
             disabled={!!busyKey || !categoryPresets.length}
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
-              busyKey || !categoryPresets.length ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-            }`}
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey || !categoryPresets.length ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+              }`}
             onClick={() =>
               run("SCRAPE_ALL_PRESETS", async () => {
                 const sid = supplierId ? Number(supplierId) : undefined;
@@ -240,9 +241,8 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           <button
             type="button"
             disabled={!!busyKey || !categoryPresets.length}
-            className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${
-              busyKey || !categoryPresets.length ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
-            }`}
+            className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${busyKey || !categoryPresets.length ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
+              }`}
             onClick={() =>
               run("ENRICH_ALL_PRESETS", async () => {
                 const sid = supplierId ? Number(supplierId) : undefined;
@@ -286,6 +286,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             <div className="mb-1 font-semibold uppercase tracking-wide">pages</div>
             <input
               className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              data-testid="inp-bulk-pages"
               value={pages}
               onChange={(e) => setPages(e.target.value)}
             />
@@ -294,20 +295,20 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "SCRAPE_SUPPLIER"}
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
-              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-            }`}
+            data-testid="btn-bulk-scrape"
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+              }`}
             onClick={() =>
               run("SCRAPE_SUPPLIER", () =>
                 enqueue(
-                "SCRAPE_SUPPLIER",
-                {
-                  supplier_id: supplierId ? Number(supplierId) : undefined,
-                  supplier_name: supplierName || undefined,
-                  source_category: sourceCategory || undefined,
-                  pages: Number(pages || "1"),
-                },
-                70,
+                  "SCRAPE_SUPPLIER",
+                  {
+                    supplier_id: supplierId ? Number(supplierId) : undefined,
+                    supplier_name: supplierName || undefined,
+                    source_category: sourceCategory || undefined,
+                    pages: Number(pages || "1"),
+                  },
+                  70,
                 ),
               )
             }
@@ -337,21 +338,21 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "ENRICH_SUPPLIER"}
-            className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${
-              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
-            }`}
+            data-testid="btn-bulk-enrich"
+            className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
+              }`}
             onClick={() =>
               run("ENRICH_SUPPLIER", () =>
                 enqueue(
-                "ENRICH_SUPPLIER",
-                {
-                  supplier_id: supplierId ? Number(supplierId) : undefined,
-                  supplier_name: supplierName || undefined,
-                  source_category: sourceCategory || undefined,
-                  batch_size: Number(batchSize || "25"),
-                  delay_seconds: 0,
-                },
-                60,
+                  "ENRICH_SUPPLIER",
+                  {
+                    supplier_id: supplierId ? Number(supplierId) : undefined,
+                    supplier_name: supplierName || undefined,
+                    source_category: sourceCategory || undefined,
+                    batch_size: Number(batchSize || "25"),
+                    delay_seconds: 0,
+                  },
+                  60,
                 ),
               )
             }
@@ -373,9 +374,8 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "SYNC_SOLD_ITEMS"}
-            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
-              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-            }`}
+            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
+              }`}
             onClick={() => run("SYNC_SOLD_ITEMS", () => enqueue("SYNC_SOLD_ITEMS", {}, 80))}
           >
             {busyKey === "SYNC_SOLD_ITEMS" ? (
@@ -394,9 +394,8 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "SYNC_SELLING_ITEMS"}
-            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
-              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-            }`}
+            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
+              }`}
             onClick={() => run("SYNC_SELLING_ITEMS", () => enqueue("SYNC_SELLING_ITEMS", { limit: 50 }, 70))}
           >
             {busyKey === "SYNC_SELLING_ITEMS" ? (
@@ -428,9 +427,9 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "BULK_DRY_RUN_PUBLISH"}
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
-              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-            }`}
+            data-testid="btn-bulk-dryrun"
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+              }`}
             onClick={() =>
               run("BULK_DRY_RUN_PUBLISH", async () => {
                 const res = await apiPostClient<{ enqueued: number; skipped_existing_cmd: number; skipped_already_listed: number }>(
@@ -474,9 +473,9 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "BULK_APPROVE_PUBLISH"}
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
-              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-            }`}
+            data-testid="btn-bulk-approve"
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+              }`}
             onClick={() =>
               run("BULK_APPROVE_PUBLISH", async () => {
                 const res = await apiPostClient<{
@@ -525,9 +524,8 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "BULK_RESET_ENRICHMENT"}
-            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
-              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-            }`}
+            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
+              }`}
             onClick={() =>
               run("BULK_RESET_ENRICHMENT", async () => {
                 const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/reset_enrichment", {
@@ -569,9 +567,8 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "BULK_SCAN_COMPETITORS"}
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
-              busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-            }`}
+            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
+              }`}
             onClick={() =>
               run("BULK_SCAN_COMPETITORS", async () => {
                 const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/scan_competitors", {

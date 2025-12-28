@@ -18,6 +18,15 @@ MAX_RETRIES = 3
 
 class TradeMeAPI:
     def __init__(self):
+        # Check for test mode
+        self.test_mode = os.getenv("NEXT_PUBLIC_TEST_MODE") == "1" or os.getenv("TEST_MODE") == "1"
+        
+        if self.test_mode:
+            print("API: Running in TEST_MODE (Mocks enabled)")
+            self.auth = None
+            self.session = None
+            return
+
         # Load dotenv if present (repo-root anchored), without requiring callers to do it.
         # This does NOT print secrets; it just allows local/dev to work when a .env exists.
         try:
@@ -56,6 +65,10 @@ class TradeMeAPI:
         if cached:
             print(f"API: Photo Cache Hit ({img_hash} -> {cached.tm_photo_id})")
             return cached.tm_photo_id
+            
+        if self.test_mode:
+            print(f"API: [MOCK] Uploading Photo ({len(image_bytes)} bytes)...")
+            return 123456 # Mock Photo ID
             
         # 3. Upload (JSON Base64 - Verified Working)
         print(f"API: Uploading Photo ({len(image_bytes)} bytes)...")
@@ -98,6 +111,10 @@ class TradeMeAPI:
         Simulate a listing.
         Returns: API Response Dict.
         """
+        if self.test_mode:
+            print("API: [MOCK] Validating Payload...")
+            return {"Success": True, "Status": 1}
+
         print("API: Validating Payload...")
         try:
             res = self.session.post(f"{PROD_URL}/Selling/Validate.json", json=payload, timeout=TIMEOUT_SECS)
@@ -112,6 +129,10 @@ class TradeMeAPI:
         Returns: ListingID (int).
         Raises: Exception (Timeout/500).
         """
+        if self.test_mode:
+            print("API: [MOCK] Publishing Listing...")
+            return 999999 + int(time.time() % 1000)
+
         print("API: Publishing Listing...")
         res = self.session.post(f"{PROD_URL}/Selling.json", json=payload, timeout=TIMEOUT_SECS)
         res.raise_for_status()
@@ -127,6 +148,20 @@ class TradeMeAPI:
         Read-Back Verification.
         Parses 'Asking price $50.00' into Floats.
         """
+        if self.test_mode:
+            print(f"API: [MOCK] Reading Listing {listing_id}...")
+            return {
+                "ListingId": int(listing_id) if str(listing_id).isdigit() else 12345,
+                "Title": "Mock Product",
+                "Category": "1234",
+                "StartPrice": 50.0,
+                "BuyNowPrice": None,
+                "PriceDisplay": "Asking price $50.00",
+                "ViewCount": 10,
+                "WatchCount": 2,
+                "ParsedPrice": 50.0
+            }
+
         print(f"API: Reading Listing {listing_id}...")
         res = self.session.get(f"{PROD_URL}/Listings/{listing_id}.json", timeout=TIMEOUT_SECS)
         
@@ -166,6 +201,10 @@ class TradeMeAPI:
         """
         Withdraws a live listing.
         """
+        if self.test_mode:
+            print(f"API: [MOCK] Withdrawing Listing {listing_id}...")
+            return True
+
         print(f"API: Withdrawing Listing {listing_id}...")
         # Endpoint: POST /Selling/Withdraw.json
         payload = {
@@ -299,6 +338,21 @@ class TradeMeAPI:
         Gets account summary including balance, member info, etc.
         Returns: Dict with account details.
         """
+        if self.test_mode:
+            print("API: [MOCK] Fetching Account Summary...")
+            return {
+                "member_id": 123456,
+                "nickname": "MockUser",
+                "email": "mock@example.com",
+                "account_balance": 1000.0,
+                "pay_now_balance": 50.0,
+                "unique_positive": 100,
+                "unique_negative": 0,
+                "feedback_count": 100,
+                "total_items_sold": 50,
+                "balance_raw": {},
+            }
+
         print("API: Fetching Account Summary...")
         try:
             # 1) Member summary (identity + reputation)
