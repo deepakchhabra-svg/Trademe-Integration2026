@@ -109,8 +109,10 @@ class ImageDownloader:
             
             file_size = filepath.stat().st_size
             
-            if file_size < 1000: # Suspiciously small (e.g. error page)
-                 return {"success": False, "path": None, "size": file_size, "error": "File too small (<1KB)"}
+            # Suspiciously small (often an HTML error page), but allow very small legit thumbs.
+            # Trade Me may still reject low-res images; LaunchLock separately enforces "exists".
+            if file_size < 300:
+                 return {"success": False, "path": None, "size": file_size, "error": "File too small (<300B)"}
 
             return {
                 "success": True,

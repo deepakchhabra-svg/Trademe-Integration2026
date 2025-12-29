@@ -315,7 +315,18 @@ def scrape_category(headless: bool = True, max_pages: int = None, category_url: 
     # Fast preflight: if the site is returning 403 from this environment, Selenium will just spin and time out.
     # This is NOT a mock — it's a real network check to fail fast with a clear diagnosis.
     try:
-        r = httpx.get(BASE_URL, follow_redirects=True, timeout=10.0, headers={"User-Agent": "Mozilla/5.0"})
+        proxy = os.getenv("NOEL_LEEMING_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+        proxies = None
+        if proxy:
+            # httpx expects a dict mapping scheme->proxy URL
+            proxies = {"http://": proxy, "https://": proxy}
+        r = httpx.get(
+            BASE_URL,
+            follow_redirects=True,
+            timeout=10.0,
+            headers={"User-Agent": "Mozilla/5.0"},
+            proxies=proxies,
+        )
         if r.status_code == 403:
             raise RuntimeError(
                 "Noel Leeming blocked this environment (HTTP 403). "

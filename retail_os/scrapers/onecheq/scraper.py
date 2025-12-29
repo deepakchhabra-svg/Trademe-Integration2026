@@ -7,6 +7,7 @@ import re
 import json
 import time
 import os
+import html as _html
 from typing import Optional, Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from selectolax.parser import HTMLParser
@@ -209,6 +210,134 @@ def discover_products_from_collection(
     
     print(f"Total unique products discovered: {len(product_urls)}")
     return list(product_urls)
+
+
+def _strip_html(s: str) -> str:
+    if not s:
+        return ""
+    text = re.sub(r"<[^>]+>", " ", s)
+    text = _html.unescape(text)
+    return norm_ws(text)
+
+
+def _shopify_products_json_url(collection: str, page: int, limit: int = 250) -> str:
+    if collection == "all":
+        return f"https://onecheq.co.nz/collections/all/products.json?limit={int(limit)}&page={int(page)}"
+    return f"https://onecheq.co.nz/collections/{collection}/products.json?limit={int(limit)}&page={int(page)}"
+
+
+def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, client: httpx.Client):
+    """
+    Fast, authoritative Shopify JSON scrape.
+    Iterates products from /collections/<handle>/products.json (250/page).
+    """
+    limit = int(os.getenv("RETAILOS_ONECHEQ_JSON_LIMIT", "250") or "250")
+    limit = max(1, min(250, limit))
+
+    page = int(os.getenv("RETAILOS_ONECHEQ_START_PAGE", "1") or "1")
+    if page < 1:
+        page = 1
+
+    pages_seen = 0
+    total = 0
+
+    max_products_env = os.getenv("RETAILOS_ONECHEQ_MAX_PRODUCTS")
+    max_products = int(max_products_env) if (max_products_env and max_products_env.isdigit()) else None
+
+    while True:
+        if max_pages and pages_seen >= int(max_pages):
+            break
+
+        url = _shopify_products_json_url(collection, page=page, limit=limit)
+        r = client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        r.raise_for_status()
+        products = (r.json() or {}).get("products") or []
+        if not products:
+            break
+
+        pages_seen += 1
+        for p in products:
+            handle = (p or {}).get("handle") or ""
+            if not handle:
+                continue
+
+            title = norm_ws((p or {}).get("title") or "") or handle
+            desc = _strip_html((p or {}).get("body_html") or "") or title
+
+            vendor = norm_ws((p or {}).get("vendor") or "")
+            product_type = norm_ws((p or {}).get("product_type") or "")
+
+            # OneCheq encodes condition inside vendor sometimes: "Condition: New"
+            condition = "Used"
+            brand = vendor
+            m = re.search(r"condition\s*:\s*(new|used|refurbished)", vendor, re.I)
+            if m:
+                condition = m.group(1).capitalize()
+                brand = ""
+
+            variants = (p or {}).get("variants") or []
+            price = 0.0
+            available = False
+            supplier_lot = ""
+            try:
+                if variants and isinstance(variants, list):
+                    v0 = variants[0] or {}
+                    price = float(str(v0.get("price") or "0").replace(",", ""))
+                    available = bool(v0.get("available", False))
+                    supplier_lot = normalize_sku(str(v0.get("sku") or v0.get("id") or ""))  # best-effort
+            except Exception:
+                price = 0.0
+
+            imgs = []
+            for im in (p or {}).get("images") or []:
+                if isinstance(im, dict):
+                    src = (im.get("src") or "").strip()
+                    if src:
+                        imgs.append(src.split("?")[0])
+                elif isinstance(im, str):
+                    imgs.append(im.split("?")[0])
+            imgs = [x for x in imgs if x][:4]
+
+            specs = {}
+            if brand:
+                specs["Vendor"] = brand
+            if product_type:
+                specs["ProductType"] = product_type
+            if supplier_lot:
+                lot = supplier_lot
+                if lot.isdigit() and lot.startswith("0"):
+                    lot = f"LOT{lot}"
+                specs["SupplierLot"] = lot
+            specs["Condition"] = condition
+
+            total += 1
+            yield {
+                "source_id": f"OC-{handle}",
+                "source_url": f"https://onecheq.co.nz/products/{handle}",
+                "title": title,
+                "description": desc,
+                "brand": brand,
+                "condition": condition,
+                "buy_now_price": price,
+                "stock_level": 1 if available else 0,
+                "photo1": imgs[0] if len(imgs) > 0 else None,
+                "photo2": imgs[1] if len(imgs) > 1 else None,
+                "photo3": imgs[2] if len(imgs) > 2 else None,
+                "photo4": imgs[3] if len(imgs) > 3 else None,
+                "source_status": "Available" if available else "Sold",
+                "specs": specs,
+                "sku": handle,
+                "collection_rank": total,
+                "collection_page": page,
+            }
+
+            if max_products and total >= int(max_products):
+                return
+
+        if total and total % 1000 == 0:
+            print(f"  JSON progress: {total} products processed")
+
+        page += 1
 
 
 def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> Optional[Dict]:
@@ -526,7 +655,7 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
     }
 
 
-def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: int = 8) -> List[Dict]:
+def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: int = 8):
     """
     Main entry point for OneCheq scraper.
     
@@ -541,7 +670,16 @@ def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: i
     print(f"Collection: {collection}")
     print(f"Pages per collection: {'UNLIMITED' if limit_pages <= 0 else limit_pages}")
     
-    # Build collection URL
+    mode = (os.getenv("RETAILOS_ONECHEQ_SOURCE", "json") or "json").strip().lower()
+
+    # Fast path: Shopify JSON (authoritative; scales to 10k+)
+    if mode == "json":
+        max_pages = 0 if limit_pages <= 0 else int(limit_pages)
+        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+            yield from _iter_onecheq_products_via_shopify_json(collection=collection, max_pages=max_pages, client=client)
+        return
+
+    # Build collection URL (HTML fallback)
     if collection == "all":
         collection_url = "https://onecheq.co.nz/collections/all"
     else:
@@ -563,10 +701,9 @@ def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: i
     
     if not product_urls:
         print("No products found!")
-        return []
+        return
     
     # Scrape products concurrently (bounded). This is the main speed win.
-    products: list[Dict] = []
     total = len(product_urls)
     print(f"Scraping {total} product pages with concurrency={concurrency} ...")
 
@@ -584,21 +721,19 @@ def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: i
             try:
                 product_data = fut.result()
                 if product_data:
-                    products.append(product_data)
+                    yield product_data
             except Exception as e:
                 print(f"  [ERROR] {completed}/{total} failed url={url}: {e}")
             if completed % 25 == 0 or completed == total:
-                print(f"  Progress: {completed}/{total} scraped (ok={len(products)})")
+                print(f"  Progress: {completed}/{total} scraped")
     
     print(f"\\n=== Scraping Complete ===")
-    print(f"Successfully scraped: {len(products)}/{len(product_urls)} products")
-    
-    return products
+    print(f"Successfully scraped: {completed}/{len(product_urls)} products")
 
 
 if __name__ == "__main__":
     # Test scraper
-    products = scrape_onecheq(limit_pages=1, collection="smartphones-and-mobilephones")
+    products = list(scrape_onecheq(limit_pages=1, collection="smartphones-and-mobilephones"))
     print(f"\\nScraped {len(products)} products")
     if products:
         print("\\nSample product:")
