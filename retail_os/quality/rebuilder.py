@@ -27,7 +27,13 @@ class ContentRebuilder:
     def __init__(self):
         self.prohibited_patterns = [
             r"stock wanted", r"cash converters", r"buy.*sell.*loan",
-            r"pickup", r"shipping", r"contact", r"\d{2,4}\s?\d{3,4}\s?\d{3,4}", # Phone numbers
+            # Do not block on generic words like 'contact' (too many false positives from specs like 'contactless').
+            # Block on stronger, action-oriented phrases and explicit phone numbers instead.
+            r"\bcontact\s+us\b", r"\bcontact\s+me\b", r"\bcall\s+us\b", r"\bcall\s+me\b",
+            r"\bemail\s+us\b", r"\bvisit\s+us\b",
+            # Phone numbers (NZ-shaped) - avoid false positives like "DDR43200 512"
+            r"\b(?:\+?64\s?|0)\d{1,2}\s?\d{3}\s?\d{3,4}\b",
+            r"\b0\d{1,2}-\d{3}-\d{3,4}\b",
             r"store.*policy", r"layby", r"finance", r"click.*collect"
         ]
 

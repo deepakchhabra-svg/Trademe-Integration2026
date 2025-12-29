@@ -146,7 +146,8 @@ def discover_products_from_collection(collection_url: str, max_pages: int = 5, c
     OneCheq uses Shopify pagination: ?page=N
     """
     print(f"Discovering products from: {collection_url}")
-    product_urls = set()
+    product_urls: set[str] = set()
+    consecutive_no_new = 0
     
     for page_num in range(1, max_pages + 1):
         page_url = f"{collection_url}?page={page_num}"
@@ -181,9 +182,21 @@ def discover_products_from_collection(collection_url: str, max_pages: int = 5, c
         if not page_products:
             print(f"  No products found on page {page_num}, stopping pagination")
             break
+
+        # If this page contributes no NEW product URLs, we're likely past the end.
+        new_on_page = page_products - product_urls
+        if not new_on_page:
+            consecutive_no_new += 1
+            # Shopify pages can include persistent /products/ links (header/footer/featured).
+            # Once we see no-new pages twice in a row, stop to avoid infinite pagination.
+            if consecutive_no_new >= 2:
+                print(f"  No new products found for {consecutive_no_new} pages; stopping pagination")
+                break
+        else:
+            consecutive_no_new = 0
         
         print(f"  Found {len(page_products)} products on page {page_num}")
-        product_urls.update(page_products)
+        product_urls.update(new_on_page)
     
     print(f"Total unique products discovered: {len(product_urls)}")
     return list(product_urls)
