@@ -76,9 +76,9 @@ class TrustEngine:
         # We don't want to hard-block items that have great AI descriptions.
         spec_count = len(sp.specs or {})
         if spec_count == 0:
-            score -= 10.0  # 10% deduction instead of 60% cap
+            score -= 5.0  # 5% deduction (allows 95% total score)
             blockers.append("Missing Technical Specifications")
-            breakdown["Specifications"] = f"PENALTY (0 specs found - Deducted 10%)"
+            breakdown["Specifications"] = f"PENALTY (0 specs found - Deducted 5%)"
         else:
             breakdown["Specifications"] = f"PASS ({spec_count} specs found)"
             

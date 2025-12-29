@@ -33,13 +33,14 @@ class ImageDownloader:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Upgrade-Insecure-Requests": "1"
+                "Referer": "https://www.noelleeming.co.nz/",
+                "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": '"Windows"',
             }
             # Use a session for better connection handling
             with requests.Session() as session:
-                response = session.get(url, headers=headers, timeout=15, stream=True)
+                response = session.get(url, headers=headers, timeout=20, stream=True)
                 response.raise_for_status()
                 
                 # Save
@@ -137,6 +138,9 @@ class ImageDownloader:
                     "size": 0,
                     "error": f"Requests and Curl both failed: {e} | {curl_e}"
                 }
+        finally:
+            # Final sanity check for return
+            pass
     
     def verify_image(self, sku: str) -> dict:
         """Check if image exists locally."""

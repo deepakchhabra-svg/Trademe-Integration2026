@@ -118,16 +118,25 @@ def scrape_product_detail(driver, url: str) -> Dict[str, any]:
                 clean_images.append(clean)
                     
         # Extract Description & Technical Specs
-        # Noel Leeming often lists specs in .product-features-benefits ul li
+        # Noel Leeming often lists specs in .product-features-benefits ul li or .product-specifications
         specs = {}
-        feature_nodes = tree.css(".product-features-benefits ul li")
+        feature_nodes = tree.css(".product-features-benefits ul li, .product-specifications li, .tech-specs li, .specifications li")
         for li in feature_nodes:
             text = li.text(strip=True)
             if ":" in text:
                 parts = text.split(":", 1)
                 k = parts[0].strip()
                 v = parts[1].strip()
-                if k and v and len(k) < 40:
+                if k and v and len(k) < 50:
+                    specs[k] = v
+                    
+        # Also look for tables
+        for row in tree.css(".product-specifications tr, .spec-table tr, table.specs tr"):
+            cells = row.css("td, th")
+            if len(cells) >= 2:
+                k = cells[0].text(strip=True).rstrip(":")
+                v = cells[1].text(strip=True)
+                if k and v and len(k) < 50:
                     specs[k] = v
         
         # Product Details section (Model, Product ID)
@@ -394,6 +403,8 @@ def scrape_category(headless: bool = True, max_pages: int = None, category_url: 
                                 p[f"photo{i+1}"] = img
                         if details["description"] and len(details["description"]) > len(p.get("title", "")):
                              p["description"] = details["description"]
+                        if details.get("specs"):
+                             p["specs"] = details["specs"]
                         
                         # Note: we are at detail page now.
                         # Next iteration of loop will navigate to p["url"], so it's fine.

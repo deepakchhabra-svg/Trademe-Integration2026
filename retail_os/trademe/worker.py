@@ -626,27 +626,40 @@ class CommandWorker:
             
             # Auto-Download Logic
             if not photo_path:
-                print("   -> [Phase 2] No path provided. Checking Supplier Product for URL...")
-                if prod.supplier_product and prod.supplier_product.images:
-                    try:
-                        # Handle JSON list
-                        if isinstance(prod.supplier_product.images, list) and len(prod.supplier_product.images) > 0:
-                            img_url = prod.supplier_product.images[0]
-                            print(f"      -> Downloading: {img_url}")
-                            from retail_os.utils.image_downloader import ImageDownloader
-                            res = downloader.download_image(img_url, prod.sku)
-                            if res["success"]:
-                                photo_path = res["path"]
-                                # Fix: Update DB so MarketplaceAdapter sees local file
-                                current_images = list(prod.supplier_product.images or [])
-                                if photo_path not in current_images:
-                                    current_images.insert(0, photo_path)
-                                    prod.supplier_product.images = current_images
-                                    session.commit()
-                            else:
-                                print(f"      -> Download Failed: {res['error']}")
-                    except Exception as e:
-                        print(f"      -> Image Download Error: {e}")
+                from retail_os.utils.image_downloader import ImageDownloader
+                downloader = ImageDownloader()
+                # Check local cache first
+                verify = downloader.verify_image(prod.sku)
+                if verify["exists"]:
+                    photo_path = verify["path"]
+                    print(f"   -> [Phase 2] Found local image: {photo_path}")
+                
+                if not photo_path and prod.supplier_product and prod.supplier_product.images:
+                    print("   -> [Phase 2] No local image. Downloading from Supplier URLs...")
+                    # Try all available images
+                    urls = prod.supplier_product.images
+                    if isinstance(urls, str): 
+                        try: urls = json.loads(urls)
+                        except: urls = [urls]
+                    
+                    for img_url in urls:
+                        if not isinstance(img_url, str) or not img_url.startswith("http"):
+                            continue
+                        print(f"      -> Trying download: {img_url}")
+                        res = downloader.download_image(img_url, prod.sku)
+                        if res["success"]:
+                            photo_path = res["path"]
+                            # Update DB
+                            current_images = list(prod.supplier_product.images or [])
+                            if photo_path not in current_images:
+                                current_images.insert(0, photo_path)
+                                prod.supplier_product.images = current_images
+                                session.commit()
+                                session.refresh(prod.supplier_product)
+                                session.refresh(prod)
+                            break
+                        else:
+                            print(f"      -> Failed: {res['error']}")
             
             if photo_path and os.path.exists(photo_path):
                 print(f"   -> [Phase 2] Uploading Photo: {photo_path}")
@@ -803,6 +816,8 @@ class CommandWorker:
                 desired_price=tm_payload["StartPrice"],
                 actual_price=tm_payload["StartPrice"],
                 actual_state="Simulated" if str(listing_id).startswith("SIM-") else "Live",
+                payload_snapshot=json.dumps(tm_payload),
+                payload_hash=hashlib.sha256(json.dumps(tm_payload, sort_keys=True).encode()).hexdigest(),
                 last_synced_at=datetime.utcnow()
             )
             session.add(tm_listing)

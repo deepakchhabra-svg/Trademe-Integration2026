@@ -58,7 +58,8 @@ class MarketplaceAdapter:
             final_description = enricher.enrich(
                 title=raw_title, 
                 raw_desc=clean_input, 
-                specs=item.specs or {}
+                specs=item.specs or {},
+                url=getattr(item, 'product_url', None)
             )
             
             enrichment_failed = "⚠️ LLM FAILURE" in final_description
@@ -89,6 +90,10 @@ class MarketplaceAdapter:
         if item.specs and "**SPECIFICATIONS**" not in final_description:
              specs_block = "**SPECIFICATIONS**\n" + "\n".join([f"- {k}: {v}" for k, v in item.specs.items()])
              final_description = specs_block + "\n\n" + final_description
+
+        # USER REQUEST: Add Source URL to description (Vault 1 Raw)
+        if getattr(item, 'product_url', None):
+            final_description += f"\n\nSource Reference: {item.product_url}"
 
         # 3. Map Category
         cat_id = CategoryMapper.map_category(
