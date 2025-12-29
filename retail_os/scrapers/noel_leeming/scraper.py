@@ -117,14 +117,32 @@ def scrape_product_detail(driver, url: str) -> Dict[str, any]:
             if clean not in clean_images:
                 clean_images.append(clean)
                     
-        # Extract Description
+        # Extract Description & Technical Specs
+        # Noel Leeming often lists specs in .product-features-benefits ul li
+        specs = {}
+        feature_nodes = tree.css(".product-features-benefits ul li")
+        for li in feature_nodes:
+            text = li.text(strip=True)
+            if ":" in text:
+                parts = text.split(":", 1)
+                k = parts[0].strip()
+                v = parts[1].strip()
+                if k and v and len(k) < 40:
+                    specs[k] = v
+        
+        # Product Details section (Model, Product ID)
+        sku_node = tree.css_first(".product-manufacturer-sku .value")
+        if sku_node:
+            specs["Model"] = sku_node.text(strip=True)
+        
         # Prioritize body content over thin metadata
         desc_node = tree.css_first(".product-description, #collapsible-details-1, .description-text, div.content-asset")
         description = desc_node.text(strip=True) if desc_node else ""
         
         return {
             "images": clean_images[:4],
-            "description": description
+            "description": description,
+            "specs": specs
         }
     except Exception as e:
         print(f"  Error scraping detail {url}: {e}")

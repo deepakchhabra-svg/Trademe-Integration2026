@@ -32,7 +32,10 @@ class ImageDownloader:
             # Download with headers to avoid 403
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Referer": "https://www.noelleeming.co.nz/"
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Upgrade-Insecure-Requests": "1"
             }
             # Use a session for better connection handling
             with requests.Session() as session:
@@ -91,12 +94,49 @@ class ImageDownloader:
             }
             
         except Exception as e:
-            return {
-                "success": False,
-                "path": None,
-                "size": 0,
-                "error": str(e)
-            }
+            # Fallback to system curl (robustness for Pilot)
+            print(f"ImageDownloader: Python requests failed ({e}). Trying system curl...")
+            try:
+                import subprocess
+                # Determine extension again just in case
+                ext = ".jpg"
+                if ".png" in url.lower(): ext = ".png"
+                elif ".webp" in url.lower(): ext = ".webp"
+                
+                filename = f"{sku}{ext}"
+                filepath = self.base_dir / filename
+                
+                # curl -L -o <path> <url> -A "User-Agent"
+                cmd = [
+                    "curl", "-L", "-o", str(filepath), url,
+                    "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ]
+                subprocess.run(cmd, check=True, capture_output=True)
+                
+                if filepath.exists() and filepath.stat().st_size > 1000:
+                    # Success via curl
+                    # Optional: Convert/Tune if needed (copy-paste logic or extract to method)
+                    # For now, just return this
+                    return {
+                        "success": True,
+                        "path": str(filepath),
+                        "size": filepath.stat().st_size,
+                        "error": None
+                    }
+                else:
+                     return {
+                        "success": False,
+                        "path": None,
+                        "size": 0,
+                        "error": "Curl failed to download valid file"
+                     }
+            except Exception as curl_e:
+                return {
+                    "success": False,
+                    "path": None,
+                    "size": 0,
+                    "error": f"Requests and Curl both failed: {e} | {curl_e}"
+                }
     
     def verify_image(self, sku: str) -> dict:
         """Check if image exists locally."""

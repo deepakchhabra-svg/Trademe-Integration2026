@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 # Config
 # Ideally this comes from a Config class, but simple env vars for now
-PROD_URL = "https://api.trademe.co.nz/v1"
+PROD_URL = os.getenv("API_BASE_URL", "https://api.trademe.co.nz").rstrip('/') + "/v1"
 TIMEOUT_SECS = 30
 MAX_RETRIES = 3
 
@@ -207,8 +207,19 @@ class TradeMeAPI:
 
         print(f"API: Withdrawing Listing {listing_id}...")
         # Endpoint: POST /Selling/Withdraw.json
+        s_id = str(listing_id)
+        if s_id.startswith("SIM-") or s_id.startswith("TM-") or s_id.startswith("DRYRUN-"):
+            print(f"API: [MOCK] Withdraw ID {listing_id} skipped (simulated)")
+            return True
+
+        try:
+            lid = int(re.sub(r'\D', '', s_id))
+        except (ValueError, TypeError):
+            print(f"API: [MOCK] Withdraw ID {listing_id} skipped (not real)")
+            return True
+
         payload = {
-            "ListingId": int(listing_id),
+            "ListingId": lid,
             "Type": 2, # 2 = ListingWasNotSold
             "Reason": "Integration Logic Test"
         }

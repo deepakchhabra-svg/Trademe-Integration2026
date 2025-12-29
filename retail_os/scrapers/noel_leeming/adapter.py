@@ -68,7 +68,7 @@ class NoelLeemingAdapter:
                     "source_status": unified.get("source_status", "Active"),
                     "images": [p for p in [unified.get("photo1"), unified.get("photo2"), unified.get("photo3"), unified.get("photo4")] if p],
                     "stock_level": 1,
-                    "specs": {},  # NL specs not extracted yet in this pipeline
+                    "specs": row.get("specs", {}), 
                     # Category partitioning (prefer GTM category; fallback to configured category URL)
                     "source_category": unified.get("source_category") or category_url,
                 }

@@ -46,6 +46,15 @@ SKIP_PATTERNS = [
     re.compile(r"ID Required upon pick up.*", re.I | re.DOTALL),
     re.compile(r"Online payments only.*", re.I | re.DOTALL),
     re.compile(r"No instore payments accepted.*", re.I | re.DOTALL),
+    # Identifier & Tracking Garbage
+    re.compile(r"Web\s*ID[:\s]*\d+.*", re.I),
+    re.compile(r"SKU[:\s]*[A-Z0-9-]{3,}.*", re.I),
+    re.compile(r"Product\s+ID[:\s]*\d+.*", re.I),
+    re.compile(r"Ref[:\s]*[A-Z0-9-]{3,}.*", re.I),
+    # Social/In-store garbage
+    re.compile(r"Interested\s+in\s+this\s+item.*", re.I | re.DOTALL),
+    re.compile(r"Come\s+and\s+check\s+it\s+out.*", re.I | re.DOTALL),
+    re.compile(r"Ask\s+for\s+.*\s+at\s+the\s+counter.*", re.I | re.DOTALL),
 ]
 
 

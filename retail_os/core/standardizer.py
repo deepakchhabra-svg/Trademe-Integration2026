@@ -34,13 +34,10 @@ class Standardizer:
         if not s: return True
         
         # 1. Check Banned Topics
-        # Tokenize roughly
-        words = set(re.findall(r'\w+', s))
-        
-        # Check intersection with banned topics
-        # We check phrases differently than single words
+        # We use regex with word boundaries to avoid false positives (e.g., 'phone' in 'iPhone')
         for topic in Standardizer.BANNED_TOPICS:
-            if topic in s: # substring match for phrases like 'id required'
+            # Topic can be a phrase like 'valid id'
+            if re.search(r'\b' + re.escape(topic) + r'\b', s):
                 return True
                 
         # 2. Check Banned Starters

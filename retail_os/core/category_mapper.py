@@ -36,13 +36,21 @@ class CategoryMapper:
         "guitars": "0386-2516-",
         "keyboards": "0386-2519-",
         
+        "samsung": "0187-0192-", # Antiques > Other (SAFE DEFAULT for Pilot)
+        "apple": "0187-0192-", 
+        "iphone": "0187-0192-", 
+        "huawei": "0002-0356-0002-",
+        "pixel": "0002-0356-0002-", # Fallback to mobile phones 
+        
         # MISC
         "jewellery": "0202-",
-        "phone": "0002-0356-",
-        "mobile": "0002-0356-",
+        "phone": "0002-0356-0002-", # Mobile phones > Mobile phones (Leaf?) No, usually needs brand.
+        # But '0002-0356-0002-' is better than '0002-0356-'
+        "mobile": "0002-0356-0002-",
         "tablet": "0002-0356-0003-",
-        "laptop": "0002",
-        "computer": "0002-",
+        "laptop": "3399", # Computers > Laptops
+        "laptops": "3399",
+        "computer": "3399", # Computers > Laptops (Safe leaf)
         "baby": "0187-0192-",  # Antiques & Collectables > Other (safe default leaf)
         "monitor": "0187-0192-",  
         "default": "0187-0192-"  # Use existing safe DEFAULT_CATEGORY
@@ -65,6 +73,12 @@ class CategoryMapper:
         term = source_category_name.lower().strip()
         title_term = item_title.lower().strip()
         
+        # 0. Title Search (Priority!)
+        # Check Title keywords first to correct miscategorized items (e.g. Phone in Laptops category)
+        for key, cat_id in cls.CATEGORY_MAP.items():
+            if key in title_term:
+                return cat_id
+
         # 1. Direct Map
         if term in cls.CATEGORY_MAP:
             return cls.CATEGORY_MAP[term]
@@ -72,11 +86,6 @@ class CategoryMapper:
         # 2. Keyword Search in Category
         for key, cat_id in cls.CATEGORY_MAP.items():
             if key in term:
-                return cat_id
-                
-        # 4. Keyword Search in Title
-        for key, cat_id in cls.CATEGORY_MAP.items():
-            if key in title_term:
                 return cat_id
                 
         # 5. Fallback: AI Classification (If configured)

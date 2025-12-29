@@ -28,12 +28,12 @@ def _get_enrichment_policy(db) -> dict:
       }
     """
     default_policy = {
-        # Cost-aware default: no LLM calls unless explicitly enabled
-        "default": "NONE",
+        # AI-driven default for all suppliers as requested
+        "default": "AI",
         "by_supplier": {
             "CASH_CONVERTERS": "AI",
-            "NOEL_LEEMING": "NONE",
-            "ONECHEQ": "NONE",
+            "NOEL_LEEMING": "AI",
+            "ONECHEQ": "AI",
         },
     }
     row = db.query(SystemSetting).filter(SystemSetting.key == "enrichment.policy").first()

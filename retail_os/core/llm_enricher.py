@@ -116,8 +116,8 @@ class LLMEnricher:
         return data["choices"][0]["message"]["content"].strip()
 
     def _call_gemini(self, prompt: str) -> str:
-        # Use Gemini 2.5 Flash (newer, better limits than 2.0)
-        model = "gemini-2.5-flash"
+        # Use Gemini 1.5 Flash (stable, fast)
+        model = "gemini-1.5-flash"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.gemini_key}"
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
         

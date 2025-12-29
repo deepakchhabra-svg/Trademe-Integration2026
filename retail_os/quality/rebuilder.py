@@ -27,7 +27,7 @@ class ContentRebuilder:
     def __init__(self):
         self.prohibited_patterns = [
             r"stock wanted", r"cash converters", r"buy.*sell.*loan",
-            r"pickup", r"shipping", r"contact", r"phone", r"\d{2,4}\s?\d{3,4}\s?\d{3,4}", # Phone numbers
+            r"pickup", r"shipping", r"contact", r"\d{2,4}\s?\d{3,4}\s?\d{3,4}", # Phone numbers
             r"store.*policy", r"layby", r"finance", r"click.*collect"
         ]
 

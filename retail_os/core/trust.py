@@ -72,12 +72,13 @@ class TrustEngine:
             breakdown["Content"] = "PASS (Reconstructed & Clean)"
         
         # 1.5 MISSING SPEC PENALTY
-        # If item has zero technical specifications, drop to 60%
+        # If item has zero technical specifications, apply a soft penalty.
+        # We don't want to hard-block items that have great AI descriptions.
         spec_count = len(sp.specs or {})
         if spec_count == 0:
-            score = 60.0  # Hard cap at 60%
+            score -= 10.0  # 10% deduction instead of 60% cap
             blockers.append("Missing Technical Specifications")
-            breakdown["Specifications"] = f"PENALTY (0 specs found - Score capped at 60%)"
+            breakdown["Specifications"] = f"PENALTY (0 specs found - Deducted 10%)"
         else:
             breakdown["Specifications"] = f"PASS ({spec_count} specs found)"
             
