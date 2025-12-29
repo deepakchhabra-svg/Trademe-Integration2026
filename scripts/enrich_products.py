@@ -28,12 +28,13 @@ def _get_enrichment_policy(db) -> dict:
       }
     """
     default_policy = {
-        # AI-driven default for all suppliers as requested
-        "default": "AI",
+        # Pilot requirement: deterministic enrichment (no LLM) unless explicitly enabled.
+        "default": "NONE",
         "by_supplier": {
-            "CASH_CONVERTERS": "AI",
-            "NOEL_LEEMING": "AI",
-            "ONECHEQ": "AI",
+            "ONECHEQ": "NONE",
+            "NOEL_LEEMING": "NONE",
+            # CASH_CONVERTERS intentionally out of scope for pilot
+            "CASH_CONVERTERS": "NONE",
         },
     }
     row = db.query(SystemSetting).filter(SystemSetting.key == "enrichment.policy").first()
@@ -124,24 +125,17 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
 
                 supplier_name = (item.supplier.name if getattr(item, "supplier", None) else "").upper()
                 mode = (policy.get("by_supplier", {}).get(supplier_name) or policy.get("default") or "NONE").upper()
+                if supplier_name in {"ONECHEQ", "NOEL_LEEMING"}:
+                    mode = "NONE"
 
                 if mode == "AI":
+                    # AI mode is not used for OC/NL pilot; if enabled explicitly, it must fail loudly.
                     result = MarketplaceAdapter.prepare_for_trademe(item, use_ai=True)
-                    if "⚠️ LLM FAILURE" in (result.get("description") or ""):
-                        # AI failed or rate-limited -> deterministic minimal template (no hallucinations)
-                        title = result["title"]
-                        template_desc = _build_minimal_template(title=title, specs=item.specs or {})
-                        item.enriched_title = title
-                        item.enriched_description = template_desc
-                        item.enrichment_status = "SUCCESS"
-                        item.enrichment_error = None
-                        print("    SUCCESS (AI failed -> template)")
-                    else:
-                        item.enrichment_status = "SUCCESS"
-                        item.enrichment_error = None
-                        item.enriched_title = result["title"]
-                        item.enriched_description = result["description"]
-                        print("    SUCCESS (AI)")
+                    item.enrichment_status = "SUCCESS"
+                    item.enrichment_error = None
+                    item.enriched_title = result["title"]
+                    item.enriched_description = result["description"]
+                    print("    SUCCESS (AI)")
 
                 elif mode == "TEMPLATE":
                     # No LLM calls even if key exists.

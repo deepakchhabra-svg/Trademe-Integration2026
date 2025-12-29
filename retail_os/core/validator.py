@@ -9,6 +9,8 @@ from retail_os.scrapers.universal.adapter import UniversalAdapter
 from retail_os.core.trust import TrustEngine, TrustReport
 from retail_os.strategy.policy import PolicyEngine
 from retail_os.strategy.pricing import PricingStrategy
+from retail_os.core.category_mapper import CategoryMapper
+import json
 
 class LaunchLock:
     """
@@ -31,6 +33,37 @@ class LaunchLock:
         if not product.supplier_product:
              raise ValueError("Sync Error: Missing Supplier Product Data")
              
+        # 0. Required fields gate (Hard)
+        sp = product.supplier_product
+        if not (sp.title or "").strip():
+            raise ValueError("Missing title (supplier product)")
+        if sp.cost_price is None or float(sp.cost_price or 0) <= 0:
+            raise ValueError("Missing/invalid cost price")
+        if not (sp.enriched_title or "").strip():
+            raise ValueError("Missing enriched title (run enrichment)")
+        if not (sp.enriched_description or "").strip():
+            raise ValueError("Missing enriched description (run enrichment)")
+
+        # Require at least one local image file.
+        imgs = sp.images or []
+        if isinstance(imgs, str):
+            try:
+                imgs = json.loads(imgs)
+            except Exception:
+                imgs = [imgs]
+        has_local = False
+        for img in imgs:
+            if isinstance(img, str) and os.path.exists(img):
+                has_local = True
+                break
+        if not has_local:
+            raise ValueError("Missing images: no local product image downloaded (blocked)")
+
+        # Require mappable category.
+        cat_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+        if not cat_id:
+            raise ValueError("Missing category mapping (source_category is empty/unmappable)")
+
         # 1. Trust Gate (Hard)
         # We use the product report to get the specific score
         report = self.trust_engine.get_product_trust_report(product)
@@ -55,7 +88,6 @@ class LaunchLock:
                 raise ValueError(f"Policy Violation: {policy_res.blockers}")
              
         # 3. Margin Gate (Financial)
-        sp = product.supplier_product
         cost = float(sp.cost_price or 0)
         calc_price = PricingStrategy.calculate_price(cost, supplier_name=sp.supplier.name if sp.supplier else None)
         margin_check = PricingStrategy.validate_margin(cost, calc_price)

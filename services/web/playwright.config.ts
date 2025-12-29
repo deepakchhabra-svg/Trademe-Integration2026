@@ -12,7 +12,6 @@ export default defineConfig({
   testDir: "./tests",
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  globalSetup: "./tests/globalSetup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
@@ -57,8 +56,6 @@ export default defineConfig({
       env: {
         PYTHONPATH: path.resolve(__dirname, "../.."),
         DATABASE_URL: dbUrl,
-        // Ensure CI E2E doesn't depend on external sites/credentials.
-        TEST_MODE: "1",
       },
     },
     {

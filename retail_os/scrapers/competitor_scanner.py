@@ -19,20 +19,7 @@ class CompetitorScanner:
         """
         Attempts to find the lowest new price for this item.
         """
-        # Strategy 1: PriceSpy (Requires API or Scraper - Placeholder)
-        # Strategy 2: Google Shopping
-        
-        # For Pilot, we implement a 'Safety Check' stub.
-        # In V2 Full, this would hit specific search endpoints.
-        
-        print(f"CompetitorScanner: Scanning market for '{product_title}'...")
-        
-        # Mock Logic for demonstration:
-        # If 'PS5' in title, assume market price is approx $800
-        if "PS5" in product_title:
-             return 750.00
-             
-        return None
+        raise NotImplementedError("Competitor scanning is disabled (no mocks in pilot).")
 
     def check_competitor_undercut(self, my_price: float, market_price: float) -> bool:
         """

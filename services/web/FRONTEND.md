@@ -4,12 +4,11 @@ This document explains how to run and develop the Next.js admin UI.
 
 ## Quick Start
 
-### With API (Normal Mode)
+### With API (Required)
 
 ```bash
 # Terminal 1: Start the API
-cd /path/to/project
-docker-compose up
+python -m uvicorn services.api.main:app --host 127.0.0.1 --port 8000 --reload
 
 # Terminal 2: Start the frontend
 cd services/web
@@ -21,22 +20,9 @@ Open [http://localhost:3000](http://localhost:3000)
 
 The UI will connect to the API at `http://127.0.0.1:8000` by default.
 
-### Frontend-Only (Demo Mode)
+### No demo mode
 
-If you want to work on the UI without running the backend:
-
-```bash
-cd services/web
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000)
-
-The app will detect that the API is offline and automatically enable **Demo Mode**:
-- A yellow banner will appear: "⚠️ API Offline: Demo Mode"
-- Vault pages will load fixture data from `fixtures/*.json`
-- Actions will be disabled or show simulation toasts
-- You can develop and test UI components without needing the backend
+This UI is **real-mode only**. If the backend/API is down, the UI will show a clear **Backend offline** error.
 
 ## Environment Variables
 
@@ -85,13 +71,7 @@ services/web/
 │   │   └── inspector/          # Entity inspector drawer
 │   └── lib/                    # Shared utilities
 │       ├── api.ts              # API client (client-side)
-│       ├── demoMode.ts         # Demo mode detection
 │       └── toastContext.tsx    # Toast notification system
-├── fixtures/                   # Demo mode fixture data
-│   ├── vault1.json
-│   ├── vault2.json
-│   ├── vault3.json
-│   └── ops_summary.json
 ├── public/                     # Static assets
 ├── tests/                      # Playwright e2e tests
 └── package.json
@@ -107,13 +87,9 @@ All API calls go through `/api/proxy/[...path]` to avoid CORS issues and central
 - Frontend calls: `GET /api/proxy/vaults/raw?page=1`
 - Proxy forwards to: `GET http://127.0.0.1:8000/vaults/raw?page=1`
 
-### Demo Mode
+### No demo mode / fixtures / mocks
 
-When the API health check fails, the app enters demo mode:
-1. `lib/demoMode.ts` checks `/api/proxy/health` on load
-2. If it fails, `isDemoMode()` returns `true`
-3. Pages use `getDemoData(key)` to load fixture JSON instead of API calls
-4. Actions are disabled or show simulation toasts
+Pages always call the real backend API. There is no fixture fallback.
 
 ### Server vs Client Components
 
@@ -169,16 +145,7 @@ Add new tests in `tests/*.spec.ts` for new features.
 1. Check that API is running: `curl http://127.0.0.1:8000/health`
 2. Verify `NEXT_PUBLIC_API_BASE_URL` is correct
 3. Try using `127.0.0.1` instead of `localhost`
-4. If API is unavailable, demo mode should activate automatically
-
-### Demo mode not activating
-
-**Symptom**: App shows errors instead of loading fixtures when API is offline.
-
-**Solutions**:
-1. Clear browser cache and hard reload (Ctrl+Shift+R)
-2. Check browser console for errors in `demoMode.ts`
-3. Verify fixture files exist in `fixtures/` directory
+4. If API is unavailable, the UI will show **Backend offline** (expected).
 
 ### Build failures
 
@@ -201,7 +168,7 @@ Add new tests in `tests/*.spec.ts` for new features.
 
 ## Automated Testing
 
-Automated tests are powered by **Playwright** and run in **Demo Mode**.
+Automated tests are powered by **Playwright** and run against the real UI.
 
 ### Running Tests Locally
 
@@ -214,14 +181,9 @@ npm install
 npm run test:e2e
 ```
 
-### Test Mode (Deterministic Testing)
+### No test/demo mode
 
-For CI and deterministic testing, use `NEXT_PUBLIC_TEST_MODE=1`. This forces Demo Mode even if the API is reachable, ensuring tests run against consistent fixture data.
-
-```bash
-# Force test mode and run playwright
-NEXT_PUBLIC_TEST_MODE=1 npx playwright test
-```
+`NEXT_PUBLIC_TEST_MODE` is intentionally unsupported.
 
 ### Coverage Goals
 - **Route Visibility**: Every page loads without crashes or console errors.
@@ -236,8 +198,7 @@ When making changes to the frontend:
 
 - [ ] Run `npm run lint` — fix any errors
 - [ ] Run `npm run build` — ensure build succeeds
-- [ ] Test in demo mode (API offline)
-- [ ] Test in normal mode (API online)
+- [ ] Test with API online
 - [ ] Check browser console for errors
 - [ ] Run `npm run test:e2e` — verify tests pass
 - [ ] Update this doc if changing architecture or workflow

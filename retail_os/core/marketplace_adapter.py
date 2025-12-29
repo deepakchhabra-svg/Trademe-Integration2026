@@ -29,71 +29,46 @@ class MarketplaceAdapter:
         raw_title = item.title or "Untitled Product"
         final_title = clean_title_for_trademe(raw_title)
         
-        # 2. Build Description
-        # LOGIC BRANCH: GEN AI vs HEURISTIC
-        from retail_os.core.llm_enricher import enricher
-        enrichment_failed = False
+        # 2. Build Description (deterministic for pilot)
+        # For OC/NL we do not call LLM. We treat enrichment output as the single source of truth.
+        supplier_name = ""
+        try:
+            supplier_name = (item.supplier.name if getattr(item, "supplier", None) else "").upper()
+        except Exception:
+            supplier_name = ""
 
-        # Decide AI usage:
-        # - use_ai=True: force AI if available; otherwise deterministic fallback.
-        # - use_ai=False: force deterministic.
-        # - use_ai=None: auto (AI if available).
-        ai_available = enricher.is_active()
-        if use_ai is True and not ai_available:
+        # Default to deterministic unless explicitly forced.
+        if use_ai is None:
+            use_ai = False
+        if supplier_name in {"ONECHEQ", "NOEL_LEEMING"}:
             use_ai = False
 
-        if (use_ai is True) or (use_ai is None and ai_available):
-            # PATH A: GENERATIVE AI (Gemini 2.0)
-            from retail_os.utils.seo import clean_description
-            clean_input = clean_description(item.description or "")
-            
-            # 2. Dynamic Regex (Boilerplate)
-            from retail_os.core.boilerplate_detector import detector
-            patterns = detector.detect_patterns() 
-            for p in patterns:
-                if p in clean_input:
-                    clean_input = clean_input.replace(p, "")
-            
-            # 3. Gen AI Rewrite
-            final_description = enricher.enrich(
-                title=raw_title, 
-                raw_desc=clean_input, 
-                specs=item.specs or {},
-                url=getattr(item, 'product_url', None)
-            )
-            
-            enrichment_failed = "⚠️ LLM FAILURE" in final_description
-            
-        else:
-            # PATH B: LEGACY HEURISTIC (Fallback)
-            # 1. Static Regex (Manukau footers, etc) - CRITICAL FIX
-            from retail_os.utils.seo import clean_description
-            clean_input = clean_description(item.description or "")
+        from retail_os.utils.seo import clean_description
+        clean_input = clean_description(item.description or "")
 
-            # 2. Dynamic Regex (Boilerplate)
-            from retail_os.core.boilerplate_detector import detector
-            patterns = detector.detect_patterns() 
-            for p in patterns:
-                if p in clean_input:
-                    clean_input = clean_input.replace(p, "")
-            
-            desc_input = {
-                "title": raw_title,
-                "description": clean_input,
-                "specs": item.specs
-            }
+        # Remove dynamic boilerplate patterns
+        from retail_os.core.boilerplate_detector import detector
+        patterns = detector.detect_patterns()
+        for p in patterns:
+            if p in clean_input:
+                clean_input = clean_input.replace(p, "")
+
+        # Use enriched description if present; otherwise build deterministic SEO description.
+        if getattr(item, "enriched_description", None):
+            final_description = str(item.enriched_description)
+        else:
+            desc_input = {"title": raw_title, "description": clean_input, "specs": item.specs}
             final_description = build_seo_description(desc_input)
-            
-            # STANDARDIZATION
             from retail_os.core.standardizer import Standardizer
             final_description = Standardizer.polish(final_description)
+
+        # Optional AI path (not used for OC/NL pilot)
+        if use_ai:
+            from retail_os.core.llm_enricher import enricher
+            final_description = enricher.enrich(title=raw_title, raw_desc=clean_input, specs=item.specs or {})
         if item.specs and "**SPECIFICATIONS**" not in final_description:
              specs_block = "**SPECIFICATIONS**\n" + "\n".join([f"- {k}: {v}" for k, v in item.specs.items()])
              final_description = specs_block + "\n\n" + final_description
-
-        # USER REQUEST: Add Source URL to description (Vault 1 Raw)
-        if getattr(item, 'product_url', None):
-            final_description += f"\n\nSource Reference: {item.product_url}"
 
         # 3. Map Category
         cat_id = CategoryMapper.map_category(
@@ -128,9 +103,6 @@ class MarketplaceAdapter:
         trust_signal = "HIGH"
         if not is_safe:
             trust_signal = "BANNED_IMAGE"
-        elif enrichment_failed:
-            trust_signal = "NEEDS_REVIEW"
-            audit_reason = "LLM Generation Failed"
 
         # 5. Calculate Price (Strategy-Driven)
         # We need the supplier name. The Adapter is generic, so we might need to query it or infer it.

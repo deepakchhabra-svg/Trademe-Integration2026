@@ -1,6 +1,8 @@
 import os
 import requests
 from pathlib import Path
+from urllib.parse import urlparse
+import time
 
 class ImageDownloader:
     """Physical image download service with verification."""
@@ -17,6 +19,25 @@ class ImageDownloader:
         if not url or url.startswith("https://placehold.co"):
             return {"success": False, "path": None, "size": 0, "error": "Placeholder URL"}
         
+        def _referer_for(u: str) -> str | None:
+            try:
+                host = urlparse(u).netloc.lower()
+            except Exception:
+                return None
+            if "noelleeming.co.nz" in host:
+                return "https://www.noelleeming.co.nz/"
+            if "onecheq.co.nz" in host:
+                return "https://onecheq.co.nz/"
+            return None
+
+        referer = _referer_for(url)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "image/*,*/*;q=0.8",
+        }
+        if referer:
+            headers["Referer"] = referer
+
         try:
             # Determine extension
             ext = ".jpg"
@@ -29,25 +50,29 @@ class ImageDownloader:
             filename = f"{sku}{ext}"
             filepath = self.base_dir / filename
             
-            # Download with headers to avoid 403
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Referer": "https://www.noelleeming.co.nz/",
-                "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-                "sec-ch-ua-mobile": "?0",
-                "sec-ch-ua-platform": '"Windows"',
-            }
-            # Use a session for better connection handling
-            with requests.Session() as session:
-                response = session.get(url, headers=headers, timeout=20, stream=True)
-                response.raise_for_status()
-                
-                # Save
-                # Save raw first
-                with open(filepath, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
+            # Use a session for better connection handling + retries (NL can be flaky)
+            last_err: Exception | None = None
+            for attempt in range(1, 4):
+                try:
+                    with requests.Session() as session:
+                        response = session.get(url, headers=headers, timeout=20, stream=True, allow_redirects=True)
+                        response.raise_for_status()
+
+                        ctype = (response.headers.get("content-type") or "").lower()
+                        if ctype and "image" not in ctype:
+                            raise RuntimeError(f"Non-image response content-type: {ctype}")
+
+                        with open(filepath, 'wb') as f:
+                            for chunk in response.iter_content(chunk_size=8192):
+                                if chunk:
+                                    f.write(chunk)
+                    last_err = None
+                    break
+                except Exception as e:
+                    last_err = e
+                    time.sleep(min(2.0, 0.5 * (2 ** (attempt - 1))))
+            if last_err is not None:
+                raise last_err
             
             # --- IMAGE TUNING (Added for Trade Me Compliance) ---
             # Trade Me prefers JPG. We convert everything to JPG.
@@ -107,11 +132,20 @@ class ImageDownloader:
                 filename = f"{sku}{ext}"
                 filepath = self.base_dir / filename
                 
-                # curl -L -o <path> <url> -A "User-Agent"
+                # curl -L --retry ... --fail -o <path> <url> with browser-like headers
                 cmd = [
-                    "curl", "-L", "-o", str(filepath), url,
-                    "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    "curl",
+                    "-L",
+                    "--retry", "3",
+                    "--retry-delay", "1",
+                    "--fail",
+                    "-o", str(filepath),
+                    "-A", headers["User-Agent"],
+                    "-H", f"Accept: {headers['Accept']}",
                 ]
+                if referer:
+                    cmd += ["-H", f"Referer: {referer}"]
+                cmd += [url]
                 subprocess.run(cmd, check=True, capture_output=True)
                 
                 if filepath.exists() and filepath.stat().st_size > 1000:

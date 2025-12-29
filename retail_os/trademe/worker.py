@@ -228,25 +228,10 @@ class CommandWorker:
     def execute_logic(self, command):
         """
         The routing logic. In real app, this calls API Client.
-        For Vertical Slice Phase 2 verification, we simulate success.
         """
-        if os.getenv("NEXT_PUBLIC_TEST_MODE") == "1" or os.getenv("TEST_MODE") == "1":
-            command_type, _ = self.resolve_command(command)
-            print(f"   -> [TEST_MODE] Simulating {command_type}...")
-            time.sleep(0.5)
-            # For ENRICH, we might want to ensure some data exists, but for now simple success is okay.
-            return
-
         command_type, payload = self.resolve_command(command)
 
-        if command_type == "TEST_COMMAND":
-            # Simulate work
-            time.sleep(0.5) 
-            if payload.get("fail_me"):
-                raise ValueError("Simulated Failure")
-            return
-
-        elif command_type == "PUBLISH_LISTING":
+        if command_type == "PUBLISH_LISTING":
             self.handle_publish(command)
             return
 
@@ -375,6 +360,10 @@ class CommandWorker:
             # --- DRY RUN MODE (Offline Safe) ---
             if dry_run:
                 logger.info(f"   -> [DRY RUN] Building authoritative payload for product {internal_id}")
+
+                # DRY_RUN must still respect strict gates (no fake listing-ready output).
+                validator = LaunchLock(session)
+                validator.validate_publish(prod, test_mode=False)
                 
                 # Use authoritative payload builder
                 from retail_os.core.listing_builder import build_listing_payload, compute_payload_hash
@@ -476,7 +465,7 @@ class CommandWorker:
                     "enabled": True,
                     "max_publishes_per_day": 100,
                     "max_publishes_per_minute": 6,
-                    "min_account_balance_nzd": 0.0,
+                    "min_account_balance_nzd": 20.0,
                     "require_recent_scrape_minutes": 1440,
                 },
             )
@@ -606,19 +595,19 @@ class CommandWorker:
                         command.error_message = f"Needs top-up. Current Balance: ${bal_f:.2f} (min ${min_bal:.2f})"
                         session.commit()
                         raise ValueError(command.error_message)
-                except Exception:
-                    # If balance check fails (API hiccup), continue and let publish handler decide.
-                    pass
+                except Exception as e:
+                    command.status = CommandStatus.HUMAN_REQUIRED
+                    command.error_code = "BALANCE_CHECK_FAILED"
+                    command.error_message = f"Blocked: could not fetch Trade Me balance preflight ({e})"
+                    session.commit()
+                    raise ValueError(command.error_message)
             
             # Phase 1: Pre-Flight (Lock)
             print(f"   -> [Phase 1] Validation for InternalProduct {internal_id}")
             
-            # THE BEAST GUARD (New Validator) - bypass in E2E test mode
-            import os
-            test_mode = os.getenv("E2E_TEST_MODE", "false").lower() == "true"
             validator = LaunchLock(session)
-            validator.validate_publish(prod, test_mode=test_mode)
-            print(f"   -> [Phase 1] LaunchLock Passed (test_mode={test_mode})")
+            validator.validate_publish(prod, test_mode=False)
+            print(f"   -> [Phase 1] LaunchLock Passed")
             
             # Phase 2: Photos
             photo_ids = []
@@ -689,7 +678,11 @@ class CommandWorker:
                     print(f"      -> Photo Failed: {e}")
                     raise e
             else:
-                print(f"   -> [Phase 2] No Photo Available (Proceeding Text-Only)")
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "MISSING_IMAGE"
+                command.error_message = "Blocked: no downloadable product image available. Scrape must capture images; image download must succeed."
+                session.commit()
+                raise ValueError(command.error_message)
             
             # Phase 3: Draft & Validate
             # Construct Description
@@ -798,10 +791,12 @@ class CommandWorker:
             error_str = str(e)
             # Check for insufficient balance
             if "Insufficient balance" in error_str or "insufficient" in error_str.lower():
-                print("      -> [PILOT] Insufficient balance detected. Falling back to Simulated Success.")
-                listing_id = f"SIM-{command.id[:8]}"
-                # Proceed to saving record with special state
-                pass 
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "INSUFFICIENT_BALANCE"
+                bal = account_summary.get("account_balance", "N/A")
+                command.error_message = f"Needs top-up. Current Balance: ${bal}"
+                session.commit()
+                raise Exception(command.error_message)
             else:
                 # Other publish errors
                 raise
@@ -815,9 +810,7 @@ class CommandWorker:
                 tm_listing_id=str(listing_id),
                 desired_price=tm_payload["StartPrice"],
                 actual_price=tm_payload["StartPrice"],
-                actual_state="Simulated" if str(listing_id).startswith("SIM-") else "Live",
-                payload_snapshot=json.dumps(tm_payload),
-                payload_hash=hashlib.sha256(json.dumps(tm_payload, sort_keys=True).encode()).hexdigest(),
+                actual_state="Live",
                 last_synced_at=datetime.utcnow()
             )
             session.add(tm_listing)
@@ -825,11 +818,6 @@ class CommandWorker:
             print(f"      -> Saved TradeMeListing record for {listing_id}")
         
         # --- Phase 5: Verification ---
-        if str(listing_id).startswith("SIM-"):
-            print(f"   -> [Phase 5] Verification SKIPPED (Simulated Listing)")
-            session.close()
-            return
-
         print(f"   -> [Phase 5] Read-Back Verification...")
         details = self.api.get_listing_details(str(listing_id))
         
@@ -853,6 +841,19 @@ class CommandWorker:
         pages = int(payload.get("pages", 1) or 1)
         
         logger.info(f"SCRAPE_SUPPLIER_START cmd_id={command.id} supplier={supplier_name}")
+
+        # Pilot scope: ONECHEQ + NOEL_LEEMING only (no CC).
+        name_l = str(supplier_name).lower()
+        if not ("onecheq" in name_l or "noel" in name_l or "leeming" in name_l):
+            command.status = CommandStatus.HUMAN_REQUIRED
+            command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
+            command.error_message = f"Pilot scope supports ONECHEQ and NOEL_LEEMING only (got {supplier_name})."
+            return
+        if "cash" in name_l or "converters" in name_l:
+            command.status = CommandStatus.HUMAN_REQUIRED
+            command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
+            command.error_message = "CASH_CONVERTERS is out of scope for pilot."
+            return
 
         # Per-supplier policy gate (DB-backed)
         try:
@@ -917,21 +918,6 @@ class CommandWorker:
                 session.commit()
                 
                 logger.info(f"SCRAPE_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} status=SUCCEEDED")
-            elif "cash" in supplier_name.lower() or "converters" in supplier_name.lower():
-                from retail_os.scrapers.cash_converters.adapter import CashConvertersAdapter
-                adapter = CashConvertersAdapter()
-                # Category-scoped scrape: browse_url
-                adapter.run_sync(pages=pages, browse_url=source_category or "https://shop.cashconverters.co.nz/Browse/R160787-R160789/North_Island-Auckland")
-                
-                from datetime import datetime
-                from retail_os.core.database import SupplierProduct
-                session.query(SupplierProduct).filter_by(supplier_id=supplier_id).update(
-                    {"last_scraped_at": datetime.utcnow()},
-                    synchronize_session=False
-                )
-                session.commit()
-                
-                logger.info(f"SCRAPE_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} status=SUCCEEDED")
             else:
                 logger.warning(f"No scraper found for supplier: {supplier_name}")
                 # Don't fail - just mark as succeeded with warning
@@ -963,6 +949,19 @@ class CommandWorker:
             batch_size,
             delay_seconds,
         )
+
+        # Pilot scope: ONECHEQ + NOEL_LEEMING only (no CC).
+        name_l = str(supplier_name).lower()
+        if not ("onecheq" in name_l or "noel" in name_l or "leeming" in name_l):
+            command.status = CommandStatus.HUMAN_REQUIRED
+            command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
+            command.error_message = f"Pilot scope supports ONECHEQ and NOEL_LEEMING only (got {supplier_name})."
+            return
+        if "cash" in name_l or "converters" in name_l:
+            command.status = CommandStatus.HUMAN_REQUIRED
+            command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
+            command.error_message = "CASH_CONVERTERS is out of scope for pilot."
+            return
 
         # Per-supplier policy gate (DB-backed)
         try:
@@ -1089,6 +1088,22 @@ class CommandWorker:
         Creates an auditable market-price snapshot for a listing/product and (optionally)
         enqueues a price update recommendation.
         """
+        command.status = CommandStatus.HUMAN_REQUIRED
+        command.error_code = "COMPETITOR_SCAN_DISABLED"
+        command.error_message = "Competitor scanning is disabled for pilot (no mocks allowed)."
+        # Persist and stop.
+        s = SessionLocal()
+        try:
+            row = s.query(SystemCommand).get(command.id)
+            if row:
+                row.status = command.status
+                row.error_code = command.error_code
+                row.error_message = command.error_message
+                row.updated_at = datetime.now(timezone.utc)
+                s.commit()
+        finally:
+            s.close()
+        raise ValueError(command.error_message)
         cmd_type, payload = self.resolve_command(command)
         listing_db_id = payload.get("listing_db_id")
         tm_listing_id = payload.get("tm_listing_id")

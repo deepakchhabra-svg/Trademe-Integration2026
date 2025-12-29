@@ -19,12 +19,7 @@ type OpsSummary = {
 };
 
 export default async function Home() {
-  let summary: OpsSummary | null = null;
-  try {
-    summary = await apiGet<OpsSummary>("/ops/summary");
-  } catch {
-    summary = null;
-  }
+  const summary = await apiGet<OpsSummary>("/ops/summary");
 
   const headerActions = (
     <div className="flex flex-wrap gap-2">
@@ -93,14 +88,7 @@ export default async function Home() {
             <div className="mt-1 text-xs text-slate-500">Use Inbox to clear exceptions.</div>
           </SectionCard>
         </div>
-      ) : (
-        <SectionCard className="p-0">
-          <div className="p-6 text-sm text-slate-600" data-testid="banner-summary-unavailable">
-            Ops summary is unavailable at your current role. Switch role to <span className="font-mono">power</span> or{" "}
-            <span className="font-mono">root</span>.
-          </div>
-        </SectionCard>
-      )}
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SectionCard title="1) Scrape supplier truth">

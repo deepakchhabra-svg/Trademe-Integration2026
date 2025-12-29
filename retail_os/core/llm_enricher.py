@@ -30,15 +30,12 @@ class LLMEnricher:
     def is_active(self) -> bool:
         return self.provider is not None
 
-    def enrich(self, title: str, raw_desc: str, specs: Dict, url: str = None) -> str:
+    def enrich(self, title: str, raw_desc: str, specs: Dict) -> str:
         """
         Sends text to LLM and returns professional retail copy.
         """
         if not self.is_active():
-            # FALLBACK: Return standardizer output if no key
-            print("⚠️ LLM Key Missing. Falling back to Standardizer.")
-            from retail_os.core.standardizer import Standardizer
-            return Standardizer.polish(raw_desc)
+            raise RuntimeError("LLM provider not configured (missing API key).")
 
         prompt = f"""
         You are a premium Retail Copywriter for a high-end e-commerce store.
@@ -55,13 +52,11 @@ class LLMEnricher:
             -   Paragraph on features (Subjective/Salesy is okay here).
             -   **"Condition & Inclusions"** (Strictly factual from Raw Text).
             -   **"Specifications"** (Formatted list from Specs data).
-            -   **"Reference"** (Include the Item URL provided below).
         
         INPUT DATA:
         Item Title: {title}
         Raw Description: {raw_desc}
         Specs: {json.dumps(specs)}
-        Item URL: {url}
         
         OUTPUT:
         Return ONLY the final description text.
