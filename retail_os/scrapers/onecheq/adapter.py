@@ -133,7 +133,9 @@ class OneCheqAdapter:
         
         # PHYSICAL IMAGE DOWNLOAD - Download all available images
         local_images = []
-        for idx, img_url in enumerate(imgs, 1):
+        limit_imgs = int(os.getenv("RETAILOS_IMAGE_LIMIT_PER_PRODUCT", "4") or "4")
+        limit_imgs = max(0, min(4, limit_imgs))
+        for idx, img_url in enumerate(imgs[:limit_imgs], 1):
             if img_url:
                 # Use SKU with index for multiple images
                 img_sku = f"{sku}_{idx}" if idx > 1 else sku

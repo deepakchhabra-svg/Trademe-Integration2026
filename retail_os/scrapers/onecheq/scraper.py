@@ -6,6 +6,7 @@ Extracts: title, description, price, specs, images, SKU, condition
 import re
 import json
 import time
+import os
 from typing import Optional, Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from selectolax.parser import HTMLParser
@@ -140,7 +141,12 @@ def extract_onecheq_id(url: str) -> str:
     return "UNKNOWN"
 
 
-def discover_products_from_collection(collection_url: str, max_pages: int = 5, client: Optional[httpx.Client] = None) -> List[str]:
+def discover_products_from_collection(
+    collection_url: str,
+    max_pages: int = 5,
+    client: Optional[httpx.Client] = None,
+    max_products: Optional[int] = None,
+) -> List[str]:
     """
     Discover all product URLs from a collection page.
     OneCheq uses Shopify pagination: ?page=N
@@ -197,6 +203,9 @@ def discover_products_from_collection(collection_url: str, max_pages: int = 5, c
         
         print(f"  Found {len(page_products)} products on page {page_num}")
         product_urls.update(new_on_page)
+        if max_products and len(product_urls) >= int(max_products):
+            print(f"  Reached max_products={max_products}; stopping discovery")
+            break
     
     print(f"Total unique products discovered: {len(product_urls)}")
     return list(product_urls)
@@ -267,18 +276,22 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
             # Best-effort JSON-LD parsing; ignore failures but log for debugging.
             print(f"Error parsing JSON-LD product data: {e}")
     
-    # Extract SKU (prefer JSON-LD sku/mpn; then on-page SKU; then URL slug)
-    sku = _extract_sku_from_jsonld(products_jsonld) or ""
+    # Extract supplier-provided SKU/MPN (often a lot number on OneCheq).
+    # IMPORTANT: this value is not reliably unique across the entire catalog, so we do NOT use it as our primary key.
+    supplier_sku_extracted = _extract_sku_from_jsonld(products_jsonld) or ""
     sku_node = doc.css_first(".product__sku, [class*='sku'], .variant-sku")
     if sku_node:
         sku_text = norm_ws(sku_node.text())
         # Extract just the SKU value (e.g., "SKU: LOT731" -> "LOT731")
         sku_match = re.search(r'SKU:?\s*([A-Z0-9]+)', sku_text, re.IGNORECASE)
         if sku_match:
-            sku = normalize_sku(sku_match.group(1))
+            supplier_sku_extracted = normalize_sku(sku_match.group(1))
 
+    # Canonical primary identifier for our pipeline: Shopify product handle from URL (stable & unique).
+    # This prevents data corruption caused by reused lot numbers overwriting other rows.
+    sku = (product_id or "").strip()
     if not sku:
-        sku = normalize_sku(product_id)
+        sku = (supplier_sku_extracted or "").strip()
     
     # Extract price
     price = 0.0
@@ -417,6 +430,14 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
     
     # Add condition to specs
     specs['Condition'] = condition
+
+    # Preserve extracted supplier SKU/lot for audit/search, but do NOT use it as the primary key.
+    # IMPORTANT: store it in a "phone-regex-safe" form (avoid leading 0 at a word boundary).
+    if supplier_sku_extracted and supplier_sku_extracted.strip():
+        lot = supplier_sku_extracted.strip()
+        if lot.isdigit() and lot.startswith("0"):
+            lot = f"LOT{lot}"
+        specs.setdefault("SupplierLot", lot)
     
     # Extract images
     images = []
@@ -529,11 +550,13 @@ def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: i
     # Discover products (page fetches are cheap; product pages are expensive).
     max_pages = 999 if limit_pages <= 0 else limit_pages
     concurrency = max(1, min(32, int(concurrency or 1)))
+    max_products_env = os.getenv("RETAILOS_ONECHEQ_MAX_PRODUCTS")
+    max_products = int(max_products_env) if (max_products_env and max_products_env.isdigit()) else None
 
     # Reuse a single client for connection pooling (much faster).
     client = httpx.Client(follow_redirects=True, timeout=20.0)
     try:
-        product_urls = discover_products_from_collection(collection_url, max_pages, client=client)
+        product_urls = discover_products_from_collection(collection_url, max_pages, client=client, max_products=max_products)
     finally:
         # We recreate a new client for concurrent section to avoid sharing mutable state across threads on older httpx versions.
         client.close()

@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 
 
 WHITESPACE_RE = re.compile(r"\s+")
+_PHONE_LIKE_RE = re.compile(r"\b(?:\+?64\s?|0)\d{1,2}\s?\d{3}\s?\d{3,4}\b")
 SKIP_PATTERNS = [
     re.compile(r"warranty\s+90\s+days?.*consumer\s+guarantees?\s+act", re.I),
     re.compile(r"consumer\s+guarantees?\s+act", re.I),
@@ -148,14 +149,25 @@ def build_seo_description(row: Dict[str, str]) -> str:
     # Specs (top 10 only, stable order by key name)
     if specs:
         lines.append("**Specifications**")
-        for k in sorted(list(specs.keys()))[:10]:
+        emitted = 0
+        for k in sorted(list(specs.keys())):
             v = specs.get(k)
             if v is None:
                 continue
             vv = _clean_text(str(v))
             kk = _clean_text(str(k)).replace("_", " ").strip(":")
+            kkl = kk.lower()
+            # Never surface identifiers that can be mistaken as contact numbers or internal tracking.
+            if any(tok in kkl for tok in ("sku", "mpn", "serial", "imei", "meid")):
+                continue
+            # If the value itself looks like a phone number, skip it (prevents TrustEngine false positives).
+            if _PHONE_LIKE_RE.search(vv):
+                continue
             if kk and vv:
                 lines.append(f"- {kk}: {vv}")
+                emitted += 1
+                if emitted >= 10:
+                    break
         lines.append("")
 
     # Detail bullets (only if they’re meaningful)
