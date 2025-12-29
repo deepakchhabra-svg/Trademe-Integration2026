@@ -65,8 +65,9 @@ class OneCheqAdapter:
                 if not unified["source_listing_id"] or not unified["title"]:
                     continue
 
-                # 3.5 SEO Enhancement
-                unified["description"] = build_seo_description(unified)
+                # 3.5 Keep supplier description raw.
+                # MarketplaceAdapter/enrichment is responsible for producing listing-grade copy.
+                # Pre-formatting here causes double-formatting and degraded output.
                 
                 # 3.6 Add ranking metadata
                 unified["collection_rank"] = item.get("collection_rank")
@@ -124,6 +125,11 @@ class OneCheqAdapter:
             val = data.get(k)
             if val:
                 imgs.append(val)
+
+        # Pass through structured specs (from scraper)
+        specs = data.get("specs") if isinstance(data, dict) else None
+        if not isinstance(specs, dict):
+            specs = {}
         
         # PHYSICAL IMAGE DOWNLOAD - Download all available images
         local_images = []
@@ -148,7 +154,7 @@ class OneCheqAdapter:
                 "cost": cost,
                 "status": data.get("source_status"),
                 "images": local_images,
-                "specs": data.get("specs") or {},
+                "specs": specs,
                 "stock_level": data.get("stock_level"),
             },
             sort_keys=True,
@@ -175,6 +181,7 @@ class OneCheqAdapter:
                 stock_level=int(data.get("stock_level") or 1),
                 product_url=data["source_url"],
                 images=local_images if local_images else imgs,  # Prefer local
+                specs=specs,
                 collection_rank=data.get("collection_rank"),
                 collection_page=data.get("collection_page"),
                 source_category=data.get("source_category"),
@@ -246,6 +253,7 @@ class OneCheqAdapter:
                 sp.condition = data.get("condition", "Used")
                 sp.cost_price = cost
                 sp.images = local_images if local_images else imgs  # Prefer local
+                sp.specs = specs
                 sp.collection_rank = data.get("collection_rank")
                 sp.collection_page = data.get("collection_page")
                 sp.snapshot_hash = current_hash

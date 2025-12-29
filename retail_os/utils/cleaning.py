@@ -27,9 +27,13 @@ def clean_title_for_trademe(raw_title: str) -> str:
     # Normalize whitespace
     title = ' '.join(title.split())
     
-    # Capitalize first letter
+    # Capitalize first letter (light touch) but preserve common brand casing.
     if title:
         title = title[0].upper() + title[1:]
+        # Brand casing fixes
+        title = re.sub(r"\bIphone\b", "iPhone", title)
+        title = re.sub(r"\bMacbook\b", "MacBook", title)
+        title = re.sub(r"\bAirpods\b", "AirPods", title)
     
     return title
 

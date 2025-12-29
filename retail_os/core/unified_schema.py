@@ -169,6 +169,9 @@ def normalize_onecheq_row(oc_row: dict) -> UnifiedProduct:
         "photo2": oc_row.get("photo2", ""),
         "photo3": oc_row.get("photo3", ""),
         "photo4": oc_row.get("photo4", ""),
+        # Pass through structured specs for enrichment/publish quality.
+        # Stored in SupplierProduct.specs by the adapter.
+        "specs": oc_row.get("specs") or {},
         "warranty": "",
         "ean": "",
         "source_status": oc_row.get("source_status", "Available"),

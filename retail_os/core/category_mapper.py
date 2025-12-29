@@ -14,6 +14,8 @@ class CategoryMapper:
         # TECH
         "laptop": "3399", # Computers > Laptops
         "laptops": "3399",
+        "macbook": "3399",
+        "notebook": "3399",
         "mobile phones": "0002-0356-0002-", # Mobile phones > Mobile phones
         "phones": "0002-0356-0002-",
         "tablets": "0002-0356-0003-", # Mobile phones > Tablets
@@ -38,6 +40,7 @@ class CategoryMapper:
         
         # Brand/title heuristics (tech)
         "samsung": "0002-0356-0002-",  # Mobile phones
+        # Apple needs context: default to phones, but laptop keywords above win.
         "apple": "0002-0356-0002-",
         "iphone": "0002-0356-0002-",
         "huawei": "0002-0356-0002-",

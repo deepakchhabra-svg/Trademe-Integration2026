@@ -1568,6 +1568,133 @@ def validate_internal_product(
             return {"internal_product_id": ip.id, "ok": False, "reason": str(e)[:2000]}
 
 
+@app.get("/draft/internal-products/{internal_product_id}/trademe")
+def draft_trademe_payload(
+    internal_product_id: int,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Returns the *draft* Trade Me payload for operator visibility.
+    - Does NOT upload photos (so no PhotoIds).
+    - Uses local/public PhotoUrls for preview.
+    """
+    from retail_os.core.listing_builder import build_listing_payload, compute_payload_hash
+
+    with get_db_session() as session:
+        ip = session.query(InternalProduct).filter(InternalProduct.id == internal_product_id).first()
+        if not ip:
+            raise HTTPException(status_code=404, detail="InternalProduct not found")
+        payload = build_listing_payload(internal_product_id)
+        return {
+            "internal_product_id": internal_product_id,
+            "payload": payload,
+            "payload_hash": compute_payload_hash(payload),
+        }
+
+
+@app.get("/ops/readiness")
+def ops_readiness(
+    supplier: Optional[str] = None,
+    limit: int = 20000,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Fast publish-readiness rollup.
+    This is *not* Trade Me validation; it reports whether items satisfy local LaunchLock hard requirements:
+    - cost_price > 0
+    - enriched_title + enriched_description present
+    - at least one local image exists
+    - category mapping exists
+    """
+    import os
+    from collections import Counter
+
+    from retail_os.core.category_mapper import CategoryMapper
+
+    if limit < 1 or limit > 200000:
+        raise HTTPException(status_code=400, detail="Invalid limit")
+
+    # Build a fast set of media filenames for existence checks (O(1) membership)
+    media_files: set[str] = set()
+    try:
+        if _MEDIA_ROOT.exists():
+            for p in _MEDIA_ROOT.iterdir():
+                if p.is_file():
+                    media_files.add(p.name)
+    except Exception:
+        media_files = set()
+
+    def has_local_image(images: Any) -> bool:
+        if not images or not isinstance(images, list):
+            return False
+        for raw in images:
+            if not raw or not isinstance(raw, str):
+                continue
+            norm = raw.replace("\\", "/")
+            if norm.startswith("data/media/"):
+                fn = norm[len("data/media/") :]
+                if fn in media_files:
+                    return True
+                # fallback (slower) if dir listing failed
+                if not media_files and os.path.exists(norm):
+                    return True
+        return False
+
+    with get_db_session() as session:
+        q = session.query(InternalProduct).join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+        if supplier:
+            q = q.join(Supplier, SupplierProduct.supplier_id == Supplier.id).filter(func.lower(Supplier.name) == supplier.lower())
+
+        ips = q.limit(limit).all()
+
+        totals = {"internal_products": len(ips), "ready": 0, "blocked": 0}
+        reasons: Counter[str] = Counter()
+        by_supplier: Counter[str] = Counter()
+        by_source_category: Counter[str] = Counter()
+
+        for ip in ips:
+            sp = ip.supplier_product
+            sup = (sp.supplier.name if sp and sp.supplier else "UNKNOWN") if sp else "UNKNOWN"
+            by_supplier[sup] += 1
+            by_source_category[str(getattr(sp, "source_category", "") or "")] += 1
+
+            if not sp:
+                totals["blocked"] += 1
+                reasons["Missing supplier product link"] += 1
+                continue
+            if sp.cost_price is None or float(sp.cost_price or 0) <= 0:
+                totals["blocked"] += 1
+                reasons["Missing/invalid cost price"] += 1
+                continue
+            if not (sp.enriched_title or "").strip():
+                totals["blocked"] += 1
+                reasons["Missing enriched title"] += 1
+                continue
+            if not (sp.enriched_description or "").strip():
+                totals["blocked"] += 1
+                reasons["Missing enriched description"] += 1
+                continue
+            if not has_local_image(sp.images):
+                totals["blocked"] += 1
+                reasons["Missing images (local)"] += 1
+                continue
+            cat_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+            if not cat_id:
+                totals["blocked"] += 1
+                reasons["Missing category mapping"] += 1
+                continue
+
+            totals["ready"] += 1
+
+        return {
+            "totals": totals,
+            "top_blockers": reasons.most_common(25),
+            "by_supplier": by_supplier.most_common(),
+            "by_source_category": by_source_category.most_common(50),
+            "limit_applied": limit,
+        }
+
+
 @app.get("/listings/by-tm/{tm_listing_id}")
 def listing_detail_by_tm(tm_listing_id: str) -> dict[str, Any]:
     with get_db_session() as session:

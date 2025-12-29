@@ -25,11 +25,16 @@ export default async function AppShell({ children }: { children: React.ReactNode
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="flex min-h-screen">
         <aside className="hidden w-64 flex-col border-r border-slate-200 bg-white sm:flex">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
-            <Link href="/" className="text-sm font-semibold tracking-tight">
-              RetailOS Admin
-            </Link>
-            <Badge tone={health.status === "ok" ? "emerald" : "red"}>API {health.status}</Badge>
+          <div className="border-b border-slate-200 px-4 py-4">
+            <div className="flex items-center justify-between">
+              <Link href="/" className="text-sm font-semibold tracking-tight">
+                RetailOS Admin
+              </Link>
+              <Badge tone={health.status === "ok" ? "emerald" : "red"}>API {health.status}</Badge>
+            </div>
+            <div className="mt-2 text-xs text-slate-500">
+              Role: <span className="font-mono text-slate-900">{who.role}</span>
+            </div>
           </div>
 
           <div className="flex-1 space-y-6 px-3 py-4">
@@ -54,6 +59,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
               {canSee(who.role, "power") ? <NavLink href="/ops/inbox" label="Inbox" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/alerts" label="Alerts" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/trademe" label="Trade Me Health" /> : null}
+              {canSee(who.role, "power") ? <NavLink href="/ops/readiness" label="Publish Readiness" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/bulk" label="Bulk Ops" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/jobs" label="Jobs" /> : null}
             </div>
@@ -85,9 +91,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
 
           <div className="border-t border-slate-200 px-4 py-4">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs text-slate-600">
-                Role: <span className="font-mono text-slate-900">{who.role}</span>
-              </div>
+              <div className="text-xs text-slate-600">RBAC</div>
               <RoleSwitcher />
             </div>
             <div className="mt-2 text-[11px] text-slate-500">

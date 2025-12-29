@@ -66,9 +66,7 @@ class MarketplaceAdapter:
         if use_ai:
             from retail_os.core.llm_enricher import enricher
             final_description = enricher.enrich(title=raw_title, raw_desc=clean_input, specs=item.specs or {})
-        if item.specs and "**SPECIFICATIONS**" not in final_description:
-             specs_block = "**SPECIFICATIONS**\n" + "\n".join([f"- {k}: {v}" for k, v in item.specs.items()])
-             final_description = specs_block + "\n\n" + final_description
+        # Do not prepend ad-hoc spec blocks here. Description templates already include a specs section.
 
         # 3. Map Category
         cat_id = CategoryMapper.map_category(

@@ -4,10 +4,9 @@ Used by preflight, dry run, and real publish to ensure consistency.
 """
 import hashlib
 import json
+import os
 from typing import Dict, Any, Optional
 from retail_os.core.database import SessionLocal, InternalProduct
-from retail_os.strategy.pricing import PricingStrategy
-from retail_os.core.standardizer import Standardizer
 from retail_os.trademe.config import TradeMeConfig
 
 
@@ -30,29 +29,42 @@ def build_listing_payload(internal_product_id: int, overrides: Optional[Dict[str
         
         sp = prod.supplier_product
         
-        # Images (normalize URLs)
-        photo_urls = []
-        if sp.images:
-            for img in (sp.images if isinstance(sp.images, list) else []):
-                if isinstance(img, str):
-                    if img:
-                        if not img.startswith('http'):
-                            img = 'https:' + img
-                        photo_urls.append(img)
+        # Images (draft preview only)
+        # Trade Me publishing uses PhotoIds (uploaded). Here we expose local/public URLs for operator visibility.
+        photo_urls: list[str] = []
+        if sp.images and isinstance(sp.images, list):
+            for img in sp.images:
+                if not isinstance(img, str) or not img:
+                    continue
+                norm = img.replace("\\", "/")
+                if norm.startswith("http://") or norm.startswith("https://"):
+                    photo_urls.append(norm)
+                elif norm.startswith("data/media/"):
+                    # Served by the API as /media/<file>
+                    photo_urls.append("/media/" + norm[len("data/media/") :])
+                elif os.path.exists(norm):
+                    # Best effort: if it's a local path under data/media, still map to /media
+                    low = norm.lower()
+                    idx = low.rfind("/data/media/")
+                    if idx != -1:
+                        photo_urls.append("/media/" + norm[idx + len("/data/media/") :])
 
         from retail_os.core.marketplace_adapter import MarketplaceAdapter
         marketplace_data = MarketplaceAdapter.prepare_for_trademe(sp)
         
-        # Build payload
+        # Build payload (match worker defaults)
+        # NOTE: Trade Me v1 expects ints for Duration and bitflags for PaymentOptions.
         payload = {
             "Category": marketplace_data["category_id"],
             "Title": marketplace_data["title"][:49],
             "Description": [marketplace_data["description"]],
-            "Duration": "Days7",
-            "Pickup": 1,
+            "Duration": TradeMeConfig.DEFAULT_DURATION,
+            "Pickup": TradeMeConfig.PICKUP_OPTION,
+            # Default selling mode: auction with optional BuyNow matching StartPrice.
+            "StartPrice": marketplace_data["price"],
             "BuyNowPrice": marketplace_data["price"],
-            "PaymentOptions": [1, 2],
-            "ShippingOptions": [],
+            "PaymentOptions": TradeMeConfig.get_payment_methods(),
+            "ShippingOptions": TradeMeConfig.DEFAULT_SHIPPING,
             "PhotoUrls": photo_urls,
             "PhotoIds": [],
             "HasGallery": len(photo_urls) > 0,

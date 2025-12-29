@@ -40,6 +40,7 @@ type TrustReport = {
 };
 
 type ValidationResult = { internal_product_id: number; ok: boolean; reason: string | null };
+type DraftPayload = { internal_product_id: number; payload: Record<string, unknown>; payload_hash: string };
 
 function Field({ label, value, testId }: { label: string; value: React.ReactNode; testId?: string }) {
   return (
@@ -59,10 +60,11 @@ function imgSrc(raw: string): string {
 export default async function EnrichedDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [ip, trust, validation] = await Promise.all([
+  const [ip, trust, validation, draft] = await Promise.all([
     apiGet<InternalProductDetail>(`/internal-products/${encodeURIComponent(id)}`),
     apiGet<TrustReport>(`/trust/internal-products/${encodeURIComponent(id)}`),
     apiGet<ValidationResult>(`/validate/internal-products/${encodeURIComponent(id)}`),
+    apiGet<DraftPayload>(`/draft/internal-products/${encodeURIComponent(id)}/trademe`),
   ]);
 
   const sp = ip.supplier_product;
@@ -143,6 +145,12 @@ export default async function EnrichedDetailPage({ params }: { params: Promise<{
           </pre>
         </SectionCard>
       </div>
+
+      <SectionCard title="Trade Me Draft Payload" subtitle={`Hash: ${draft.payload_hash}`}>
+        <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="trademe-draft-payload">
+          {JSON.stringify(draft.payload || {}, null, 2)}
+        </pre>
+      </SectionCard>
 
       {sp?.images?.length ? (
         <SectionCard title="Product Images">

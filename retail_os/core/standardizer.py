@@ -62,8 +62,9 @@ class Standardizer:
         """
         if not text: return ""
         
-        # 1. Normalize Bullets First
-        text = text.replace("*", "•").replace("- ", "• ")
+        # 1. Normalize bullets without destroying markdown.
+        # NOTE: Do NOT replace '*' because it breaks markdown (e.g. **bold**).
+        text = text.replace("\u2022", "•")
         
         # 2. Split into semantic units (Lines or Sentences)
         # We prefer line-based processing for lists, sentence-based for paragraphs
