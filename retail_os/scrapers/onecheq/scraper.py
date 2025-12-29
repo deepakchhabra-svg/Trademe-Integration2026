@@ -278,35 +278,46 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
         if price_match:
             price = float(price_match.group(1).replace(',', ''))
 
-    # JSON-LD price fallback
+    # Meta price fallback (Shopify often exposes these reliably)
+    if not price:
+        meta_price = doc.css_first(
+            'meta[property="product:price:amount"], meta[property="og:price:amount"], meta[itemprop="price"], meta[name="product:price:amount"]'
+        )
+        if meta_price:
+            raw = (meta_price.attributes.get("content") or "").strip()
+            m = re.search(r"([0-9]+(?:\\.[0-9]+)?)", raw.replace(",", ""))
+            if m:
+                try:
+                    price = float(m.group(1))
+                except Exception:
+                    pass
+
+    # JSON-LD price fallback (use pre-parsed Product objects; avoid json.loads on broken scripts)
     if not price:
         try:
-            for node in doc.css('script[type="application/ld+json"]'):
-                raw = (node.text() or "").strip()
-                if not raw:
-                    continue
-                data = json.loads(raw)
-                candidates = []
-                if isinstance(data, dict):
-                    if data.get("@type") == "Product":
-                        candidates.append(data)
-                    elif "@graph" in data and isinstance(data["@graph"], list):
-                        candidates.extend([x for x in data["@graph"] if isinstance(x, dict) and x.get("@type") == "Product"])
-                elif isinstance(data, list):
-                    candidates.extend([x for x in data if isinstance(x, dict) and x.get("@type") == "Product"])
-                for p in candidates:
-                    offers = p.get("offers")
-                    if isinstance(offers, dict):
-                        pval = offers.get("price")
-                        if pval is not None:
-                            price = float(str(pval).replace(",", "").strip())
-                            raise StopIteration()
+            for p in products_jsonld:
+                offers = p.get("offers")
+                offer_list = []
+                if isinstance(offers, dict):
+                    offer_list = [offers]
+                elif isinstance(offers, list):
+                    offer_list = [x for x in offers if isinstance(x, dict)]
+                for off in offer_list:
+                    pval = off.get("price")
+                    if pval is None:
+                        continue
+                    sval = str(pval).replace(",", "").strip()
+                    m = re.search(r"([0-9]+(?:\\.[0-9]+)?)", sval)
+                    if not m:
+                        continue
+                    price = float(m.group(1))
+                    raise StopIteration()
         except StopIteration:
             # Used to break out of nested loops once a valid price has been found.
             pass
         except Exception as e:
-            # Best-effort JSON-LD parsing; ignore failures but log for debugging.
-            print(f"Error while parsing JSON-LD price data: {e}")
+            # Best-effort JSON-LD extraction; ignore failures but log for debugging.
+            print(f"Error while extracting JSON-LD price data: {e}")
     
     # Extract condition
     condition = "Used"  # Default for OneCheq
@@ -397,22 +408,57 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
     # Extract images
     images = []
     
-    # Shopify typically uses a media gallery
-    img_nodes = doc.css(".product__media img, .product-gallery img, [class*='product-image'] img")
+    def _canon_img(u: str) -> str:
+        u = (u or "").strip()
+        if not u:
+            return ""
+        if u.startswith("//"):
+            u = "https:" + u
+        elif u.startswith("/") and not u.startswith("http"):
+            u = "https://onecheq.co.nz" + u
+        # Remove Shopify size parameters (best-effort)
+        u = re.sub(r"_\\d+x\\d+\\.", ".", u)
+        return u
+
+    # 1) JSON-LD image field (often best signal)
+    for p in products_jsonld:
+        img = p.get("image")
+        if isinstance(img, str):
+            cu = _canon_img(img)
+            if cu and cu not in images:
+                images.append(cu)
+        elif isinstance(img, list):
+            for x in img:
+                if isinstance(x, str):
+                    cu = _canon_img(x)
+                    if cu and cu not in images:
+                        images.append(cu)
+
+    # 2) OG image fallbacks
+    for sel in ['meta[property="og:image"]', 'meta[name="twitter:image"]', 'meta[property="og:image:secure_url"]']:
+        node = doc.css_first(sel)
+        if node:
+            cu = _canon_img(node.attributes.get("content") or "")
+            if cu and cu not in images:
+                images.append(cu)
+
+    # 3) Shopify media gallery / product images (grab src, data-src, and srcset)
+    img_nodes = doc.css(".product__media img, .product-gallery img, [class*='product-image'] img, img[srcset], img[data-srcset]")
     for img in img_nodes:
-        src = img.attributes.get('src') or img.attributes.get('data-src')
+        src = img.attributes.get("src") or img.attributes.get("data-src") or ""
+        srcset = img.attributes.get("srcset") or img.attributes.get("data-srcset") or ""
+        candidates = []
         if src:
-            # Clean up Shopify CDN URLs
-            if src.startswith('//'):
-                src = 'https:' + src
-            elif src.startswith('/') and not src.startswith('http'):
-                src = 'https://onecheq.co.nz' + src
-            
-            # Remove size parameters to get full image
-            src = re.sub(r'_\\d+x\\d+\\.', '.', src)
-            
-            if 'http' in src and src not in images:
-                images.append(src)
+            candidates.append(src)
+        if srcset:
+            # pick the last candidate (usually highest resolution)
+            parts = [p.strip().split(" ")[0] for p in srcset.split(",") if p.strip()]
+            if parts:
+                candidates.append(parts[-1])
+        for c in candidates:
+            cu = _canon_img(c)
+            if cu and cu not in images:
+                images.append(cu)
     
     # Limit to 4 images
     images = images[:4]
