@@ -324,6 +324,54 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
         </div>
       </Section>
 
+      <Section title="OneCheq full backfill (one-click)">
+        <div className="text-xs text-slate-600">
+          Runs: <span className="font-semibold">full scrape</span> (all products) → <span className="font-semibold">download images</span> →
+          <span className="font-semibold">enrich all</span> → <span className="font-semibold">LaunchLock validate</span>. Watch progress in{" "}
+          <span className="font-semibold">Ops → Commands</span> and summary in <span className="font-semibold">Ops → Jobs</span>.
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={!!busyKey || supplierName.toUpperCase() !== "ONECHEQ"}
+            className={`rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ${
+              busyKey || supplierName.toUpperCase() !== "ONECHEQ" ? "cursor-not-allowed opacity-60" : "hover:bg-indigo-700"
+            }`}
+            onClick={() =>
+              run("ONECHEQ_FULL_BACKFILL", async () => {
+                const sid = supplierId ? Number(supplierId) : undefined;
+                const sname = supplierName || undefined;
+                const res = await apiPostClient<Resp>("/ops/enqueue", {
+                  type: "ONECHEQ_FULL_BACKFILL",
+                  payload: {
+                    supplier_id: sid,
+                    supplier_name: sname,
+                    onecheq_source: "json",
+                    image_batch: 5000,
+                    image_concurrency: 24,
+                    image_loop_seconds: 600,
+                    validate_n: 1000,
+                  },
+                  priority: 90,
+                });
+                return `Enqueued ONECHEQ_FULL_BACKFILL (${res.id.slice(0, 12)})`;
+              })
+            }
+          >
+            {busyKey === "ONECHEQ_FULL_BACKFILL" ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner /> Enqueuing…
+              </span>
+            ) : (
+              "Enqueue OneCheq FULL backfill"
+            )}
+          </button>
+          {supplierName.toUpperCase() !== "ONECHEQ" ? (
+            <span className="text-[11px] text-slate-500">Select supplier ONECHEQ to enable.</span>
+          ) : null}
+        </div>
+      </Section>
+
       <Section title="Enrich supplier (category-scoped)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">

@@ -302,6 +302,18 @@ class CommandWorker:
             self.handle_reset_enrichment(command)
             return
 
+        elif command_type == "ONECHEQ_FULL_BACKFILL":
+            self.handle_onecheq_full_backfill(command)
+            return
+
+        elif command_type == "BACKFILL_IMAGES_ONECHEQ":
+            self.handle_backfill_images_onecheq(command)
+            return
+
+        elif command_type == "VALIDATE_LAUNCHLOCK":
+            self.handle_validate_launchlock(command)
+            return
+
         else:
             raise ValueError(f"Unknown Command Type: {command_type}")
     
@@ -838,7 +850,14 @@ class CommandWorker:
         supplier_id = payload.get("supplier_id")
         supplier_name = payload.get("supplier_name", f"Supplier {supplier_id}")
         source_category = payload.get("source_category")
-        pages = int(payload.get("pages", 1) or 1)
+        # IMPORTANT: allow pages=0 to mean "unlimited/full backfill".
+        pages_raw = payload.get("pages", 1)
+        try:
+            pages = int(pages_raw) if pages_raw is not None else 1
+        except Exception:
+            pages = 1
+        if pages < 0:
+            pages = 0
         
         logger.info(f"SCRAPE_SUPPLIER_START cmd_id={command.id} supplier={supplier_name}")
 
@@ -881,6 +900,14 @@ class CommandWorker:
         session = SessionLocal()
         try:
             if "onecheq" in supplier_name.lower():
+                # Prefer Shopify JSON endpoint for full-catalog scrape (fast + authoritative).
+                try:
+                    import os
+                    mode = (payload.get("onecheq_source") or payload.get("mode") or "json")
+                    os.environ["RETAILOS_ONECHEQ_SOURCE"] = str(mode)
+                except Exception:
+                    pass
+
                 from retail_os.scrapers.onecheq.adapter import OneCheqAdapter
                 adapter = OneCheqAdapter()
                 
@@ -928,6 +955,244 @@ class CommandWorker:
             raise
         finally:
             session.close()
+
+    def handle_onecheq_full_backfill(self, command):
+        """
+        One-click OneCheq full backfill:
+        - Scrape full catalog (pages=0, collection=all, JSON mode)
+        - Backfill local images (loop until done)
+        - Enrich all pending (loop until done)
+        - Validate LaunchLock (default first 1000; configurable)
+        """
+        cmd_type, payload = self.resolve_command(command)
+        supplier_id = int(payload.get("supplier_id") or 0) if payload.get("supplier_id") is not None else None
+        supplier_name = payload.get("supplier_name") or "ONECHEQ"
+        validate_n = payload.get("validate_n", 1000)
+        validate_all = bool(payload.get("validate_all", False))
+        image_batch = int(payload.get("image_batch", 5000) or 5000)
+        image_concurrency = int(payload.get("image_concurrency", 24) or 24)
+        image_loop_max = int(payload.get("image_loop_max", 50) or 50)
+        image_loop_seconds = float(payload.get("image_loop_seconds", 600) or 600)
+        enrich_batch_size = int(payload.get("enrich_batch_size", 5000) or 5000)
+
+        logger.info(
+            "ONECHEQ_FULL_BACKFILL_START cmd_id=%s supplier=%s supplier_id=%s validate_n=%s validate_all=%s",
+            command.id,
+            supplier_name,
+            supplier_id,
+            validate_n,
+            validate_all,
+        )
+
+        from retail_os.core.database import JobStatus, Supplier, SupplierProduct
+        from retail_os.scrapers.onecheq.adapter import OneCheqAdapter
+        from scripts.enrich_products import enrich_batch
+        from retail_os.core.backfill import backfill_supplier_images_onecheq, validate_launchlock
+
+        # Resolve supplier_id if missing
+        with SessionLocal() as s:
+            sup = None
+            if supplier_id:
+                sup = s.query(Supplier).filter(Supplier.id == int(supplier_id)).first()
+            if not sup:
+                sup = s.query(Supplier).filter(Supplier.name == "ONECHEQ").first()
+            if not sup:
+                sup = Supplier(name="ONECHEQ", base_url="https://onecheq.co.nz", is_active=True)
+                s.add(sup)
+                s.commit()
+            supplier_id = int(sup.id)
+
+        job_row_id = None
+        with SessionLocal() as s:
+            job = JobStatus(
+                job_type="ONECHEQ_FULL_BACKFILL",
+                status="RUNNING",
+                start_time=datetime.utcnow(),
+                items_processed=0,
+                summary=None,
+            )
+            s.add(job)
+            s.commit()
+            job_row_id = job.id
+
+        summary: dict[str, Any] = {"phases": [], "supplier_id": supplier_id}
+        t0 = time.perf_counter()
+
+        # Phase 1: Scrape full catalog
+        try:
+            import os as _os
+            _os.environ["RETAILOS_ONECHEQ_SOURCE"] = str(payload.get("onecheq_source") or "json")
+        except Exception:
+            pass
+
+        t_scrape = time.perf_counter()
+        OneCheqAdapter().run_sync(pages=0, collection="all")
+        scrape_s = time.perf_counter() - t_scrape
+        with SessionLocal() as s:
+            total = s.query(SupplierProduct).filter(SupplierProduct.supplier_id == supplier_id).count()
+        summary["phases"].append({"name": "scrape_full", "seconds": round(scrape_s, 3), "supplier_products_total": total})
+
+        # Phase 2: Backfill images until done (or loop cap)
+        t_img = time.perf_counter()
+        img_stats = {"loops": 0, "downloaded_ok": 0, "downloaded_failed": 0, "remaining_without_local_images": None, "top_failures": []}
+        for _ in range(image_loop_max):
+            img_stats["loops"] += 1
+            with SessionLocal() as s:
+                step = backfill_supplier_images_onecheq(
+                    session=s,
+                    supplier_id=supplier_id,
+                    batch=image_batch,
+                    concurrency=image_concurrency,
+                    max_seconds=image_loop_seconds,
+                )
+            img_stats["downloaded_ok"] += int(step.get("downloaded_ok") or 0)
+            img_stats["downloaded_failed"] += int(step.get("downloaded_failed") or 0)
+            img_stats["remaining_without_local_images"] = step.get("remaining_without_local_images")
+            # Merge failures (best-effort)
+            img_stats["top_failures"] = step.get("top_failures") or img_stats["top_failures"]
+            if step.get("remaining_without_local_images") == 0:
+                break
+            if step.get("candidates_queued") == 0:
+                break
+        summary["phases"].append({"name": "backfill_images", "seconds": round(time.perf_counter() - t_img, 3), **img_stats})
+
+        # Phase 3: Enrich all (loop batches until none pending)
+        t_enrich = time.perf_counter()
+        enriched_total = 0
+        enrich_loops = 0
+        while True:
+            with SessionLocal() as s:
+                pending = (
+                    s.query(SupplierProduct)
+                    .filter(SupplierProduct.supplier_id == supplier_id)
+                    .filter(SupplierProduct.enrichment_status == "PENDING")
+                    .filter(SupplierProduct.cost_price > 0)
+                    .count()
+                )
+            if pending <= 0:
+                break
+            enrich_loops += 1
+            enrich_batch(batch_size=enrich_batch_size, delay_seconds=0, supplier_id=supplier_id, source_category=None)
+            enriched_total += min(pending, enrich_batch_size)
+            if enrich_loops >= 500:
+                break
+        summary["phases"].append(
+            {
+                "name": "enrich_all",
+                "seconds": round(time.perf_counter() - t_enrich, 3),
+                "loops": enrich_loops,
+                "approx_items_processed": enriched_total,
+            }
+        )
+
+        # Phase 4: Validate LaunchLock
+        t_val = time.perf_counter()
+        limit = None if validate_all else (int(validate_n) if validate_n is not None else 1000)
+        with SessionLocal() as s:
+            val = validate_launchlock(session=s, supplier_id=supplier_id, limit=limit)
+        summary["phases"].append({"name": "launchlock_validate", "seconds": round(time.perf_counter() - t_val, 3), **val})
+
+        summary["total_seconds"] = round(time.perf_counter() - t0, 3)
+
+        with SessionLocal() as s:
+            job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+            if job:
+                job.status = "COMPLETED"
+                job.end_time = datetime.utcnow()
+                job.items_processed = total
+                job.summary = json.dumps(summary, ensure_ascii=True)
+            s.commit()
+
+        logger.info("ONECHEQ_FULL_BACKFILL_END cmd_id=%s status=SUCCEEDED", command.id)
+
+    def handle_backfill_images_onecheq(self, command):
+        cmd_type, payload = self.resolve_command(command)
+        supplier_id = int(payload.get("supplier_id") or 0) if payload.get("supplier_id") is not None else None
+        batch = int(payload.get("batch", 5000) or 5000)
+        concurrency = int(payload.get("concurrency", 16) or 16)
+        max_seconds = float(payload.get("max_seconds", 600) or 600)
+
+        from retail_os.core.database import JobStatus, Supplier
+        from retail_os.core.backfill import backfill_supplier_images_onecheq
+
+        with SessionLocal() as s:
+            sup = None
+            if supplier_id:
+                sup = s.query(Supplier).filter(Supplier.id == int(supplier_id)).first()
+            if not sup:
+                sup = s.query(Supplier).filter(Supplier.name == "ONECHEQ").first()
+            if not sup:
+                raise ValueError("ONECHEQ supplier missing")
+            supplier_id = int(sup.id)
+
+        job_row_id = None
+        with SessionLocal() as s:
+            job = JobStatus(job_type="BACKFILL_IMAGES_ONECHEQ", status="RUNNING", start_time=datetime.utcnow(), summary=None)
+            s.add(job)
+            s.commit()
+            job_row_id = job.id
+
+        with SessionLocal() as s:
+            res = backfill_supplier_images_onecheq(
+                session=s,
+                supplier_id=supplier_id,
+                batch=batch,
+                concurrency=concurrency,
+                max_seconds=max_seconds,
+            )
+
+        with SessionLocal() as s:
+            job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+            if job:
+                job.status = "COMPLETED"
+                job.end_time = datetime.utcnow()
+                job.summary = json.dumps(res, ensure_ascii=True)
+            s.commit()
+
+    def handle_validate_launchlock(self, command):
+        cmd_type, payload = self.resolve_command(command)
+        supplier_id = int(payload.get("supplier_id") or 0) if payload.get("supplier_id") is not None else None
+        limit = payload.get("limit", 1000)
+        validate_all = bool(payload.get("validate_all", False))
+        if validate_all or (isinstance(limit, str) and limit.upper() == "ALL"):
+            limit = None
+        try:
+            if limit is not None:
+                limit = int(limit)
+        except Exception:
+            limit = 1000
+
+        from retail_os.core.database import JobStatus, Supplier
+        from retail_os.core.backfill import validate_launchlock
+
+        with SessionLocal() as s:
+            sup = None
+            if supplier_id:
+                sup = s.query(Supplier).filter(Supplier.id == int(supplier_id)).first()
+            if not sup:
+                # best-effort; validate is typically run per supplier
+                sup = s.query(Supplier).filter(Supplier.name == "ONECHEQ").first()
+            if not sup:
+                raise ValueError("Supplier not found for validation")
+            supplier_id = int(sup.id)
+
+        job_row_id = None
+        with SessionLocal() as s:
+            job = JobStatus(job_type="VALIDATE_LAUNCHLOCK", status="RUNNING", start_time=datetime.utcnow(), summary=None)
+            s.add(job)
+            s.commit()
+            job_row_id = job.id
+
+        with SessionLocal() as s:
+            res = validate_launchlock(session=s, supplier_id=supplier_id, limit=limit)
+
+        with SessionLocal() as s:
+            job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+            if job:
+                job.status = "COMPLETED"
+                job.end_time = datetime.utcnow()
+                job.summary = json.dumps(res, ensure_ascii=True)
+            s.commit()
     
     def handle_enrich_supplier(self, command):
         """Handle ENRICH_SUPPLIER command"""
