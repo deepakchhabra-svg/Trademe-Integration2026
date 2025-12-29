@@ -401,6 +401,37 @@ def _auto_migrate_sqlite_schema() -> None:
 def init_db():
     Base.metadata.create_all(engine)
     _auto_migrate_sqlite_schema()
+    # Seed required configuration records (real-mode defaults).
+    session = SessionLocal()
+    try:
+        # Suppliers (pilot scope)
+        if session.query(Supplier).filter(Supplier.name == "ONECHEQ").first() is None:
+            session.add(Supplier(name="ONECHEQ", base_url="https://onecheq.co.nz", is_active=True))
+        if session.query(Supplier).filter(Supplier.name == "NOEL_LEEMING").first() is None:
+            session.add(Supplier(name="NOEL_LEEMING", base_url="https://www.noelleeming.co.nz", is_active=True))
+
+        # System settings (avoid 404s; enforce explicit real defaults)
+        defaults: dict[str, dict] = {
+            "store.mode": {"mode": "NORMAL"},
+            "enrichment.policy": {"default": "NONE", "by_supplier": {"ONECHEQ": "NONE", "NOEL_LEEMING": "NONE"}},
+            "publishing.policy": {
+                "enabled": True,
+                "max_publishes_per_day": 100,
+                "max_publishes_per_minute": 6,
+                "min_account_balance_nzd": 20.0,
+                "require_recent_scrape_minutes": 1440,
+            },
+            "competitor.policy": {"enabled": False},
+            "scheduler.scrape": {"enabled": True, "interval_seconds": 3600},
+            "scheduler.enrich": {"enabled": True, "interval_seconds": 3600},
+        }
+        for k, v in defaults.items():
+            row = session.query(SystemSetting).filter(SystemSetting.key == k).first()
+            if row is None:
+                session.add(SystemSetting(key=k, value=v))
+        session.commit()
+    finally:
+        session.close()
     print("Strict Schema Initialized (WAL Mode ON).")
 
 @contextmanager

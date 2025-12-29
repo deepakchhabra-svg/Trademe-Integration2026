@@ -176,21 +176,26 @@ def test_supplier_policy_endpoints(tmp_path: Path):
 
     # Seed supplier.
     with db.get_db_session() as session:
-        session.add(db.Supplier(id=1, name="ONECHEQ", base_url="https://example.com", is_active=True))
+        s = session.query(db.Supplier).filter(db.Supplier.name == "ONECHEQ").first()
+        if not s:
+            s = db.Supplier(name="ONECHEQ", base_url="https://example.com", is_active=True)
+            session.add(s)
+            session.flush()
+        supplier_id = int(s.id)
 
     importlib.reload(mod)
     client = TestClient(mod.app)
 
     # GET policy (power)
-    r1 = client.get("/suppliers/1/policy", headers={"X-RetailOS-Role": "power"})
+    r1 = client.get(f"/suppliers/{supplier_id}/policy", headers={"X-RetailOS-Role": "power"})
     assert r1.status_code == 200
     j1 = r1.json()
-    assert j1["supplier_id"] == 1
+    assert j1["supplier_id"] == supplier_id
     assert "policy" in j1 and isinstance(j1["policy"], dict)
 
     # PUT policy (root)
     r2 = client.put(
-        "/suppliers/1/policy",
+        f"/suppliers/{supplier_id}/policy",
         headers={"X-RetailOS-Role": "root"},
         json={"policy": {"enabled": False, "scrape": {"enabled": False, "category_presets": ["a", "b"]}}},
     )

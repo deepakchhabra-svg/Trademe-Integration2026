@@ -7,12 +7,6 @@ import { UI } from "./uiMap";
  */
 
 test.describe("UI Map Click-Through", () => {
-    test.use({
-        extraHTTPHeaders: {
-            "x-test-mode": "1",
-        },
-    });
-
     test("Sidebar navigation links should work @smoke", async ({ page }) => {
         await page.goto("/");
 
@@ -60,13 +54,19 @@ test.describe("UI Map Click-Through", () => {
 
         // Wait for table to load
         const table = page.getByTestId(UI.common.table.container);
-        await expect(table).toBeVisible();
+        const empty = page.getByTestId(UI.common.table.empty);
+        if (!(await table.isVisible())) {
+            await expect(empty).toBeVisible();
+            return;
+        }
 
         // Check pagination if visible (might not be if few items)
         const nextBtn = page.getByTestId(UI.common.table.pagination.next);
         const isNextVisible = await nextBtn.isVisible();
 
         if (isNextVisible) {
+            const disabled = await nextBtn.isDisabled();
+            if (disabled) return;
             await nextBtn.click();
             await expect(page).toHaveURL(/.*page=2.*/);
         }

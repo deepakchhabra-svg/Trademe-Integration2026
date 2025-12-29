@@ -28,6 +28,7 @@ export async function exercisePage(page: Page) {
 
     // 4. Interact with DataTable if present
     const table = page.getByTestId('data-table');
+    const empty = page.getByTestId('table-empty');
     if (await table.isVisible()) {
         // Try pagination
         const nextBtn = page.getByTestId('pagination-next');
@@ -42,6 +43,9 @@ export async function exercisePage(page: Page) {
             await firstSortable.click();
             await page.waitForLoadState('networkidle');
         }
+    } else if (await empty.isVisible()) {
+        // Valid state: no data (real mode, before scraping).
+        await expect(empty).toBeVisible();
     }
 
     // 5. Ensure no console errors happened during interaction

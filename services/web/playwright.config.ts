@@ -6,7 +6,8 @@ import path from "path";
 // - api: http://localhost:8000
 
 const venvPython = path.resolve(__dirname, "../..", "venv", "Scripts", "python.exe");
-const dbUrl = process.env.RETAILOS_E2E_DATABASE_URL || "sqlite:///./dev_db.sqlite";
+// Keep E2E DB out of the repo working tree by default.
+const dbUrl = process.env.RETAILOS_E2E_DATABASE_URL || "sqlite:////tmp/retailos_e2e.sqlite";
 
 export default defineConfig({
   testDir: "./tests",

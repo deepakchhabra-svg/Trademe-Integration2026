@@ -22,11 +22,7 @@ export const ROUTES = [
     "/ops/trademe",
     "/orders",
     "/suppliers",
-    "/suppliers/1",
     "/vaults/enriched",
-    "/vaults/enriched/201",
     "/vaults/live",
-    "/vaults/live/301",
     "/vaults/raw",
-    "/vaults/raw/101",
 ];

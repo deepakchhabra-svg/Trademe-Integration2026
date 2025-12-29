@@ -8,13 +8,6 @@ import { ROUTES } from "./routes";
  */
 
 test.describe("Route Coverage", () => {
-    // Use demo mode for all tests
-    test.use({
-        extraHTTPHeaders: {
-            "x-test-mode": "1",
-        },
-    });
-
     for (const route of ROUTES) {
         test(`page "${route}" should load without errors @smoke`, async ({ page }) => {
             const consoleErrors: string[] = [];

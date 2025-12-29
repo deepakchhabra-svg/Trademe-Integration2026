@@ -47,6 +47,9 @@ env/
 *.db
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 trademe_store.db*
 
 # Logs
@@ -64,6 +67,10 @@ libs/
 .coverage
 htmlcov/
 .tox/
+
+# Playwright artifacts
+services/web/test-results/
+services/web/playwright-report/
 
 # Jupyter
 .ipynb_checkpoints

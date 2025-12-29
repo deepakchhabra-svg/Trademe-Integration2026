@@ -6,13 +6,6 @@ import { test, expect } from "@playwright/test";
  */
 
 test.describe("Link Integrity", () => {
-    // Use demo mode for all tests
-    test.use({
-        extraHTTPHeaders: {
-            "x-test-mode": "1",
-        },
-    });
-
     test("should have no broken internal links @smoke", async ({ page }) => {
         test.slow();
         const visited = new Set<string>();

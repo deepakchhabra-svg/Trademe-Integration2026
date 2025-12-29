@@ -36,9 +36,10 @@ class CategoryMapper:
         "guitars": "0386-2516-",
         "keyboards": "0386-2519-",
         
-        "samsung": "0187-0192-", # Antiques > Other (SAFE DEFAULT for Pilot)
-        "apple": "0187-0192-", 
-        "iphone": "0187-0192-", 
+        # Brand/title heuristics (tech)
+        "samsung": "0002-0356-0002-",  # Mobile phones
+        "apple": "0002-0356-0002-",
+        "iphone": "0002-0356-0002-",
         "huawei": "0002-0356-0002-",
         "pixel": "0002-0356-0002-", # Fallback to mobile phones 
         

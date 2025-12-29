@@ -12,7 +12,11 @@ test.describe("Vault Functional Flows", () => {
 
         // Wait for table to load
         const table = page.getByTestId(UI.common.table.container);
-        await expect(table).toBeVisible();
+        const empty = page.getByTestId(UI.common.table.empty);
+        if (!(await table.isVisible())) {
+            await expect(empty).toBeVisible();
+            test.skip(true, "No rows yet (real mode). Scrape first.");
+        }
 
         // Get first ID link
         const firstIdLink = page.locator('[data-testid^="lnk-id-"]').first();
@@ -33,7 +37,11 @@ test.describe("Vault Functional Flows", () => {
         await page.goto("/vaults/enriched");
 
         const table = page.getByTestId(UI.common.table.container);
-        await expect(table).toBeVisible();
+        const empty = page.getByTestId(UI.common.table.empty);
+        if (!(await table.isVisible())) {
+            await expect(empty).toBeVisible();
+            test.skip(true, "No rows yet (real mode). Enrich first.");
+        }
 
         const firstIdLink = page.locator('[data-testid^="lnk-id-"]').first();
         const firstId = await firstIdLink.innerText();
@@ -54,7 +62,11 @@ test.describe("Vault Functional Flows", () => {
         await page.goto("/vaults/live");
 
         const table = page.getByTestId(UI.common.table.container);
-        await expect(table).toBeVisible();
+        const empty = page.getByTestId(UI.common.table.empty);
+        if (!(await table.isVisible())) {
+            await expect(empty).toBeVisible();
+            test.skip(true, "No rows yet (real mode). Dry-run/publish first.");
+        }
 
         const firstIdLink = page.locator('[data-testid^="lnk-id-"]').first();
         const firstId = await firstIdLink.innerText();

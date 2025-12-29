@@ -1743,8 +1743,9 @@ def get_setting(key: str, _role: Role = Depends(require_role("root"))) -> dict[s
         from retail_os.core.database import SystemSetting
 
         s = session.query(SystemSetting).filter(SystemSetting.key == key).first()
+        # Real-mode behavior: return explicit "unset" rather than fake fixture data or crashing the UI.
         if not s:
-            raise HTTPException(status_code=404, detail="Setting not found")
+            return {"key": key, "value": None, "updated_at": None}
         return {"key": s.key, "value": s.value, "updated_at": _dt(s.updated_at)}
 
 

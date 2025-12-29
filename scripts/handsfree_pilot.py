@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 sys.path.append(os.getcwd())
 
 from retail_os.core.database import SessionLocal, SystemCommand, CommandStatus, InternalProduct, SupplierProduct
+from retail_os.core.database import Supplier
 
 def queue_command(session, cmd_type, payload, priority=10):
     cmd_id = str(uuid.uuid4())
@@ -43,11 +44,23 @@ def main():
     session = SessionLocal()
     
     print("=== STARTING HANDSFREE 2-CATEGORY PILOT RUN ===")
+
+    # Resolve supplier IDs dynamically (no hardcoded IDs).
+    def supplier_id(name: str, base_url: str) -> int:
+        s = session.query(Supplier).filter(Supplier.name == name).first()
+        if not s:
+            s = Supplier(name=name, base_url=base_url, is_active=True)
+            session.add(s)
+            session.commit()
+        return int(s.id)
+
+    oc_id = supplier_id("ONECHEQ", "https://onecheq.co.nz")
+    nl_id = supplier_id("NOEL_LEEMING", "https://www.noelleeming.co.nz")
     
     # 1. Noel Leeming Computers
     print("\n--- Phase 1: Scraping Noel Leeming (Computers) ---")
     nl_payload = {
-        "supplier_id": 3,
+        "supplier_id": nl_id,
         "supplier_name": "NOEL_LEEMING",
         "source_category": "https://www.noelleeming.co.nz/search?cgid=computersofficetech-computers",
         "pages": 1,
@@ -58,7 +71,7 @@ def main():
     # 2. OneCheq Smartphones
     print("\n--- Phase 2: Scraping OneCheq (Smartphones) ---")
     oc_payload = {
-        "supplier_id": 1,
+        "supplier_id": oc_id,
         "supplier_name": "ONECHEQ",
         "source_category": "smartphones-and-mobilephones",
         "pages": 1
@@ -76,8 +89,8 @@ def main():
     # 3. Enrichment
     print("\n--- Phase 3: Triggering Enrichment ---")
     # We trigger enrichment for the suppliers
-    enrich_nl_id = queue_command(session, "ENRICH_SUPPLIER", {"supplier_id": 3}, priority=5)
-    enrich_oc_id = queue_command(session, "ENRICH_SUPPLIER", {"supplier_id": 1}, priority=5)
+    enrich_nl_id = queue_command(session, "ENRICH_SUPPLIER", {"supplier_id": nl_id}, priority=5)
+    enrich_oc_id = queue_command(session, "ENRICH_SUPPLIER", {"supplier_id": oc_id}, priority=5)
     
     wait_for_command(session, enrich_nl_id)
     wait_for_command(session, enrich_oc_id)
@@ -96,17 +109,25 @@ def main():
                 ids.append(ip.id)
         return ids
 
-    nl_samples = get_sample_ids(3, 2)
-    oc_samples = get_sample_ids(1, 2)
+    nl_samples = get_sample_ids(nl_id, 2)
+    oc_samples = get_sample_ids(oc_id, 2)
     
     all_samples = nl_samples + oc_samples
     print(f"Identified {len(all_samples)} products for publishing: {all_samples}")
     
+    # Safety: default to DRY_RUN. Real publish is destructive, must be explicitly enabled.
+    allow_publish = os.getenv("RETAILOS_ALLOW_PUBLISH", "0") == "1"
     publish_ids = []
     for pid in all_samples:
-        pub_id = queue_command(session, "PUBLISH_LISTING", {"internal_product_id": pid, "dry_run": False}, priority=20)
+        pub_id = queue_command(
+            session,
+            "PUBLISH_LISTING",
+            {"internal_product_id": pid, "dry_run": (not allow_publish)},
+            priority=20,
+        )
         publish_ids.append(pub_id)
-        print(f"  Queued PUBLISH for IP {pid} (CMD {pub_id})")
+        mode = "PUBLISH" if allow_publish else "DRY_RUN"
+        print(f"  Queued {mode} for IP {pid} (CMD {pub_id})")
 
     print("Waiting for publications...")
     for pub_id in publish_ids:
