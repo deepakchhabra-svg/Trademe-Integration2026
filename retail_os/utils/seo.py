@@ -5,7 +5,7 @@ Cleaned and adapted for Retail OS.
 """
 
 import re
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 WHITESPACE_RE = re.compile(r"\s+")
@@ -106,29 +106,69 @@ def _split_points(description: str) -> List[str]:
 
 
 def build_seo_description(row: Dict[str, str]) -> str:
-    """Construct a consistent, reader-friendly description."""
+    """
+    Construct a consistent, reader-friendly description.
+
+    Rules:
+    - Deterministic (no LLM).
+    - Prefer structured specs over marketing fluff.
+    - Never end mid-sentence with a dangling marketing fragment.
+    """
     title = _clean_text(row.get("title") or "")
     description = _clean_text(row.get("description") or "")
-    
+
+    # Optional structured context (Unified schema provides these as dict/str)
+    specs: dict[str, Any] = {}
+    raw_specs = row.get("specs")  # type: ignore[assignment]
+    if isinstance(raw_specs, dict):
+        specs = raw_specs
+
+    condition = _clean_text(str(row.get("condition") or specs.get("Condition") or specs.get("condition") or "See details"))
+    brand = _clean_text(str(row.get("brand") or specs.get("Brand") or specs.get("brand") or ""))
+
+    # Remove the common truncated Shopify marketing fragment if present
+    for frag in ("Discover unbeatable deals on", "Discover the", "Discover unbeatable"):
+        if description.endswith(frag) or description.endswith(frag + "."):
+            description = description[: -len(frag)].strip(" -•")
+
     bullet_points = _split_points(description)
 
     lines: List[str] = []
     if title:
-        lines.append(f"**{title}**") # Bold title
-    
-    lines.append("") # Spacer
+        lines.append(f"**{title}**")
+        lines.append("")
 
+    # Summary block (short + factual)
+    if brand:
+        lines.append(f"Brand: {brand}")
+    if condition:
+        lines.append(f"Condition: {condition}")
+    lines.append("")
+
+    # Specs (top 10 only, stable order by key name)
+    if specs:
+        lines.append("**Specifications**")
+        for k in sorted(list(specs.keys()))[:10]:
+            v = specs.get(k)
+            if v is None:
+                continue
+            vv = _clean_text(str(v))
+            kk = _clean_text(str(k)).replace("_", " ").strip(":")
+            if kk and vv:
+                lines.append(f"- {kk}: {vv}")
+        lines.append("")
+
+    # Detail bullets (only if they’re meaningful)
     if bullet_points:
+        lines.append("**Details**")
         for point in bullet_points:
             lines.append(f"- {point}")
-    elif description:
-        fallback = _sanitize_fragment(description)
-        if fallback:
-            lines.append(fallback)
-            
-    lines.append("")
+        lines.append("")
+
     lines.append("---")
-    lines.append("Standard Retail OS Shipping & Warranty applies.")
+    lines.append("Shipping: Standard courier nationwide (rural available). Pickup may be available.")
+    lines.append("Payment: Bank deposit or cash on pickup (per Trade Me options).")
+    lines.append("Please review photos and specifications carefully before purchase.")
 
     final = "\n".join(line.rstrip() for line in lines).strip()
     return final or description
