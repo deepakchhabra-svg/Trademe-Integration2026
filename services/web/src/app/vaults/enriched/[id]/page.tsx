@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { apiGet } from "../../../_components/api";
 import { PageHeader } from "../../../../components/ui/PageHeader";
 import { SectionCard } from "../../../../components/ui/SectionCard";
@@ -148,9 +149,12 @@ export default async function EnrichedDetailPage({ params }: { params: Promise<{
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {sp.images.map((src, idx) => (
               <a key={idx} href={imgSrc(src)} target="_blank" rel="noreferrer" className="group">
-                <img
+                <Image
                   alt={`image-${idx + 1}`}
                   src={imgSrc(src)}
+                  width={200}
+                  height={128}
+                  unoptimized
                   className="h-32 w-full rounded-lg border border-slate-200 object-cover transition-opacity group-hover:opacity-80"
                   data-testid={`product-img-${idx}`}
                 />

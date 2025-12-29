@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
@@ -35,8 +36,7 @@ export function LiveVaultClient({
     perPage,
     q,
     status,
-    supplierId,
-    sourceCategory
+    supplierId
 }: {
     items: LiveItem[],
     total: number,
@@ -62,9 +62,12 @@ export function LiveVaultClient({
             label: "Img",
             render: (val, row) => (val as string) ? (
                 <Link href={`/vaults/live/${row.id}`} className="block w-12" data-testid={`lnk-img-${row.id}`}>
-                    <img
+                    <Image
                         alt=""
                         src={imgSrc(val as string)}
+                        width={48}
+                        height={40}
+                        unoptimized
                         className="h-10 w-12 rounded-md border border-slate-200 object-cover"
                     />
                 </Link>

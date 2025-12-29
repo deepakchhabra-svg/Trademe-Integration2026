@@ -54,16 +54,10 @@ export async function apiGetClient<T>(path: string): Promise<T> {
 }
 
 function getGenericMockClient<T>(path: string): T {
-  if (path.includes("/policy")) {
-    return ({ policy: { scrape: { category_presets: ["smartphones", "laptops"] } } } as unknown) as T;
-  }
-  if (path === "/suppliers") {
-    return ([{ id: 1, name: "ONECHEQ", is_active: true }] as unknown) as T;
-  }
-  if (path.includes("/suppliers/")) {
-    return ({ id: 1, name: "ONECHEQ" } as unknown) as T;
-  }
-  return ({} as unknown) as T;
+  if (path.includes("/policy")) return { policy: { scrape: { category_presets: ["smartphones", "laptops"] } } } as unknown as T;
+  if (path === "/suppliers") return [{ id: 1, name: "ONECHEQ", is_active: true }] as unknown as T;
+  if (path.includes("/suppliers/")) return { id: 1, name: "ONECHEQ" } as unknown as T;
+  return {} as T;
 }
 
 export async function apiPostClient<T>(path: string, body: unknown): Promise<T> {

@@ -26,7 +26,7 @@ export interface FetchOptions {
  * Fetch data from the API via the proxy route
  */
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
-    const { method = "GET", body, timeout = 10000, retry = false } = options;
+    const { method = "GET", body, timeout = 10000 } = options;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);

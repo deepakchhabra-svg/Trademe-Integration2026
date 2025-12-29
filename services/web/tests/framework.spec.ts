@@ -1,6 +1,6 @@
 import { test } from "@playwright/test";
 import { exercisePage } from "./helpers/exercisePage";
-import { ROUTES } from "./routes";
+
 
 /**
  * Systematic "Click Everything" Framework Test.
