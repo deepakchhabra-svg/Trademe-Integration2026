@@ -30,7 +30,7 @@ type Inspector = {
     last_scraped_at: string | null;
     internal_product_id: number | null;
   };
-  internal_product: { id: number; sku: string; title: string | null; supplier_product: any } | null;
+  internal_product: { id: number; sku: string; title: string | null; supplier_product: Record<string, unknown> } | null;
   listings: Array<{
     id: number;
     tm_listing_id: string | null;
@@ -39,14 +39,13 @@ type Inspector = {
     category_id: string | null;
     last_synced_at: string | null;
     payload_hash: string | null;
-    supplier_product?: any;
-    internal_product?: any;
+    supplier_product?: Record<string, unknown>;
+    internal_product?: Record<string, unknown>;
   }>;
 };
 
 function imgSrc(raw: string): string {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-  if (raw.startsWith("/media/")) return `${base}${raw}`;
+  if (raw.startsWith("/media/")) return raw.replace(/^\/media\//, "/api/media/");
   return raw;
 }
 

@@ -41,6 +41,18 @@ type ListingDetail = {
   internal_product?: { id: number; sku: string; title: string | null } | null;
 };
 
+type ShippingOption = { Method?: string; Price?: number };
+type PayloadPreview = {
+  Title?: string;
+  StartPrice?: number;
+  Category?: string;
+  Description?: string | string[];
+  PhotoUrls?: string[];
+  PaymentOptions?: unknown;
+  ShippingOptions?: ShippingOption[];
+  Pickup?: boolean;
+};
+
 function paymentLabel(bitflags: unknown): string {
   const v = Number(bitflags);
   if (!Number.isFinite(v) || v <= 0) return "-";
@@ -71,6 +83,7 @@ export default async function ListingDetailPage({
   const { id } = await params;
   const spTab = await searchParams;
   const l = await apiGet<ListingDetail>(`/listings/${encodeURIComponent(id)}`);
+  const preview = (l.payload_preview ?? null) as PayloadPreview | null;
   const tab = (spTab.tab || "overview").toLowerCase();
 
   const breadcrumbs = (
@@ -171,14 +184,14 @@ export default async function ListingDetailPage({
         />
         <Field
           label="Sell price"
-          value={(l.payload_preview as any)?.StartPrice != null ? `$${Number((l.payload_preview as any)?.StartPrice).toFixed(2)}` : "Not set (blocked)"}
+          value={preview?.StartPrice != null ? `$${Number(preview.StartPrice).toFixed(2)}` : "Not set (blocked)"}
           testId="field-sell-price"
         />
         <Field
           label="Margin"
           value={(() => {
             const cost = l.supplier_product?.cost_price;
-            const sell = (l.payload_preview as any)?.StartPrice;
+            const sell = preview?.StartPrice;
             if (cost == null || sell == null) return "Not available";
             const amt = Number(sell) - Number(cost);
             const pct = Number(cost) ? amt / Number(cost) : null;
@@ -243,33 +256,40 @@ export default async function ListingDetailPage({
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Title</div>
             <div className="mt-1 text-base font-semibold text-slate-900">
-              {String((l.payload_preview as any)?.Title || l.internal_product?.title || "-")}
+              {String(preview?.Title || l.internal_product?.title || "-")}
             </div>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="Trade Me ID" value={l.tm_listing_id || "-"} />
-              <Field label="Sell price" value={(l.payload_preview as any)?.StartPrice != null ? `$${Number((l.payload_preview as any)?.StartPrice).toFixed(2)}` : (l.actual_price == null ? "Not set (blocked)" : `$${l.actual_price.toFixed(2)}`)} />
-              <Field label="Category" value={String((l.payload_preview as any)?.Category || l.category_id || "-")} />
+              <Field
+                label="Sell price"
+                value={
+                  preview?.StartPrice != null
+                    ? `$${Number(preview.StartPrice).toFixed(2)}`
+                    : l.actual_price == null
+                      ? "Not set (blocked)"
+                      : `$${l.actual_price.toFixed(2)}`
+                }
+              />
+              <Field label="Category" value={String(preview?.Category || l.category_id || "-")} />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Condition" value={l.supplier_product?.condition || "-"} />
-              <Field label="Payment" value={paymentLabel((l.payload_preview as any)?.PaymentOptions)} />
+              <Field label="Payment" value={paymentLabel(preview?.PaymentOptions)} />
               <Field
                 label="Shipping"
                 value={
-                  Array.isArray((l.payload_preview as any)?.ShippingOptions)
-                    ? `${(l.payload_preview as any)?.ShippingOptions?.length} options`
-                    : "-"
+                  Array.isArray(preview?.ShippingOptions) ? `${preview?.ShippingOptions?.length} options` : "-"
                 }
               />
-              <Field label="Pickup" value={String((l.payload_preview as any)?.Pickup ?? "-")} />
+              <Field label="Pickup" value={String(preview?.Pickup ?? "-")} />
             </div>
 
-            {Array.isArray((l.payload_preview as any)?.ShippingOptions) && (l.payload_preview as any)?.ShippingOptions?.length ? (
+            {Array.isArray(preview?.ShippingOptions) && preview?.ShippingOptions?.length ? (
               <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Shipping options</div>
                 <ul className="mt-2 list-disc pl-5">
-                  {(l.payload_preview as any)?.ShippingOptions?.slice(0, 8).map((s: any, idx: number) => (
+                  {preview?.ShippingOptions?.slice(0, 8).map((s: ShippingOption, idx: number) => (
                     <li key={idx}>
                       {String(s?.Method || "Shipping")} · ${Number(s?.Price || 0).toFixed(2)}
                     </li>
@@ -280,7 +300,7 @@ export default async function ListingDetailPage({
 
             <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Description</div>
             {(() => {
-              const d0 = (l.payload_preview as any)?.Description;
+              const d0 = preview?.Description;
               const d = Array.isArray(d0) ? String(d0?.[0] || "") : String(d0 || "");
               const looksHtml = d.includes("<") && d.includes(">");
               if (!d) {
@@ -308,14 +328,20 @@ export default async function ListingDetailPage({
 
             <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Images</div>
             <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-              {Array.isArray((l.payload_preview as any)?.PhotoUrls) && (l.payload_preview as any)?.PhotoUrls?.length ? (
-                (l.payload_preview as any)?.PhotoUrls?.slice(0, 12).map((u: string, idx: number) => (
-                  <a key={idx} href={String(u)} target="_blank" rel="noreferrer" className="block">
+              {Array.isArray(preview?.PhotoUrls) && preview?.PhotoUrls?.length ? (
+                preview.PhotoUrls.slice(0, 12).map((u: string, idx: number) => (
+                  <a
+                    key={idx}
+                    href={String(u).startsWith("/media/") ? String(u).replace(/^\/media\//, "/api/media/") : String(u)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block"
+                  >
                     {/* Image is served via API base when /media/ */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       alt={`photo-${idx + 1}`}
-                      src={String(u).startsWith("/media/") ? `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"}${u}` : String(u)}
+                      src={String(u).startsWith("/media/") ? String(u).replace(/^\/media\//, "/api/media/") : String(u)}
                       className="h-24 w-full rounded-md border border-slate-200 object-cover"
                     />
                   </a>

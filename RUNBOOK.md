@@ -1,35 +1,45 @@
-# RetailOS V2 Spectator Mode - RUNBOOK
+# RetailOS — Local Operator Runbook (current)
 
-## Starting the System
+This repo has two UIs:
 
-### Prerequisites
-- Python 3.8+
-- Dependencies installed: `pip install -r requirements.txt`
-- Database initialized
+- **Next.js Operator Console (recommended)**: `http://localhost:3000`
+- **Legacy Streamlit dashboard**: not part of the current operator flow
 
-### Start Components
+For a detailed Windows-first guide, see `docs/LOCAL_OPERATOR_RUNBOOK_WINDOWS.md`.
 
-**Terminal 1 - Streamlit UI:**
-```powershell
-cd "C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe Integration\Trademe Integration V2"
-streamlit run retail_os/dashboard/app.py
+## Start locally (no Docker)
+
+### Prereqs
+
+- Python 3.10+ recommended
+- Node.js 20+ (npm available)
+
+### Terminal A — API
+
+```bash
+python -m uvicorn services.api.main:app --reload --port 8000
 ```
 
-**Terminal 2 - Worker (Command Processor):**
-```powershell
-cd "C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe Integration\Trademe Integration V2"
-python retail_os/trademe/worker.py
+### Terminal B — Worker
+
+```bash
+python -u retail_os/trademe/worker.py
 ```
 
-**Terminal 3 - Scheduler (Optional):**
-```powershell
-cd "C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe Integration\Trademe Integration V2"
-python retail_os/core/scheduler.py
+### Terminal C — Web
+
+```bash
+cd services/web
+npm install
+npm run dev -- --port 3000
 ```
 
-### Access
-- UI: http://localhost:8501 or http://localhost:8502
-- Operations tab: Recent Commands, Worker Log Tail, Scheduler Status
+## Start with Docker
+
+```bash
+cp .env.example .env
+docker-compose up -d
+```
 
 ---
 

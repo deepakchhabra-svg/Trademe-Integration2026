@@ -8,7 +8,7 @@ export function apiBaseUrl(): string {
 
 export async function apiHeaders(): Promise<Record<string, string>> {
   const store = await cookies();
-  const role = store.get("retailos_role")?.value || "root";
+  const role = store.get("retailos_role")?.value || "listing";
   const token = store.get("retailos_token")?.value;
   const headers: Record<string, string> = {
     "X-RetailOS-Role": role,

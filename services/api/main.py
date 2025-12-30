@@ -99,11 +99,37 @@ def _startup_init_db() -> None:
         # Don't crash the API process; surface errors through endpoints/logs instead.
         print(f"API startup: init_db failed: {e}")
 
-# MVP CORS: allow local dev frontends; tighten in production.
+def _parse_csv_env(name: str, default: list[str]) -> list[str]:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    parts = [p.strip() for p in raw.split(",")]
+    parts = [p for p in parts if p]
+    return parts or default
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = (os.getenv(name) or "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes", "y", "on")
+
+
+# CORS: explicit allowlist (production-safe). Prefer running the web UI via the Next proxy
+# to avoid needing CORS at all.
+_cors_origins = _parse_csv_env(
+    "RETAIL_OS_CORS_ORIGINS",
+    default=["http://localhost:3000", "http://127.0.0.1:3000"],
+)
+_cors_allow_credentials = _env_bool("RETAIL_OS_CORS_ALLOW_CREDENTIALS", default=False)
+if "*" in _cors_origins:
+    # Browsers forbid credentials with wildcard origins; keep it safe by forcing creds off.
+    _cors_allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -133,6 +159,41 @@ def _role_rank(role: Optional[str]) -> int:
     return ROLE_RANK.get(role.strip().lower(), 0)
 
 
+def _role_from_token(token: str | None) -> Role | None:
+    if not token:
+        return None
+    token_map: dict[str, str | None] = {
+        "root": os.getenv("RETAIL_OS_ROOT_TOKEN"),
+        "power": os.getenv("RETAIL_OS_POWER_TOKEN"),
+        "fulfillment": os.getenv("RETAIL_OS_FULFILLMENT_TOKEN"),
+        "listing": os.getenv("RETAIL_OS_LISTING_TOKEN"),
+    }
+    for r, t in token_map.items():
+        if t and token == t:
+            return r
+    return None
+
+
+def require_authenticated(min_role: Role = "listing"):
+    """
+    Require a valid `X-RetailOS-Token` that maps to a configured role token.
+    This creates a real auth boundary for sensitive endpoints like /media.
+    """
+
+    def _dep(request: Request) -> Role:
+        role = _role_from_token(request.headers.get("X-RetailOS-Token"))
+        if not role:
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized (missing/invalid X-RetailOS-Token). Configure RETAIL_OS_*_TOKEN env vars.",
+            )
+        if _role_rank(role) < _role_rank(min_role):
+            raise HTTPException(status_code=403, detail=f"Forbidden (requires {min_role})")
+        return role
+
+    return _dep
+
+
 def get_request_role(request: Request) -> Role:
     """
     Minimal RBAC without interactive login (by design for now).
@@ -140,28 +201,26 @@ def get_request_role(request: Request) -> Role:
     - If a token is configured, it overrides the claimed role (identity-based).
       This fixes "can't go back to root" by making the token authoritative.
     """
-    claimed_role = (request.headers.get("X-RetailOS-Role") or os.getenv("RETAIL_OS_DEFAULT_ROLE") or "root").lower()
+    default_role = (os.getenv("RETAIL_OS_DEFAULT_ROLE") or "listing").strip().lower()
+    claimed_role = (request.headers.get("X-RetailOS-Role") or default_role).strip().lower()
     supplied = request.headers.get("X-RetailOS-Token")
 
-    # Token-based identity overrides role claims.
-    # Configure per-role tokens via env vars.
-    token_map: dict[str, str | None] = {
-        "root": os.getenv("RETAIL_OS_ROOT_TOKEN"),
-        "power": os.getenv("RETAIL_OS_POWER_TOKEN"),
-        "fulfillment": os.getenv("RETAIL_OS_FULFILLMENT_TOKEN"),
-        "listing": os.getenv("RETAIL_OS_LISTING_TOKEN"),
-    }
-    if supplied:
-        for r, t in token_map.items():
-            if t and supplied == t:
-                return r
+    # Token-based identity overrides role claims (and is the only way to gain
+    # privileged roles unless explicitly running in insecure dev mode).
+    token_role = _role_from_token(supplied)
+    if token_role:
+        return token_role
 
-    # Backwards compatibility: if root token is configured, do not allow claiming root without it.
-    if token_map.get("root") and claimed_role == "root":
-        return "power"
+    # Production-safe default: do NOT allow privilege escalation via a plain header.
+    # Opt-in escape hatch for local dev only.
+    insecure_allow_header_roles = _env_bool("RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES", default=False)
 
     if claimed_role not in ROLE_RANK:
         return "listing"
+
+    if not insecure_allow_header_roles and _role_rank(claimed_role) > _role_rank("listing"):
+        return "listing"
+
     return claimed_role
 
 
@@ -186,7 +245,7 @@ def health() -> HealthResponse:
 
 
 @app.get("/media/{rel_path:path}")
-def media(rel_path: str) -> FileResponse:
+def media(rel_path: str, _role: Role = Depends(require_authenticated("listing"))) -> FileResponse:
     """
     Serve locally downloaded images (data/media/*) to the web app.
     Security: path must stay within MEDIA_ROOT.
@@ -203,7 +262,27 @@ def media(rel_path: str) -> FileResponse:
 
 @app.get("/whoami")
 def whoami(role: Role = Depends(get_request_role)) -> dict[str, Any]:
-    return {"role": role, "rank": _role_rank(role)}
+    return {
+        "role": role,
+        "rank": _role_rank(role),
+        "cors": {
+            "origins": _cors_origins,
+            "allow_credentials": _cors_allow_credentials,
+        },
+        "rbac": {
+            "default_role": (os.getenv("RETAIL_OS_DEFAULT_ROLE") or "listing").strip().lower(),
+            "insecure_allow_header_roles": _env_bool("RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES", default=False),
+            "tokens_configured": any(
+                bool(os.getenv(k))
+                for k in (
+                    "RETAIL_OS_ROOT_TOKEN",
+                    "RETAIL_OS_POWER_TOKEN",
+                    "RETAIL_OS_FULFILLMENT_TOKEN",
+                    "RETAIL_OS_LISTING_TOKEN",
+                )
+            ),
+        },
+    }
 
 
 @app.get("/ops/inbox")

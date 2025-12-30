@@ -10,7 +10,7 @@ export function TokenSetter() {
 
   return (
     <div className="space-y-2">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Root token</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Access token</div>
       <div className="flex items-center gap-2">
         <input
           className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm"
@@ -34,7 +34,9 @@ export function TokenSetter() {
         </button>
       </div>
       {saved ? <div className="text-[11px] text-emerald-700">Saved to cookie.</div> : null}
-      <div className="text-[11px] text-slate-500">Used for root-only settings if `RETAIL_OS_ROOT_TOKEN` is set.</div>
+      <div className="text-[11px] text-slate-500">
+        Used for protected endpoints if `RETAIL_OS_*_TOKEN` env vars are set (POWER/ROOT/etc).
+      </div>
     </div>
   );
 }

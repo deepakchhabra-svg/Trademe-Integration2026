@@ -1,24 +1,19 @@
-# RetailOS - Autonomous Trade Me Dropshipping Platform
+# RetailOS — Operator Console (Trade Me pipeline)
 
-**RetailOS** is an autonomous trading platform that scrapes products from multiple suppliers, enriches them with AI, and automatically lists them on Trade Me.
+RetailOS is an operator console + pipeline for scraping supplier products, enriching copy, and producing Trade Me drafts/publishes with hard quality gates (LaunchLock).
 
-## 🚀 Quick Start
+## Quick start (Docker, recommended)
 
 ```bash
-# 1. Clone and setup
-git clone <repository-url>
-cd "Trademe Integration"
-
-# 2. Configure environment
+# 1) Configure environment
 cp .env.example .env
-# Edit .env with your API keys
+# edit .env (Trade Me creds optional unless validating/publishing)
 
-# 3. Run with Docker
+# 2) Run API + Worker + Web
 docker-compose up -d
 
-# 4. Access dashboard
-# New (recommended): http://localhost:3000
-# Legacy (Streamlit): http://localhost:8501 (if you run it manually)
+# 3) Open the console
+open http://localhost:3000
 ```
 
 ## 📁 Project Structure
@@ -48,7 +43,7 @@ docker-compose up -d
 │   └── ...                      ← Feature scripts
 │
 ├── /data                        ← 💾 Runtime data
-│   └── trademe_store.db         ← SQLite database
+│   └── retail_os.db             ← SQLite database (default for local/dev)
 │
 ├── /migrations                  ← 🔄 DB migrations
 ├── /tests                       ← ✅ Test suite
@@ -56,14 +51,11 @@ docker-compose up -d
 └── /_archive                    ← 🗄️ Historical files
 ```
 
-## 🎯 Core Features
+## Supplier support (truth)
 
-- **Multi-Supplier Scraping** - OneCheq, Noel Leeming, Cash Converters
-- **AI Enrichment** - OpenAI/Gemini for titles & descriptions
-- **Quality Control** - Trust scoring, policy enforcement, content sanitization
-- **Trade Me Integration** - Full CRUD operations, order syncing
-- **Lifecycle Management** - Auto-pricing, performance tracking
-- **Real-time Dashboard** - Streamlit UI for monitoring & control
+- **OneCheq**: supported (pilot scope)
+- **Noel Leeming**: present in codebase but **blocked/paused** due to robots/image constraints (see `docs/ARCHITECTURE.md`)
+- **Cash Converters**: present in codebase but **not supported** in the current operator flow
 
 ## 📚 Documentation
 
@@ -72,34 +64,28 @@ docker-compose up -d
 - **[Architecture](docs/ARCHITECTURE.md)** - System design
 - **[Deployment](docs/DEPLOYMENT.md)** - Deploy guide
 
-## 🛠️ Development
+## Local dev (no Docker)
 
-```bash
-# Install dependencies
-pip install -r requirements.txt
+- **API**: `python -m uvicorn services.api.main:app --reload --port 8000`
+- **Worker**: `python -u retail_os/trademe/worker.py`
+- **Web**: `cd services/web && npm install && npm run dev -- --port 3000`
 
-# Run dashboard locally
-streamlit run retail_os/dashboard/app.py
-
-# Run scrapers
-python scripts/ops/run_daily_sync.bat
-
-# Health check
-python scripts/ops/healthcheck.py
-```
+Windows convenience: `powershell -ExecutionPolicy Bypass -File scripts/run_local.ps1`
 
 ## 🔐 Environment Variables
 
 Copy `.env.example` to `.env` and configure:
 
-- `TRADEME_CONSUMER_KEY` - Trade Me API key
-- `TRADEME_CONSUMER_SECRET` - Trade Me API secret
+- `CONSUMER_KEY` - Trade Me API key
+- `CONSUMER_SECRET` - Trade Me API secret
+- `ACCESS_TOKEN` - Trade Me access token
+- `ACCESS_TOKEN_SECRET` - Trade Me access token secret
 - `OPENAI_API_KEY` - OpenAI API key (optional)
 - `GEMINI_API_KEY` - Google Gemini API key (optional)
 
 ## 📊 Database
 
-SQLite database located at `/data/trademe_store.db`
+SQLite database located at `data/retail_os.db` (default). Override with `DATABASE_URL`.
 
 - **Backup**: `python scripts/ops/backup.ps1`
 - **Migrations**: See `/migrations` directory

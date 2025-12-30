@@ -18,17 +18,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const url = `${API_BASE_URL}/${path}${searchParams ? `?${searchParams}` : ""}`;
 
   try {
+    const roleCookie = request.cookies.get("retailos_role")?.value;
+    const tokenCookie = request.cookies.get("retailos_token")?.value;
     const response = await fetch(url, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        // Forward relevant headers from the client request
-        ...(request.headers.get("X-RetailOS-Role") && {
-          "X-RetailOS-Role": request.headers.get("X-RetailOS-Role")!,
-        }),
-        ...(request.headers.get("X-RetailOS-Token") && {
-          "X-RetailOS-Token": request.headers.get("X-RetailOS-Token")!,
-        }),
+        // Allow browser callers without custom headers: read from cookies.
+        ...(request.headers.get("X-RetailOS-Role") || roleCookie
+          ? { "X-RetailOS-Role": request.headers.get("X-RetailOS-Role") || roleCookie! }
+          : {}),
+        ...(request.headers.get("X-RetailOS-Token") || tokenCookie
+          ? { "X-RetailOS-Token": request.headers.get("X-RetailOS-Token") || tokenCookie! }
+          : {}),
       },
       cache: "no-store",
     });
@@ -51,16 +53,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   try {
     const body = await request.text();
+    const roleCookie = request.cookies.get("retailos_role")?.value;
+    const tokenCookie = request.cookies.get("retailos_token")?.value;
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(request.headers.get("X-RetailOS-Role") && {
-          "X-RetailOS-Role": request.headers.get("X-RetailOS-Role")!,
-        }),
-        ...(request.headers.get("X-RetailOS-Token") && {
-          "X-RetailOS-Token": request.headers.get("X-RetailOS-Token")!,
-        }),
+        ...(request.headers.get("X-RetailOS-Role") || roleCookie
+          ? { "X-RetailOS-Role": request.headers.get("X-RetailOS-Role") || roleCookie! }
+          : {}),
+        ...(request.headers.get("X-RetailOS-Token") || tokenCookie
+          ? { "X-RetailOS-Token": request.headers.get("X-RetailOS-Token") || tokenCookie! }
+          : {}),
       },
       body,
       cache: "no-store",
@@ -84,16 +88,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const body = await request.text();
+    const roleCookie = request.cookies.get("retailos_role")?.value;
+    const tokenCookie = request.cookies.get("retailos_token")?.value;
     const response = await fetch(url, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        ...(request.headers.get("X-RetailOS-Role") && {
-          "X-RetailOS-Role": request.headers.get("X-RetailOS-Role")!,
-        }),
-        ...(request.headers.get("X-RetailOS-Token") && {
-          "X-RetailOS-Token": request.headers.get("X-RetailOS-Token")!,
-        }),
+        ...(request.headers.get("X-RetailOS-Role") || roleCookie
+          ? { "X-RetailOS-Role": request.headers.get("X-RetailOS-Role") || roleCookie! }
+          : {}),
+        ...(request.headers.get("X-RetailOS-Token") || tokenCookie
+          ? { "X-RetailOS-Token": request.headers.get("X-RetailOS-Token") || tokenCookie! }
+          : {}),
       },
       body,
       cache: "no-store",
@@ -116,16 +122,18 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const url = `${API_BASE_URL}/${path}`;
 
   try {
+    const roleCookie = request.cookies.get("retailos_role")?.value;
+    const tokenCookie = request.cookies.get("retailos_token")?.value;
     const response = await fetch(url, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
-        ...(request.headers.get("X-RetailOS-Role") && {
-          "X-RetailOS-Role": request.headers.get("X-RetailOS-Role")!,
-        }),
-        ...(request.headers.get("X-RetailOS-Token") && {
-          "X-RetailOS-Token": request.headers.get("X-RetailOS-Token")!,
-        }),
+        ...(request.headers.get("X-RetailOS-Role") || roleCookie
+          ? { "X-RetailOS-Role": request.headers.get("X-RetailOS-Role") || roleCookie! }
+          : {}),
+        ...(request.headers.get("X-RetailOS-Token") || tokenCookie
+          ? { "X-RetailOS-Token": request.headers.get("X-RetailOS-Token") || tokenCookie! }
+          : {}),
       },
       cache: "no-store",
     });

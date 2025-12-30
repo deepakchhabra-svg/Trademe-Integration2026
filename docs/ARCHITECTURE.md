@@ -37,8 +37,8 @@
 **Purpose**: Extract product data from supplier websites
 
 **Components**:
-- `retail_os/scrapers/cash_converters/` - Cash Converters scraper
-- `retail_os/scrapers/noel_leeming/` - Noel Leeming scraper
+- `retail_os/scrapers/cash_converters/` - Cash Converters scraper (**present but not supported in current operator flow**)
+- `retail_os/scrapers/noel_leeming/` - Noel Leeming scraper (**present but blocked/paused**)
 - `retail_os/scrapers/universal/` - Generic adapter for new sites
 
 **Key Features**:

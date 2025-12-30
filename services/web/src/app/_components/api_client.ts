@@ -8,7 +8,7 @@ export function apiBaseUrlClient(): string {
 }
 
 function authHeaders(): Record<string, string> {
-  const role = getCookie("retailos_role") || "root";
+  const role = getCookie("retailos_role") || "listing";
   const token = getCookie("retailos_token") || undefined;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

@@ -9,7 +9,7 @@ export function RoleSwitcher() {
   const [role, setRole] = useState<Role>(() => {
     const v = getCookie("retailos_role");
     if (v === "listing" || v === "fulfillment" || v === "power" || v === "root") return v;
-    return "root";
+    return "listing";
   });
 
   return (
