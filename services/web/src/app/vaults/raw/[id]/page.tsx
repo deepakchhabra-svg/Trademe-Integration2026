@@ -156,7 +156,6 @@ export default async function RawDetailPage({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Field label="Cost price" value={sp.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} testId="field-cost" />
-        <Field label="Stock level" value={sp.stock_level ?? "-"} testId="field-stock" />
         <Field label="Source category" value={<span className="font-mono text-xs">{sp.source_category || "-"}</span>} testId="field-category" />
         <Field label="Last scraped" value={sp.last_scraped_at || "-"} testId="field-last-scraped" />
       </div>

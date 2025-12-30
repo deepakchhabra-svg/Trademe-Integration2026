@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { FilterChips } from "../../../components/ui/FilterChips";
 import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { buttonClass } from "../../_components/ui";
+import { apiGetClient } from "../../_components/api_client";
 
 type RawItem = {
     id: number;
@@ -75,12 +77,55 @@ export function RawVaultClient({
     syncStatus: string,
     sourceCategory: string
 }) {
+    const [liveItems, setLiveItems] = useState<RawItem[]>(items);
+    const [liveTotal, setLiveTotal] = useState<number>(total);
+    const [auto, setAuto] = useState<boolean>(false);
+    const [refreshing, setRefreshing] = useState<boolean>(false);
+    const [lastRefresh, setLastRefresh] = useState<string | null>(null);
+    const [err, setErr] = useState<string | null>(null);
+
     const base = new URLSearchParams();
     if (q) base.set("q", q);
     if (supplierId) base.set("supplier_id", supplierId);
     // keep explicit so chip can clear it to "All"
     if (syncStatus) base.set("sync_status", syncStatus);
     if (sourceCategory) base.set("source_category", sourceCategory);
+    base.set("page", String(page));
+    base.set("per_page", String(perPage));
+
+    const isNarrow = useMemo(() => {
+        // Safety: only allow auto-refresh when the operator has narrowed scope.
+        return Boolean(q) || Boolean(supplierId) || Boolean(sourceCategory);
+    }, [q, supplierId, sourceCategory]);
+
+    useEffect(() => {
+        setLiveItems(items);
+        setLiveTotal(total);
+    }, [items, total]);
+
+    async function refreshNow() {
+        if (refreshing) return;
+        setRefreshing(true);
+        setErr(null);
+        try {
+            const resp = await apiGetClient<{ items: RawItem[]; total: number }>(`/vaults/raw?${base.toString()}`);
+            setLiveItems(resp.items || []);
+            setLiveTotal(resp.total || 0);
+            setLastRefresh(new Date().toISOString());
+        } catch (e) {
+            setErr(e instanceof Error ? e.message : "Refresh failed");
+        } finally {
+            setRefreshing(false);
+        }
+    }
+
+    useEffect(() => {
+        if (!auto) return;
+        if (!isNarrow) return;
+        const t = window.setInterval(() => void refreshNow(), 3000);
+        return () => window.clearInterval(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [auto, isNarrow, base.toString()]);
     const clear = (key: string) => {
         const p = new URLSearchParams(base.toString());
         if (key === "sync_status") {
@@ -142,7 +187,6 @@ export function RawVaultClient({
             )
         },
         { key: "cost_price", label: "Supplier price", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
-        { key: "stock_level", label: "Stock", render: (val) => (val == null ? "-" : String(val)) },
         {
             key: "product_url",
             label: "Supplier page",
@@ -259,12 +303,48 @@ export function RawVaultClient({
                             </Link>
                         </div>
                     </form>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            className={buttonClass({ variant: "outline", disabled: refreshing })}
+                            onClick={() => void refreshNow()}
+                        >
+                            {refreshing ? "Refreshing…" : "Refresh"}
+                        </button>
+                        <label className={`flex items-center gap-2 text-xs ${isNarrow ? "text-slate-700" : "text-slate-400"}`}>
+                            <input
+                                type="checkbox"
+                                className="h-4 w-4"
+                                checked={auto}
+                                disabled={!isNarrow}
+                                onChange={(e) => setAuto(e.target.checked)}
+                            />
+                            Auto-refresh
+                        </label>
+                    </div>
                 </div>
+
+                {err ? (
+                    <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] text-amber-900">
+                        {err}
+                    </div>
+                ) : null}
+                {auto && !isNarrow ? (
+                    <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] text-slate-600">
+                        Auto-refresh is disabled until you set a filter (Supplier ID, Source category, or search) to avoid heavy polling.
+                    </div>
+                ) : null}
+                {lastRefresh ? (
+                    <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] text-slate-600">
+                        Last refreshed: {formatNZT(lastRefresh)}
+                    </div>
+                ) : null}
 
                 <DataTable
                     columns={columns}
-                    data={items}
-                    totalCount={total}
+                    data={liveItems}
+                    totalCount={liveTotal}
                     currentPage={page}
                     pageSize={perPage}
                 />

@@ -14,6 +14,16 @@ from selectolax.parser import HTMLParser
 import httpx
 
 
+def _fmt_secs(secs: float) -> str:
+    if secs < 0:
+        secs = 0.0
+    if secs < 60:
+        return f"{secs:.0f}s"
+    m = int(secs // 60)
+    s = int(secs % 60)
+    return f"{m}m{s:02d}s"
+
+
 def get_html_via_httpx(url: str, client: Optional[httpx.Client] = None) -> Optional[str]:
     """Fetch HTML using httpx with proper headers."""
     headers = {
@@ -226,7 +236,7 @@ def _shopify_products_json_url(collection: str, page: int, limit: int = 250) -> 
     return f"https://onecheq.co.nz/collections/{collection}/products.json?limit={int(limit)}&page={int(page)}"
 
 
-def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, client: httpx.Client):
+def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, client: httpx.Client, cmd_id: str | None = None):
     """
     Fast, authoritative Shopify JSON scrape.
     Iterates products from /collections/<handle>/products.json (250/page).
@@ -240,15 +250,29 @@ def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, cli
 
     pages_seen = 0
     total = 0
+    started = time.monotonic()
 
     max_products_env = os.getenv("RETAILOS_ONECHEQ_MAX_PRODUCTS")
     max_products = int(max_products_env) if (max_products_env and max_products_env.isdigit()) else None
+
+    # Print/log shopify progress for operator visibility (even in cmd.exe).
+    # Optional `cmd_id` lets the worker persist logs to the command detail UI.
+    import logging
+    log = logging.getLogger(__name__)
 
     while True:
         if max_pages and pages_seen >= int(max_pages):
             break
 
         url = _shopify_products_json_url(collection, page=page, limit=limit)
+        try:
+            elapsed = _fmt_secs(time.monotonic() - started)
+            print(f"[ONECHEQ] Shopify JSON page {page} (collection={collection}, limit={limit}) elapsed={elapsed}")
+            if cmd_id:
+                log.info(f"ONECHEQ_JSON_PAGE cmd_id={cmd_id} collection={collection} page={page} limit={limit} elapsed={elapsed}")
+        except Exception:
+            pass
+
         r = client.get(url, headers={"User-Agent": "Mozilla/5.0"})
         r.raise_for_status()
         products = (r.json() or {}).get("products") or []
@@ -334,8 +358,15 @@ def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, cli
             if max_products and total >= int(max_products):
                 return
 
-        if total and total % 1000 == 0:
-            print(f"  JSON progress: {total} products processed")
+        # Periodic progress for long runs
+        if total and (total % 250 == 0 or total % 1000 == 0):
+            try:
+                elapsed = _fmt_secs(time.monotonic() - started)
+                print(f"[ONECHEQ] JSON progress: {total} products processed (pages_seen={pages_seen}) elapsed={elapsed}")
+                if cmd_id:
+                    log.info(f"ONECHEQ_JSON_PROGRESS cmd_id={cmd_id} collection={collection} pages_seen={pages_seen} total={total} elapsed={elapsed}")
+            except Exception:
+                pass
 
         page += 1
 
@@ -655,7 +686,7 @@ def scrape_onecheq_product(url: str, client: Optional[httpx.Client] = None) -> O
     }
 
 
-def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: int = 8):
+def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: int = 8, cmd_id: str | None = None):
     """
     Main entry point for OneCheq scraper.
     
@@ -676,7 +707,7 @@ def scrape_onecheq(limit_pages: int = 1, collection: str = "all", concurrency: i
     if mode == "json":
         max_pages = 0 if limit_pages <= 0 else int(limit_pages)
         with httpx.Client(follow_redirects=True, timeout=30.0) as client:
-            yield from _iter_onecheq_products_via_shopify_json(collection=collection, max_pages=max_pages, client=client)
+            yield from _iter_onecheq_products_via_shopify_json(collection=collection, max_pages=max_pages, client=client, cmd_id=cmd_id)
         return
 
     # Build collection URL (HTML fallback)

@@ -54,7 +54,7 @@ class OneCheqAdapter:
         
         # 1. Get Raw Data
         concurrency = int(os.getenv("RETAILOS_ONECHEQ_CONCURRENCY", "8"))
-        raw_items_gen = scrape_onecheq(limit_pages=pages, collection=collection, concurrency=concurrency)
+        raw_items_gen = scrape_onecheq(limit_pages=pages, collection=collection, concurrency=concurrency, cmd_id=cmd_id)
         print(f"Adapter: Starting processing stream from scraper...")
         
         count_updated = 0
@@ -180,6 +180,20 @@ class OneCheqAdapter:
             cost = float(data["buy_now_price"])
         except:
             cost = 0.0
+
+        # Stock / availability:
+        # OneCheq (Shopify) does not expose a reliable quantity. Treat stock_level as UNKNOWN (null)
+        # unless we have a real numeric quantity from the supplier.
+        stock_raw = data.get("stock_level")
+        stock_level = None
+        try:
+            if stock_raw is None:
+                stock_level = None
+            else:
+                # Preserve 0 correctly (previous code `or 1` was dishonest).
+                stock_level = int(stock_raw)
+        except Exception:
+            stock_level = None
             
         # Collect Images
         imgs = []
@@ -242,7 +256,7 @@ class OneCheqAdapter:
                 brand=data.get("brand", ""),
                 condition=data.get("condition", "Used"),
                 cost_price=cost,
-                stock_level=int(data.get("stock_level") or 1),
+                stock_level=stock_level,
                 product_url=data["source_url"],
                 images=local_images if local_images else imgs,  # Prefer local
                 specs=specs,
