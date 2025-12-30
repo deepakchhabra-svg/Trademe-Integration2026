@@ -94,7 +94,7 @@ export default async function CommandDetailPage({ params }: { params: Promise<{ 
         </div>
       ) : null}
 
-      <CommandActions commandId={cmd.id} />
+      <CommandActions commandId={cmd.id} status={cmd.status} />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="text-sm font-semibold">Payload (JSON)</div>
