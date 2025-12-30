@@ -12,11 +12,32 @@ type Cmd = {
 };
 
 import Link from "next/link";
-import { headers } from "next/headers";
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
 import { buildQueryString } from "../../_components/pagination";
 import { AutoRefresh } from "./AutoRefresh";
+import { PageHeader } from "../../../components/ui/PageHeader";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { buttonClass } from "../../_components/ui";
+import { formatNZT } from "../../_components/time";
+
+function typeLabel(t: string): string {
+  const key = (t || "").toUpperCase();
+  const map: Record<string, string> = {
+    SCRAPE_SUPPLIER: "Scrape supplier",
+    ENRICH_SUPPLIER: "Enrich & standardise",
+    PUBLISH_LISTING: "Create/publish listing",
+    WITHDRAW_LISTING: "Withdraw listing",
+    UPDATE_PRICE: "Update price",
+    SYNC_SOLD_ITEMS: "Sync sold items",
+    SYNC_SELLING_ITEMS: "Sync selling items",
+    RESET_ENRICHMENT: "Reset enrichment",
+    ONECHEQ_FULL_BACKFILL: "OneCheq full backfill",
+    BACKFILL_IMAGES_ONECHEQ: "Backfill images (OneCheq)",
+    VALIDATE_LAUNCHLOCK: "Validate LaunchLock",
+  };
+  return map[key] || t;
+}
 
 export default async function CommandsPage({
   searchParams,
@@ -24,12 +45,10 @@ export default async function CommandsPage({
   searchParams: Promise<{ page?: string; per_page?: string; type?: string; status?: string }>;
 }) {
   const sp = await searchParams;
-  const h = await headers();
-  const isTestMode = (h.get("x-test-mode") || "").trim() === "1";
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
   const type = sp.type || "";
-  const status = sp.status ?? (isTestMode ? "" : "NOT_SUCCEEDED");
+  const status = sp.status ?? "NOT_SUCCEEDED";
 
   const qp = new URLSearchParams();
   qp.set("page", String(page));
@@ -44,59 +63,47 @@ export default async function CommandsPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Command log</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Full ledger of queued work. Default view hides completed items so you can focus on what needs attention.
-          </p>
-        </div>
-        <Badge tone="blue">
-          Page {page} · {perPage}/page
-        </Badge>
-      </div>
+      <PageHeader
+        title="Command log"
+        subtitle="Queued work ledger. Use this to diagnose failures and see what is running/blocked."
+        actions={
+          <Badge tone="indigo">
+            Page {page} · {perPage}/page
+          </Badge>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2">
-        <AutoRefresh enabledByDefault={isTestMode} />
-        <Link className="rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-900" href="/ops/inbox">
+        <AutoRefresh enabledByDefault={false} />
+        <Link className={buttonClass({ variant: "outline" })} href="/ops/inbox">
           Go to Inbox (recommended)
         </Link>
         <Link
-          className={`rounded-md border px-3 py-1 text-xs font-medium ${
-            status === "NEEDS_ATTENTION" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
-          }`}
+          className={buttonClass({ variant: status === "NEEDS_ATTENTION" ? "primary" : "outline" })}
           href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NEEDS_ATTENTION" }, { page: 1 })}`}
         >
           Needs attention
         </Link>
         <Link
-          className={`rounded-md border px-3 py-1 text-xs font-medium ${
-            status === "ACTIVE" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
-          }`}
+          className={buttonClass({ variant: status === "ACTIVE" ? "primary" : "outline" })}
           href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "ACTIVE" }, { page: 1 })}`}
         >
-          Active (PENDING/EXECUTING)
+          Active (queued/running)
         </Link>
         <Link
-          className={`rounded-md border px-3 py-1 text-xs font-medium ${
-            status === "NOT_SUCCEEDED" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
-          }`}
+          className={buttonClass({ variant: status === "NOT_SUCCEEDED" ? "primary" : "outline" })}
           href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NOT_SUCCEEDED" }, { page: 1 })}`}
         >
           Not succeeded
         </Link>
         <Link
-          className={`rounded-md border px-3 py-1 text-xs font-medium ${
-            status === "SUCCEEDED" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
-          }`}
+          className={buttonClass({ variant: status === "SUCCEEDED" ? "primary" : "outline" })}
           href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "SUCCEEDED" }, { page: 1 })}`}
         >
           Succeeded
         </Link>
         <Link
-          className={`rounded-md border px-3 py-1 text-xs font-medium ${
-            status === "" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
-          }`}
+          className={buttonClass({ variant: status === "" ? "primary" : "outline" })}
           href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "" }, { page: 1 })}`}
         >
           All
@@ -143,11 +150,11 @@ export default async function CommandsPage({
             </label>
             <button
               type="submit"
-              className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+              className={buttonClass({ variant: "primary" })}
             >
               Apply
             </button>
-            <Link className="text-xs text-slate-600 underline" href="/ops/commands">
+            <Link className={buttonClass({ variant: "link" })} href="/ops/commands">
               Reset
             </Link>
           </form>
@@ -173,13 +180,13 @@ export default async function CommandsPage({
                       {c.id.slice(0, 12)}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{c.type}</td>
-                  <td className="px-4 py-3">{c.status}</td>
+                  <td className="px-4 py-3">{typeLabel(c.type)}</td>
+                  <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                   <td className="px-4 py-3">
                     {c.attempts}/{c.max_attempts}
                   </td>
                   <td className="px-4 py-3">{c.priority}</td>
-                  <td className="px-4 py-3">{c.created_at}</td>
+                  <td className="px-4 py-3">{formatNZT(c.created_at)}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{c.last_error || "-"}</td>
                 </tr>
               ))}

@@ -24,6 +24,7 @@ type OpsSummary = {
 };
 
 type Supplier = { id: number; name: string };
+type TradeMeHealth = { configured?: boolean; auth_ok?: boolean; utc?: string; offline?: boolean; error?: string };
 
 function formatNZTFromUTC(utcIso?: string): string {
   if (!utcIso) return "-";
@@ -50,6 +51,7 @@ export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
   const [refreshing, setRefreshing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [tmHealth, setTmHealth] = useState<TradeMeHealth | null>(null);
 
   // Runbook inputs
   const [supplierId, setSupplierId] = useState<string>("");
@@ -72,6 +74,24 @@ export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
       }
     }
     void loadSuppliers();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTradeMeHealth() {
+      try {
+        const s = await apiGetClient<TradeMeHealth>("/trademe/account_summary");
+        if (cancelled) return;
+        setTmHealth(s);
+      } catch {
+        if (cancelled) return;
+        setTmHealth({ configured: false, auth_ok: false, offline: true, error: "Trade Me health unavailable" });
+      }
+    }
+    void loadTradeMeHealth();
     return () => {
       cancelled = true;
     };
@@ -106,6 +126,7 @@ export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
 
   const supplierParam = supplierId ? `supplier_id=${encodeURIComponent(supplierId)}` : "";
   const sourceCatParam = sourceCategory ? `source_category=${encodeURIComponent(sourceCategory)}` : "";
+  const canPublish = Boolean(tmHealth?.configured) && Boolean(tmHealth?.auth_ok) && !Boolean(tmHealth?.offline);
 
   return (
     <div className="space-y-6">
@@ -378,14 +399,15 @@ export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
                 </label>
                 <button
                   type="button"
-                  className={buttonClass({ variant: "success", disabled: !supplierId })}
+                  className={buttonClass({ variant: "success", disabled: !supplierId || !canPublish })}
                   onClick={() =>
                     runStep("Publish approved", async () => {
                       const lim = Number(publishLimit || "0");
                       if (!Number.isFinite(lim) || lim < 1 || lim > 1000) throw new Error("Publish limit must be 1–1000");
+                      if (!canPublish) throw new Error("Trade Me not configured/auth failed. Publishing disabled.");
                       const res = await apiPostClient<{ enqueued: number }>(
                         "/ops/bulk/approve_publish",
-                        { supplier_id: Number(supplierId), source_category: sourceCategory || undefined, limit: lim, priority: 60 },
+                        { supplier_id: Number(supplierId), source_category: sourceCategory || undefined, limit: lim, priority: 60, stop_on_failure: true },
                       );
                       return `Publish queued: ${res.enqueued}`;
                     })
@@ -400,6 +422,12 @@ export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
                   If it fails: Trade Me health →
                 </Link>
               </div>
+              {!canPublish ? (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                  Publishing disabled: Trade Me is <span className="font-semibold">{tmHealth?.configured ? "auth failed" : "not configured"}</span>.
+                  Go to <Link className="underline" href="/ops/trademe">Trade Me Health</Link>.
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

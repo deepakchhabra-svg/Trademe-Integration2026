@@ -5,6 +5,7 @@ import { buildQueryString } from "../_components/pagination";
 import { buttonClass } from "../_components/ui";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { FilterChips } from "../../components/ui/FilterChips";
+import { formatNZT } from "../_components/time";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -168,7 +169,7 @@ export default async function OrdersPage({
                     <td className="px-4 py-3">{o.order_status || "-"}</td>
                     <td className="px-4 py-3">{o.payment_status || "-"}</td>
                     <td className="px-4 py-3">{o.fulfillment_status || "-"}</td>
-                    <td className="px-4 py-3">{o.created_at || "-"}</td>
+                    <td className="px-4 py-3">{formatNZT(o.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

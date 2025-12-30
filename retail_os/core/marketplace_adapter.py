@@ -5,10 +5,8 @@ Wraps Cleaning, SEO, and Categorization into a single endpoint.
 """
 
 from typing import Dict, Any
-import json
 import os
 from retail_os.core.category_mapper import CategoryMapper
-from retail_os.utils.seo import build_seo_description
 from retail_os.utils.cleaning import clean_title_for_trademe
 from retail_os.strategy.pricing import PricingStrategy
 
@@ -45,36 +43,25 @@ class MarketplaceAdapter:
         if supplier_name in {"ONECHEQ", "NOEL_LEEMING"}:
             use_ai = False
 
-        from retail_os.utils.seo import clean_description
-        clean_input = clean_description(item.description or "")
+        # No silent fallback: listing builder must consume Vault 2 enrichment (enriched_*).
+        if not (getattr(item, "enriched_title", None) or "").strip():
+            raise ValueError("Missing enriched title (run enrichment)")
+        if not (getattr(item, "enriched_description", None) or "").strip():
+            raise ValueError("Missing enriched description (run enrichment)")
+        final_description = str(item.enriched_description)
 
-        # Remove dynamic boilerplate patterns
-        from retail_os.core.boilerplate_detector import detector
-        patterns = detector.detect_patterns()
-        for p in patterns:
-            if p in clean_input:
-                clean_input = clean_input.replace(p, "")
-
-        # Use enriched description if present; otherwise build deterministic SEO description.
-        if getattr(item, "enriched_description", None):
-            final_description = str(item.enriched_description)
-        else:
-            desc_input = {"title": raw_title, "description": clean_input, "specs": item.specs}
-            final_description = build_seo_description(desc_input)
-            from retail_os.core.standardizer import Standardizer
-            final_description = Standardizer.polish(final_description)
-
-        # Optional AI path (not used for OC/NL pilot)
+        # Optional AI path intentionally disabled for operator-grade pilot (no silent behavior changes).
         if use_ai:
-            from retail_os.core.llm_enricher import enricher
-            final_description = enricher.enrich(title=raw_title, raw_desc=clean_input, specs=item.specs or {})
-        # Do not prepend ad-hoc spec blocks here. Description templates already include a specs section.
+            raise ValueError("AI enrichment path is disabled for listing payloads (operator-grade mode)")
 
         # 3. Map Category
         cat_id = CategoryMapper.map_category(
             item.source_category if hasattr(item, 'source_category') else "", 
             raw_title
         )
+        # No silent fallback: default category counts as unmapped and must block readiness.
+        if getattr(CategoryMapper, "DEFAULT_CATEGORY", None) and cat_id == CategoryMapper.DEFAULT_CATEGORY:
+            raise ValueError("Unmapped Trade Me category (default fallback) (blocked)")
         cat_name = CategoryMapper.get_category_name(cat_id)
 
         # 4. IMAGE AUDIT (Vision AI)

@@ -165,7 +165,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             </div>
           </label>
           <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">supplier_id</div>
+            <div className="mb-1 font-semibold uppercase tracking-wide">Supplier ID</div>
             <input
               className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
               value={supplierId}
@@ -174,7 +174,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             />
           </label>
           <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">supplier_name</div>
+            <div className="mb-1 font-semibold uppercase tracking-wide">Supplier name</div>
             <input
               className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
               value={supplierName}
@@ -183,7 +183,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             />
           </label>
           <label className="text-xs text-slate-600 md:col-span-2">
-            <div className="mb-1 font-semibold uppercase tracking-wide">source_category</div>
+            <div className="mb-1 font-semibold uppercase tracking-wide">Source category</div>
             <input
               className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
               data-testid="inp-bulk-category"
@@ -374,7 +374,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
       <Section title="Enrich & standardise (run now)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">batch_size</div>
+            <div className="mb-1 font-semibold uppercase tracking-wide">Batch size</div>
             <input
               className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
               value={batchSize}
@@ -460,7 +460,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
       <Section title="Create drafts (safe review queue)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
+            <div className="mb-1 font-semibold uppercase tracking-wide">Limit</div>
             <input
               className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
               value={dryRunLimit}
@@ -475,16 +475,24 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             className={buttonClass({ variant: "primary", disabled: !!busyKey })}
             onClick={() =>
               run("BULK_DRY_RUN_PUBLISH", async () => {
-                const res = await apiPostClient<{ enqueued: number; skipped_existing_cmd: number; skipped_already_listed: number }>(
+                const res = await apiPostClient<{
+                  enqueued: number;
+                  skipped_existing_cmd: number;
+                  skipped_already_listed: number;
+                  skipped_blocked?: number;
+                  top_blockers?: Array<[string, number]>;
+                }>(
                   "/ops/bulk/dryrun_publish",
                   {
                     supplier_id: supplierId ? Number(supplierId) : undefined,
                     source_category: sourceCategory || undefined,
                     limit: Number(dryRunLimit || "50"),
                     priority: 60,
+                    stop_on_failure: true,
                   },
                 );
-                return `Dry-run queued: enqueued=${res.enqueued}, skipped_existing_cmd=${res.skipped_existing_cmd}, skipped_already_listed=${res.skipped_already_listed}`;
+                const blocked = (res.skipped_blocked ?? 0) ? `, blocked=${res.skipped_blocked}` : "";
+                return `Drafts queued: enqueued=${res.enqueued}, skipped_existing=${res.skipped_existing_cmd}, skipped_listed=${res.skipped_already_listed}${blocked}`;
               })
             }
           >
@@ -505,7 +513,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
       <Section title="Publish approved (Draft → Live)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
+            <div className="mb-1 font-semibold uppercase tracking-wide">Limit</div>
             <input
               className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
               value={approveLimit}
@@ -526,14 +534,18 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   skipped_drift: number;
                   skipped_missing_metadata: number;
                   skipped_bad_dryrun_id: number;
+                  skipped_not_ready?: number;
+                  top_not_ready?: Array<[string, number]>;
                   store_mode: string;
                 }>("/ops/bulk/approve_publish", {
                   supplier_id: supplierId ? Number(supplierId) : undefined,
                   source_category: sourceCategory || undefined,
                   limit: Number(approveLimit || "50"),
                   priority: 60,
+                  stop_on_failure: true,
                 });
-                return `Approved publish queued: enqueued=${res.enqueued}, skipped_drift=${res.skipped_drift}, skipped_existing_cmd=${res.skipped_existing_cmd} (store_mode=${res.store_mode})`;
+                const nr = (res.skipped_not_ready ?? 0) ? `, not_ready=${res.skipped_not_ready}` : "";
+                return `Publish queued: enqueued=${res.enqueued}, skipped_drift=${res.skipped_drift}, skipped_existing=${res.skipped_existing_cmd}${nr} (store_mode=${res.store_mode})`;
               })
             }
           >
@@ -555,7 +567,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
       <Section title="Reset enrichment (re-run copy generation)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
+            <div className="mb-1 font-semibold uppercase tracking-wide">Limit</div>
             <input
               className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
               value={resetEnrichLimit}

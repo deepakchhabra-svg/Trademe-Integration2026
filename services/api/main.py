@@ -666,6 +666,7 @@ class BulkDryRunPublishRequest(BaseModel):
     source_category: Optional[str] = None
     limit: int = 50
     priority: int = 60
+    stop_on_failure: bool = True
 
 
 @app.post("/ops/bulk/dryrun_publish", response_model=dict[str, Any])
@@ -704,8 +705,58 @@ def bulk_dryrun_publish(req: BulkDryRunPublishRequest, _role: Role = Depends(req
         enqueued = 0
         skipped_existing_cmd = 0
         skipped_already_listed = 0
+        skipped_blocked = 0
+        blocked_reasons: dict[str, int] = {}
+
+        def _b(reason: str):
+            nonlocal skipped_blocked
+            skipped_blocked += 1
+            blocked_reasons[reason] = int(blocked_reasons.get(reason, 0) + 1)
+
+        def _precheck(ip: InternalProduct) -> tuple[bool, str | None]:
+            sp = ip.supplier_product
+            if not sp:
+                return False, "Missing supplier link"
+            if str(sp.sync_status or "").upper() == "REMOVED":
+                return False, "Removed from supplier"
+            if not (sp.product_url or "").strip():
+                return False, "Missing source URL"
+            if sp.cost_price is None or float(sp.cost_price or 0) <= 0:
+                return False, "Missing/invalid source price"
+            if not (sp.enriched_title or "").strip():
+                return False, "Missing enriched title"
+            if not (sp.enriched_description or "").strip():
+                return False, "Missing enriched description"
+            # Require at least one local image file.
+            imgs = sp.images or []
+            try:
+                import os as _os
+
+                if isinstance(imgs, list):
+                    if not any(isinstance(x, str) and _os.path.exists(x) for x in imgs):
+                        return False, "Images unavailable for upload (no local images)"
+            except Exception:
+                return False, "Images unavailable for upload (check local media folder)"
+
+            # Category must be mapped (not default fallback)
+            try:
+                from retail_os.core.category_mapper import CategoryMapper
+
+                cat = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+                if not cat:
+                    return False, "Unmapped Trade Me category"
+                if getattr(CategoryMapper, "DEFAULT_CATEGORY", None) and cat == CategoryMapper.DEFAULT_CATEGORY:
+                    return False, "Unmapped Trade Me category"
+            except Exception:
+                return False, "Unmapped Trade Me category"
+            return True, None
 
         for ip in candidates:
+            ok, reason = _precheck(ip)
+            if not ok:
+                _b(reason or "Blocked")
+                continue
+
             # Defensive: double-check listings
             already = False
             for l in (ip.listings or []):
@@ -746,13 +797,19 @@ def bulk_dryrun_publish(req: BulkDryRunPublishRequest, _role: Role = Depends(req
                 )
             )
             enqueued += 1
+            # Stop-on-failure default ON for safety: enqueue one at a time unless explicitly disabled.
+            if req.stop_on_failure and enqueued >= 1:
+                break
 
         session.commit()
         return {
             "enqueued": enqueued,
             "skipped_existing_cmd": skipped_existing_cmd,
             "skipped_already_listed": skipped_already_listed,
+            "skipped_blocked": skipped_blocked,
+            "top_blockers": sorted(blocked_reasons.items(), key=lambda x: x[1], reverse=True)[:10],
             "requested_limit": req.limit,
+            "stop_on_failure": bool(req.stop_on_failure),
         }
 
 
@@ -761,6 +818,7 @@ class BulkApprovePublishRequest(BaseModel):
     source_category: Optional[str] = None
     limit: int = 50
     priority: int = 60
+    stop_on_failure: bool = True
 
 
 @app.post("/ops/bulk/approve_publish", response_model=dict[str, Any])
@@ -780,6 +838,12 @@ def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(r
     from retail_os.core.database import SystemSetting
 
     with get_db_session() as session:
+        # Hard safety: require Trade Me auth to be configured and valid.
+        try:
+            _ = TradeMeAPI()
+        except Exception:
+            raise HTTPException(status_code=409, detail="Trade Me is not configured/auth failed. Publishing disabled.")
+
         store_mode = "NORMAL"
         s = session.query(SystemSetting).filter(SystemSetting.key == "store.mode").first()
         if s and isinstance(s.value, str) and s.value.strip():
@@ -825,13 +889,22 @@ def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(r
             q = q.filter(SupplierProduct.source_category == req.source_category)
         q = q.order_by(TradeMeListing.last_synced_at.desc().nullslast())
 
-        rows = q.limit(int(req.limit)).all()
+        # Stop-on-failure default ON for safety: enqueue one at a time unless explicitly disabled.
+        limit_effective = 1 if req.stop_on_failure else int(req.limit)
+        rows = q.limit(int(limit_effective)).all()
 
         enqueued = 0
         skipped_existing_cmd = 0
         skipped_drift = 0
         skipped_missing_metadata = 0
         skipped_bad_dryrun_id = 0
+        skipped_not_ready = 0
+        not_ready_reasons: dict[str, int] = {}
+
+        def _nr(reason: str):
+            nonlocal skipped_not_ready
+            skipped_not_ready += 1
+            not_ready_reasons[reason] = int(not_ready_reasons.get(reason, 0) + 1)
 
         for l in rows:
             tm_id = str(l.tm_listing_id or "")
@@ -861,6 +934,19 @@ def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(r
                 current_snap = None
             if not current_snap or str(current_snap) != str(snap):
                 skipped_drift += 1
+                continue
+
+            # LaunchLock readiness is authoritative: do not publish anything not READY.
+            try:
+                from retail_os.core.validator import LaunchLock
+
+                ip = l.product
+                if not ip:
+                    _nr("Missing internal product")
+                    continue
+                LaunchLock(session).validate_publish(ip, test_mode=False)
+            except Exception as e:
+                _nr(str(e)[:200] or "Blocked")
                 continue
 
             # Skip if a real publish is already pending for this internal product
@@ -907,7 +993,10 @@ def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(r
             "skipped_drift": skipped_drift,
             "skipped_missing_metadata": skipped_missing_metadata,
             "skipped_bad_dryrun_id": skipped_bad_dryrun_id,
+            "skipped_not_ready": skipped_not_ready,
+            "top_not_ready": sorted(not_ready_reasons.items(), key=lambda x: x[1], reverse=True)[:10],
             "requested_limit": req.limit,
+            "stop_on_failure": bool(req.stop_on_failure),
             "store_mode": store_mode,
             "quota_max_per_day": int(pub_cfg.get("max_publishes_per_day") or 0),
         }
