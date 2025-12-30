@@ -200,9 +200,15 @@ class CommandWorker:
             # 3. Execute Logic (Simulated for Vertical Slice Phase 1)
             try:
                 self.execute_logic(command)
-                command.status = CommandStatus.SUCCEEDED
-                print(f"Command {command.id} SUCCEEDED")
-                logger.info(f"CMD_SUCCEEDED cmd_id={command.id} type={cmd_type}")
+                # Handlers may mark a command CANCELLED (operator-requested stop).
+                # Do not overwrite that with SUCCEEDED.
+                if command.status == CommandStatus.CANCELLED:
+                    print(f"Command {command.id} CANCELLED")
+                    logger.info(f"CMD_CANCELLED cmd_id={command.id} type={cmd_type}")
+                else:
+                    command.status = CommandStatus.SUCCEEDED
+                    print(f"Command {command.id} SUCCEEDED")
+                    logger.info(f"CMD_SUCCEEDED cmd_id={command.id} type={cmd_type}")
             except Exception as logic_error:
                 print(f"Command {command.id} FAILED: {logic_error}")
                 command.last_error = str(logic_error)
@@ -213,6 +219,10 @@ class CommandWorker:
                     # Handler already set terminal status, don't increment attempts
                     print(f"   -> Status: HUMAN_REQUIRED (set by handler)")
                     logger.warning(f"CMD_HUMAN_REQUIRED cmd_id={command.id} type={cmd_type}")
+                elif command.status == CommandStatus.CANCELLED:
+                    # Handler already set terminal status (operator cancelled).
+                    print(f"   -> Status: CANCELLED (set by handler)")
+                    logger.info(f"CMD_CANCELLED cmd_id={command.id} type={cmd_type}")
                 else:
                     command.attempts += 1
                     if command.attempts < command.max_attempts:
@@ -989,6 +999,17 @@ class CommandWorker:
                 
                 # Category-scoped scrape: Shopify collection handle
                 collection = source_category or payload.get("collection") or "all"
+
+                def _is_cancelled() -> bool:
+                    try:
+                        with SessionLocal() as s0:
+                            row0 = s0.query(SystemCommand).filter(SystemCommand.id == str(command.id)).first()
+                            if not row0:
+                                return False
+                            return row0.status == CommandStatus.CANCELLED
+                    except Exception:
+                        return False
+
                 def _progress_hook(info: dict) -> None:
                     try:
                         with SessionLocal() as s2:
@@ -1004,7 +1025,22 @@ class CommandWorker:
                     except Exception:
                         return
 
-                adapter.run_sync(pages=pages, collection=collection, cmd_id=str(command.id), progress_every=50, progress_hook=_progress_hook)
+                adapter.run_sync(
+                    pages=pages,
+                    collection=collection,
+                    cmd_id=str(command.id),
+                    progress_every=50,
+                    progress_hook=_progress_hook,
+                    should_abort=_is_cancelled,
+                )
+
+                # If an operator cancelled while the adapter was running, stop cleanly.
+                if _is_cancelled():
+                    command.status = CommandStatus.CANCELLED
+                    command.error_code = "CANCELLED_BY_OPERATOR"
+                    command.error_message = "Cancelled by operator during scrape."
+                    logger.info(f"SCRAPE_SUPPLIER_CANCELLED cmd_id={command.id} supplier={supplier_name}")
+                    return
                 
                 # Update last_scraped_at for existing products
                 from datetime import datetime

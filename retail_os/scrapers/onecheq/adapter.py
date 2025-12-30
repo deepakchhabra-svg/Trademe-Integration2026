@@ -18,6 +18,7 @@ from retail_os.core.unified_schema import normalize_onecheq_row, UnifiedProduct
 from retail_os.utils.seo import build_seo_description
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class OneCheqAdapter:
@@ -44,6 +45,7 @@ class OneCheqAdapter:
         cmd_id: str | None = None,
         progress_every: int = 100,
         progress_hook=None,
+        should_abort=None,
     ):
         if pages <= 0:
             print(f"Adapter: [WARNING] UNLIMITED SYNC REQUESTED for {self.supplier_name}", file=sys.stderr)
@@ -66,6 +68,16 @@ class OneCheqAdapter:
             progress_every = 0
         
         for item in raw_items_gen:
+            # Cooperative cancellation: allow the operator to cancel long runs.
+            try:
+                if should_abort and bool(should_abort()):
+                    if cmd_id:
+                        log.info(f"SCRAPE_ABORT cmd_id={cmd_id} supplier=ONECHEQ reason=CANCELLED_BY_OPERATOR")
+                    return
+            except Exception:
+                # Never crash the scraper due to cancellation check failures.
+                pass
+
             count_total_scraped += 1
             try:
                 # 2. Normalize (Unified Schema)
@@ -88,7 +100,7 @@ class OneCheqAdapter:
                 unified["collection_page"] = item.get("collection_page")
                     
                 # 4. Write to DB
-                self._upsert_product(unified)
+                self._upsert_product(unified, should_abort=should_abort, cmd_id=cmd_id, progress_hook=progress_hook)
                 count_updated += 1
                 
             except Exception as e:
@@ -163,7 +175,7 @@ class OneCheqAdapter:
             print("Adapter: Skipping Reconciliation due to Safety Guard.")
         self.db.close()
 
-    def _upsert_product(self, data: UnifiedProduct):
+    def _upsert_product(self, data: UnifiedProduct, should_abort=None, cmd_id: str | None = None, progress_hook=None):
         # Import downloader
         from retail_os.utils.image_downloader import ImageDownloader
         downloader = ImageDownloader()
@@ -211,16 +223,44 @@ class OneCheqAdapter:
         local_images = []
         limit_imgs = int(os.getenv("RETAILOS_IMAGE_LIMIT_PER_PRODUCT", "4") or "4")
         limit_imgs = max(0, min(4, limit_imgs))
-        for idx, img_url in enumerate(imgs[:limit_imgs], 1):
-            if img_url:
-                # Use SKU with index for multiple images
+        img_conc = int(os.getenv("RETAILOS_IMAGE_CONCURRENCY_PER_PRODUCT", "4") or "4")
+        img_conc = max(1, min(8, img_conc))
+
+        # Fast path: no downloads (operator may backfill separately)
+        if limit_imgs <= 0:
+            local_images = []
+        else:
+            # Download images concurrently (bounded).
+            # This is the biggest speed win for large scrapes.
+            tasks: list[tuple[int, str, str]] = []
+            for idx, img_url in enumerate(imgs[:limit_imgs], 1):
+                if not img_url:
+                    continue
                 img_sku = f"{sku}_{idx}" if idx > 1 else sku
-                result = downloader.download_image(img_url, img_sku)
-                if result["success"]:
-                    local_images.append(result["path"])
-                    print(f"   -> Downloaded image {idx}: {result['path']} ({result['size']} bytes)")
-                else:
-                    print(f"   -> Image {idx} download failed: {result['error']}")
+                tasks.append((idx, img_url, img_sku))
+
+            if tasks:
+                def _dl(t: tuple[int, str, str]):
+                    i, u, s = t
+                    return i, downloader.download_image(u, s, should_abort=should_abort)
+
+                with ThreadPoolExecutor(max_workers=min(img_conc, len(tasks))) as ex:
+                    futs = [ex.submit(_dl, t) for t in tasks]
+                    for fut in as_completed(futs):
+                        # Cooperative cancellation
+                        try:
+                            if should_abort and bool(should_abort()):
+                                break
+                        except Exception:
+                            pass
+
+                        idx, result = fut.result()
+                        if result.get("success"):
+                            local_images.append(result.get("path"))
+                        # Keep console output minimal; detailed logs go to cmd_id progress
+
+            # Preserve deterministic ordering
+            local_images = [p for p in local_images if p]
         
         # Calculate Snapshot Hash (include more fields so changes are detected)
         content = json.dumps(

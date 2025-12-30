@@ -7,15 +7,16 @@ type Summary = {
   member_id: number | null;
   nickname: string | null;
   email: string | null;
-  account_balance: number;
-  pay_now_balance: number;
-  unique_positive: number;
-  unique_negative: number;
-  feedback_count: number;
-  total_items_sold: number;
+  account_balance: number | null;
+  pay_now_balance: number | null;
+  unique_positive: number | null;
+  unique_negative: number | null;
+  feedback_count: number | null;
+  total_items_sold: number | null;
   offline?: boolean;
   error?: string;
   balance_raw?: Record<string, unknown>;
+  balance_error?: string | null;
   utc?: string;
   configured?: boolean;
   auth_ok?: boolean;
@@ -63,27 +64,39 @@ export default async function TradeMeHealthPage() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account balance</div>
-            <div className="mt-1 text-sm text-slate-900">${Number(summary.account_balance || 0).toFixed(2)}</div>
+            <div className="mt-1 text-sm text-slate-900">
+              {summary.account_balance == null ? (
+                <span className="text-slate-500">Unavailable</span>
+              ) : (
+                `$${Number(summary.account_balance).toFixed(2)}`
+              )}
+            </div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">PayNow balance</div>
-            <div className="mt-1 text-sm text-slate-900">${Number(summary.pay_now_balance || 0).toFixed(2)}</div>
+            <div className="mt-1 text-sm text-slate-900">
+              {summary.pay_now_balance == null ? (
+                <span className="text-slate-500">Unavailable</span>
+              ) : (
+                `$${Number(summary.pay_now_balance).toFixed(2)}`
+              )}
+            </div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Feedback</div>
-            <div className="mt-1 text-sm text-slate-900">{summary.feedback_count}</div>
+            <div className="mt-1 text-sm text-slate-900">{summary.feedback_count ?? <span className="text-slate-500">Unavailable</span>}</div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Items sold</div>
-            <div className="mt-1 text-sm text-slate-900">{summary.total_items_sold}</div>
+            <div className="mt-1 text-sm text-slate-900">{summary.total_items_sold ?? <span className="text-slate-500">Unavailable</span>}</div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Unique positive</div>
-            <div className="mt-1 text-sm text-slate-900">{summary.unique_positive}</div>
+            <div className="mt-1 text-sm text-slate-900">{summary.unique_positive ?? <span className="text-slate-500">Unavailable</span>}</div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Unique negative</div>
-            <div className="mt-1 text-sm text-slate-900">{summary.unique_negative}</div>
+            <div className="mt-1 text-sm text-slate-900">{summary.unique_negative ?? <span className="text-slate-500">Unavailable</span>}</div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-3 md:col-span-2">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Identity</div>
@@ -91,7 +104,12 @@ export default async function TradeMeHealthPage() {
               {summary.nickname || "-"} · {summary.email || "-"} · member {summary.member_id ?? "-"}
             </div>
           </div>
-          {summary.balance_raw ? (
+          {summary.balance_error ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 md:col-span-2 xl:col-span-4">
+              Balance note: {summary.balance_error}
+            </div>
+          ) : null}
+          {summary.balance_raw && Object.keys(summary.balance_raw || {}).length ? (
             <div className="rounded-lg border border-slate-200 bg-white p-3 md:col-span-2 xl:col-span-4">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Balance</div>
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">

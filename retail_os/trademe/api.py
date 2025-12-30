@@ -308,17 +308,21 @@ class TradeMeAPI:
 
             # 2) Balances endpoint (matches "My balances" screen more closely)
             bal = {}
+            bal_err = None
             try:
                 r2 = self.session.get(f"{PROD_URL}/Account/Balance.json", timeout=TIMEOUT_SECS)
                 r2.raise_for_status()
                 bal = r2.json() if isinstance(r2.json(), dict) else {}
             except Exception:
                 bal = {}
+                bal_err = "Balance endpoint not available for this account/app"
 
             # Prefer Balance.json if present; fallback to Summary.json fields.
             account_balance = bal.get("Balance")
             if account_balance is None:
-                account_balance = data.get("AccountBalance", 0.0)
+                # IMPORTANT: do not default to 0.0 (looks like “real $0”).
+                # If Summary doesn't provide a balance, return None + diagnostic instead.
+                account_balance = data.get("AccountBalance", None)
 
             # Parse and return key fields
             return {
@@ -326,13 +330,14 @@ class TradeMeAPI:
                 "nickname": data.get("Nickname"),
                 "email": data.get("Email"),
                 "account_balance": account_balance,
-                "pay_now_balance": data.get("PayNowBalance", 0.0),
-                "unique_positive": data.get("UniquePositive", 0),
-                "unique_negative": data.get("UniqueNegative", 0),
-                "feedback_count": data.get("FeedbackCount", 0),
-                "total_items_sold": data.get("TotalItemsSold", 0),
+                "pay_now_balance": data.get("PayNowBalance", None),
+                "unique_positive": data.get("UniquePositive", None),
+                "unique_negative": data.get("UniqueNegative", None),
+                "feedback_count": data.get("FeedbackCount", None),
+                "total_items_sold": data.get("TotalItemsSold", None),
                 # Extra diagnostics (safe)
                 "balance_raw": bal,
+                "balance_error": bal_err,
             }
         except Exception as e:
             raise Exception(f"Get Account Summary Failed: {e}")

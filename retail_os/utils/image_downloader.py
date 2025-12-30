@@ -11,11 +11,17 @@ class ImageDownloader:
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
     
-    def download_image(self, url: str, sku: str) -> dict:
+    def download_image(self, url: str, sku: str, should_abort=None) -> dict:
         """
         Download image to local storage.
         Returns: {"success": bool, "path": str, "size": int, "error": str}
         """
+        try:
+            if should_abort and bool(should_abort()):
+                return {"success": False, "path": None, "size": 0, "error": "Cancelled"}
+        except Exception:
+            pass
+
         if not url or url.startswith("https://placehold.co"):
             return {"success": False, "path": None, "size": 0, "error": "Placeholder URL"}
         
@@ -54,6 +60,11 @@ class ImageDownloader:
             last_err: Exception | None = None
             for attempt in range(1, 4):
                 try:
+                    try:
+                        if should_abort and bool(should_abort()):
+                            return {"success": False, "path": None, "size": 0, "error": "Cancelled"}
+                    except Exception:
+                        pass
                     with requests.Session() as session:
                         response = session.get(url, headers=headers, timeout=20, stream=True, allow_redirects=True)
                         response.raise_for_status()
@@ -64,6 +75,11 @@ class ImageDownloader:
 
                         with open(filepath, 'wb') as f:
                             for chunk in response.iter_content(chunk_size=8192):
+                                try:
+                                    if should_abort and bool(should_abort()):
+                                        return {"success": False, "path": None, "size": 0, "error": "Cancelled"}
+                                except Exception:
+                                    pass
                                 if chunk:
                                     f.write(chunk)
                     last_err = None
