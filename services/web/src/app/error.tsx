@@ -14,14 +14,12 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       ? new Error("Backend offline. Start the API on http://127.0.0.1:8000 (see runbook).")
       : error;
 
+  // NOTE: `error.tsx` is rendered *inside* the current layout. Do not render <html>/<body> here
+  // (that is only valid for `global-error.tsx`), otherwise React will throw hydration errors.
   return (
-    <html>
-      <body className="bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl p-6">
-          <ErrorState error={friendly} retry={reset} />
-        </div>
-      </body>
-    </html>
+    <div className="mx-auto max-w-3xl p-6">
+      <ErrorState error={friendly} retry={reset} />
+    </div>
   );
 }
 

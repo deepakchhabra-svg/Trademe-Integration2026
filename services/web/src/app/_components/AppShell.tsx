@@ -98,6 +98,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
               <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Admin
               </div>
+              <NavLink href="/access" label="Access & tokens" />
               {canSee(who.role, "root") ? <NavLink href="/admin/settings" label="Settings" /> : null}
             </div>
           </div>
