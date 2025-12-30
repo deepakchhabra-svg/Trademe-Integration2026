@@ -158,7 +158,8 @@ def build_seo_description(row: Dict[str, str]) -> str:
             kk = _clean_text(str(k)).replace("_", " ").strip(":")
             kkl = kk.lower()
             # Never surface identifiers that can be mistaken as contact numbers or internal tracking.
-            if any(tok in kkl for tok in ("sku", "mpn", "serial", "imei", "meid")):
+            # NOTE: OneCheq includes "SupplierLot" which is a supplier identifier; do not expose it to buyers.
+            if any(tok in kkl for tok in ("sku", "mpn", "serial", "imei", "meid", "lot", "supplierlot")):
                 continue
             # If the value itself looks like a phone number, skip it (prevents TrustEngine false positives).
             if _PHONE_LIKE_RE.search(vv):

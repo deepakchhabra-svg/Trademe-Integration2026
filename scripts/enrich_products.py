@@ -13,6 +13,23 @@ from typing import Optional
 from retail_os.core.database import SessionLocal, SupplierProduct, SystemSetting
 
 
+def _filter_public_specs(specs: dict) -> dict:
+    """
+    Remove internal/supplier-identifying spec keys that must never be shown to buyers.
+    Keep them in DB (raw specs) for operator/audit, but don't include in enriched_description.
+    """
+    if not isinstance(specs, dict) or not specs:
+        return {}
+    out: dict = {}
+    for k, v in specs.items():
+        kl = str(k).strip().lower()
+        # SupplierLot / SKU / lot numbers are sourcing identifiers and should not be in Trade Me description.
+        if any(tok in kl for tok in ("supplierlot", "sku", "lot", "serial", "imei", "meid")):
+            continue
+        out[k] = v
+    return out
+
+
 def _get_enrichment_policy(db) -> dict:
     """
     SystemSetting key: `enrichment.policy`
@@ -60,6 +77,7 @@ def _build_minimal_template(title: str, specs: dict) -> str:
 
     parts = [intro, ""]
 
+    specs = _filter_public_specs(specs or {})
     if specs:
         parts.append("**Specifications**")
         for k, v in list(specs.items())[:10]:
@@ -137,7 +155,11 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
                     if not raw_title:
                         raise RuntimeError("Missing raw title (cannot enrich)")
                     cleaned_title = clean_title_for_trademe(raw_title)
-                    desc = enricher.enrich(title=cleaned_title, raw_desc=item.description or "", specs=item.specs or {})
+                    desc = enricher.enrich(
+                        title=cleaned_title,
+                        raw_desc=item.description or "",
+                        specs=_filter_public_specs(item.specs or {}),
+                    )
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None
                     item.enriched_title = cleaned_title
@@ -167,7 +189,13 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
                     item.enriched_title = title
                     # Deterministic description from supplier truth + specs.
                     item.enriched_description = Standardizer.polish(
-                        build_seo_description({"title": raw_title, "description": item.description or "", "specs": item.specs or {}})
+                        build_seo_description(
+                            {
+                                "title": raw_title,
+                                "description": item.description or "",
+                                "specs": _filter_public_specs(item.specs or {}),
+                            }
+                        )
                     )
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None

@@ -30,6 +30,7 @@ type SupplierProduct = {
 };
 
 type DraftPayload = { internal_product_id: number; payload: Record<string, unknown>; payload_hash: string };
+type ShippingOption = { Method?: string; Price?: number };
 
 function Field({ label, value, testId }: { label: string; value: React.ReactNode; testId?: string }) {
   return (
@@ -201,9 +202,42 @@ export default async function RawDetailPage({
                 <Field label="Duration" value={draft?.payload?.Duration != null ? `${draft.payload.Duration} days` : "-"} />
               </div>
 
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field label="Buy now" value={draft?.payload?.BuyNowPrice != null ? `$${Number(draft.payload.BuyNowPrice).toFixed(2)}` : "-"} />
+                <Field label="Pickup" value={draft?.payload?.Pickup != null ? String(draft.payload.Pickup) : "-"} />
+                <Field
+                  label="Payment"
+                  value={
+                    draft?.payload?.PaymentOptions != null
+                      ? String(draft.payload.PaymentOptions)
+                      : "-"
+                  }
+                />
+              </div>
+
+              <div className="mt-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Shipping options</div>
+                {Array.isArray(draft?.payload?.ShippingOptions) && draft?.payload?.ShippingOptions?.length ? (
+                  <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900">
+                    {(draft.payload.ShippingOptions as ShippingOption[]).slice(0, 6).map((s: ShippingOption, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between gap-3">
+                        <div>{String(s?.Method || "Shipping")}</div>
+                        <div className="font-mono text-xs">${Number(s?.Price || 0).toFixed(2)}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-slate-500">No shipping options in payload.</div>
+                )}
+              </div>
+
               <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Description</div>
               <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900 whitespace-pre-wrap">
                 {Array.isArray(draft?.payload?.Description) ? String(draft?.payload?.Description?.[0] || "-") : String(draft?.payload?.Description || "-")}
+              </div>
+
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+                Note: supplier identifiers (e.g. SupplierLot/SKU) are kept for operators in Vault 1 specs, but are intentionally not included in the buyer-visible Trade Me description.
               </div>
 
               <div className="mt-3 text-[11px] text-slate-500">
