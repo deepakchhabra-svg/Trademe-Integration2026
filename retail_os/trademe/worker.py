@@ -123,7 +123,19 @@ class _DBLogHandler(logging.Handler):
 
 # Attach DB log handler once.
 try:
-    logger.addHandler(_DBLogHandler())
+    # Attach to the *root* logger so logs from scrapers/adapters can be captured too,
+    # as long as they include `cmd_id=<uuid>` in the message.
+    root_logger = logging.getLogger()
+    already = False
+    for h in root_logger.handlers:
+        if isinstance(h, _DBLogHandler):
+            already = True
+            break
+    if not already:
+        root_logger.addHandler(_DBLogHandler())
+    # Keep it on this module logger as well (harmless if duplicates are avoided above).
+    if not any(isinstance(h, _DBLogHandler) for h in logger.handlers):
+        logger.addHandler(_DBLogHandler())
 except Exception:
     pass
 
@@ -977,7 +989,22 @@ class CommandWorker:
                 
                 # Category-scoped scrape: Shopify collection handle
                 collection = source_category or payload.get("collection") or "all"
-                adapter.run_sync(pages=pages, collection=collection)
+                def _progress_hook(info: dict) -> None:
+                    try:
+                        with SessionLocal() as s2:
+                            row = s2.query(SystemCommand).filter(SystemCommand.id == str(command.id)).first()
+                            if not row:
+                                return
+                            p = row.payload or {}
+                            p["progress"] = {**(p.get("progress") or {}), **(info or {})}
+                            p["progress"]["updated_at"] = datetime.now(timezone.utc).isoformat()
+                            row.payload = p
+                            row.updated_at = datetime.now(timezone.utc)
+                            s2.commit()
+                    except Exception:
+                        return
+
+                adapter.run_sync(pages=pages, collection=collection, cmd_id=str(command.id), progress_every=50, progress_hook=_progress_hook)
                 
                 # Update last_scraped_at for existing products
                 from datetime import datetime

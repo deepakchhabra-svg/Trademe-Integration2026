@@ -19,6 +19,16 @@ type CommandDetail = {
   updated_at: string | null;
 };
 
+type Progress = {
+  phase?: string;
+  supplier?: string;
+  collection?: string;
+  scraped?: number;
+  upserted?: number;
+  done?: boolean;
+  updated_at?: string;
+};
+
 function toneForStatus(status: string): "emerald" | "red" | "amber" | "slate" {
   if (status === "SUCCEEDED") return "emerald";
   if (status.includes("FAILED")) return "red";
@@ -49,6 +59,7 @@ export function LiveCommandPanel({ commandId, initial }: { commandId: string; in
   const [pollError, setPollError] = useState<string | null>(null);
 
   const active = useMemo(() => isActiveStatus(cmd.status), [cmd.status]);
+  const progress = useMemo(() => (cmd.payload?.progress as Progress | undefined) || undefined, [cmd.payload]);
 
   useEffect(() => {
     if (!auto) return;
@@ -111,6 +122,28 @@ export function LiveCommandPanel({ commandId, initial }: { commandId: string; in
       {pollError ? (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
           Poll error: {pollError}
+        </div>
+      ) : null}
+
+      {progress ? (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Progress</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-900">
+            <Badge tone="slate">{progress.phase || "running"}</Badge>
+            {progress.supplier ? <Badge tone="slate">{progress.supplier}</Badge> : null}
+            {progress.collection ? <Badge tone="slate">collection {progress.collection}</Badge> : null}
+            {typeof progress.scraped === "number" ? <Badge tone="amber">scraped {progress.scraped}</Badge> : null}
+            {typeof progress.upserted === "number" ? <Badge tone="emerald">saved {progress.upserted}</Badge> : null}
+            {progress.updated_at ? <Badge tone="slate">progress updated {progress.updated_at}</Badge> : null}
+          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+            {/* Unknown total: show an indeterminate bar while active */}
+            <div className={`h-full ${active ? "w-1/2 animate-pulse bg-amber-400" : "w-full bg-slate-400"}`} />
+          </div>
+        </div>
+      ) : active ? (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">
+          No progress reported yet. This usually means the worker isn’t emitting cmd_id-tagged progress logs yet.
         </div>
       ) : null}
 

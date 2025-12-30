@@ -1,6 +1,9 @@
 import os
 import sys
 
+# NOTE: uses root logging configured by worker/uvicorn.
+import logging
+
 # Ensure repo root is importable when running as a script from any cwd.
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if _REPO_ROOT not in sys.path:
@@ -34,7 +37,14 @@ class OneCheqAdapter:
             self.db.commit()
         self.supplier_id = supplier.id
 
-    def run_sync(self, pages: int = 1, collection: str = "all"):
+    def run_sync(
+        self,
+        pages: int = 1,
+        collection: str = "all",
+        cmd_id: str | None = None,
+        progress_every: int = 100,
+        progress_hook=None,
+    ):
         if pages <= 0:
             print(f"Adapter: [WARNING] UNLIMITED SYNC REQUESTED for {self.supplier_name}", file=sys.stderr)
             pages = 0  # Passes through to scraper's <=0 logic
@@ -50,6 +60,10 @@ class OneCheqAdapter:
         count_updated = 0
         
         count_total_scraped = 0
+
+        log = logging.getLogger(__name__)
+        if progress_every <= 0:
+            progress_every = 0
         
         for item in raw_items_gen:
             count_total_scraped += 1
@@ -79,8 +93,56 @@ class OneCheqAdapter:
                 
             except Exception as e:
                 print(f"Adapter Error on {item.get('source_id')}: {e}")
+
+            # Emit periodic progress for operator visibility (cmd_id-tagged so UI can tail it).
+            if cmd_id and progress_every and (count_total_scraped % int(progress_every) == 0):
+                try:
+                    msg = (
+                        f"SCRAPE_PROGRESS cmd_id={cmd_id} supplier=ONECHEQ collection={collection} "
+                        f"scraped={count_total_scraped} upserted={count_updated}"
+                    )
+                    log.info(msg)
+                except Exception:
+                    pass
+                try:
+                    if progress_hook:
+                        progress_hook(
+                            {
+                                "phase": "scrape",
+                                "supplier": "ONECHEQ",
+                                "collection": collection,
+                                "scraped": int(count_total_scraped),
+                                "upserted": int(count_updated),
+                            }
+                        )
+                except Exception:
+                    pass
                 
         print(f"Adapter: Sync Complete. Scraped {count_total_scraped}, Processed {count_updated} items.")
+
+        # Final progress update
+        if cmd_id:
+            try:
+                log.info(
+                    f"SCRAPE_DONE cmd_id={cmd_id} supplier=ONECHEQ collection={collection} "
+                    f"scraped={count_total_scraped} upserted={count_updated}"
+                )
+            except Exception:
+                pass
+            try:
+                if progress_hook:
+                    progress_hook(
+                        {
+                            "phase": "scrape",
+                            "supplier": "ONECHEQ",
+                            "collection": collection,
+                            "scraped": int(count_total_scraped),
+                            "upserted": int(count_updated),
+                            "done": True,
+                        }
+                    )
+            except Exception:
+                pass
         
         # 5. Reconciliation (Handling Removals)
         from retail_os.core.reconciliation import ReconciliationEngine
