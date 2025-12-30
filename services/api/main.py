@@ -29,6 +29,7 @@ from retail_os.core.database import (
 )
 from retail_os.core.validator import LaunchLock
 from retail_os.trademe.api import TradeMeAPI
+from retail_os.core.llm_enricher import enricher as _llm_enricher
 
 
 app = FastAPI(title="RetailOS API", version="0.1.0")
@@ -455,6 +456,15 @@ def trademe_account_summary(_role: Role = Depends(require_role("power"))) -> dic
         if not configured:
             msg = "Not configured (missing Trade Me credentials)"
         return {"offline": True, "error": msg, "utc": utc, "configured": configured, "auth_ok": False}
+
+
+@app.get("/llm/health")
+def llm_health(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
+    """
+    Operator diagnostics: returns configured provider + model info.
+    No fake "healthy" status when misconfigured.
+    """
+    return _llm_enricher.health()
 
 
 class TradeMeValidateDraftsRequest(BaseModel):
@@ -1896,6 +1906,35 @@ def listing_detail(listing_id: int) -> dict[str, Any]:
             data["trust_error"] = str(e)[:500]
 
         return data
+
+
+@app.get("/inspector/supplier-products/{supplier_product_id}")
+def inspector_supplier_product(
+    supplier_product_id: int,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Single truth screen backing API: Raw → Enriched → Listing (Draft/Live) + gates in one response.
+    """
+    with get_db_session() as session:
+        sp = session.query(SupplierProduct).filter(SupplierProduct.id == int(supplier_product_id)).first()
+        if not sp:
+            raise HTTPException(status_code=404, detail="SupplierProduct not found")
+        ip = getattr(sp, "internal_product", None)
+        listings: list[TradeMeListing] = []
+        if ip:
+            listings = (
+                session.query(TradeMeListing)
+                .filter(TradeMeListing.internal_product_id == int(ip.id))
+                .order_by(TradeMeListing.last_synced_at.desc().nullslast())
+                .all()
+            )
+
+        return {
+            "supplier_product": _serialize_supplier_product(sp),
+            "internal_product": _serialize_internal_product(ip) if ip else None,
+            "listings": [_serialize_listing(l) for l in listings],
+        }
 
 
 @app.get("/trust/internal-products/{internal_product_id}")

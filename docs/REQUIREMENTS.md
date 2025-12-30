@@ -1,3 +1,6 @@
+# Pilot reality-mode note (Mission 4)
+**NOEL_LEEMING is currently not supported** due to robots/image access constraints. The operator console blocks NL actions rather than pretending success.
+
 # RetailOS – Trade Me Integration Platform – Master Requirements Document
 
 **Consolidated and reconciled requirements (deduplicated, contradiction-resolved)**

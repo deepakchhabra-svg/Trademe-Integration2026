@@ -62,24 +62,77 @@ class LLMEnricher:
         Return ONLY the final description text.
         """
 
+        if self.provider == "openai":
+            return self._call_openai(prompt)
+        if self.provider == "gemini":
+            return self._call_gemini(prompt)
+        # No silent fallbacks: unknown provider must fail loudly.
+        raise RuntimeError(f"Unknown LLM provider: {self.provider}")
+
+    def gemini_model(self) -> str:
+        """
+        Returns a Gemini model id like 'gemini-2.0-flash' that exists for this API key.
+        If GEMINI_MODEL is set, it must exist (otherwise raises).
+        If not set, picks a reasonable default from the live model list.
+        """
+        if not self.gemini_key:
+            raise RuntimeError("Gemini not configured (missing GEMINI_API_KEY).")
+
+        wanted = (os.getenv("GEMINI_MODEL") or os.getenv("RETAILOS_GEMINI_MODEL") or "").strip()
+        models = self.list_gemini_models()
+        if wanted:
+            w = wanted.replace("models/", "").strip()
+            if w not in models:
+                raise RuntimeError(f"GEMINI_MODEL '{w}' not available. Available (sample): {models[:25]}")
+            return w
+
+        # Prefer flash models for speed/cost
+        for m in models:
+            if "flash" in m and "gemini" in m:
+                return m
+        for m in models:
+            if "gemini" in m:
+                return m
+        raise RuntimeError("No Gemini models available for this key.")
+
+    def list_gemini_models(self) -> list[str]:
+        """
+        Lists available Gemini models for this API key (v1beta).
+        Returns model ids without the 'models/' prefix.
+        """
+        if not self.gemini_key:
+            return []
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.gemini_key}"
+        resp = requests.get(url, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+        out: list[str] = []
+        for m in (data.get("models") or []):
+            name = str(m.get("name") or "")
+            if name.startswith("models/"):
+                out.append(name.replace("models/", "", 1))
+        # Stable order for UX
+        out = sorted(set(out))
+        return out
+
+    def health(self) -> dict:
+        """
+        Returns a small health summary for operator diagnostics.
+        Never fakes "healthy" when misconfigured.
+        """
+        provider = self.provider
+        base = {"provider": provider, "active": bool(provider), "configured": bool(provider)}
+        if provider is None:
+            return {**base, "configured": False, "error": "No LLM provider configured (set GEMINI_API_KEY or OPENAI_API_KEY)."}
         try:
-            if self.provider == "openai":
-                return self._call_openai(prompt)
-            elif self.provider == "gemini":
-                return self._call_gemini(prompt)
-            # Defensive fallback if a new provider is introduced but not implemented.
-            raise RuntimeError(f"Unknown LLM provider: {self.provider}")
+            if provider == "gemini":
+                model = self.gemini_model()
+                return {**base, "configured": True, "model": model, "models_sample": self.list_gemini_models()[:25]}
+            if provider == "openai":
+                return {**base, "configured": True, "model": "gpt-4o"}
+            return {**base, "configured": False, "error": f"Unknown provider: {provider}"}
         except Exception as e:
-            # Graceful fallback: return original description if API fails
-            error_msg = f"LLM Enrichment failed (using original): {str(e)[:200]}"
-            # ASCII-safe error logging
-            try:
-                print(error_msg)
-            except UnicodeEncodeError:
-                print("LLM Enrichment failed (using original): API error")
-            
-            # Return original description with a marker so downstream can template-fallback
-            return f"⚠️ LLM FAILURE\n\n{raw_desc}"
+            return {**base, "configured": False, "error": str(e)[:400]}
 
     def _call_openai(self, prompt: str) -> str:
         headers = {
@@ -113,8 +166,7 @@ class LLMEnricher:
         return data["choices"][0]["message"]["content"].strip()
 
     def _call_gemini(self, prompt: str) -> str:
-        # Use Gemini 1.5 Flash (stable, fast)
-        model = "gemini-1.5-flash"
+        model = self.gemini_model()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.gemini_key}"
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
         

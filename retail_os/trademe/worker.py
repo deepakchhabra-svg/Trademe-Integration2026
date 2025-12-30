@@ -919,17 +919,23 @@ class CommandWorker:
         
         logger.info(f"SCRAPE_SUPPLIER_START cmd_id={command.id} supplier={supplier_name}")
 
-        # Pilot scope: ONECHEQ + NOEL_LEEMING only (no CC).
+        # Pilot scope: ONECHEQ only.
+        # Noel Leeming is blocked due to robots/image access (403) — do not pretend it works.
         name_l = str(supplier_name).lower()
-        if not ("onecheq" in name_l or "noel" in name_l or "leeming" in name_l):
+        if "noel" in name_l or "leeming" in name_l:
             command.status = CommandStatus.HUMAN_REQUIRED
-            command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
-            command.error_message = f"Pilot scope supports ONECHEQ and NOEL_LEEMING only (got {supplier_name})."
+            command.error_code = "SUPPLIER_NOT_SUPPORTED"
+            command.error_message = "NOEL_LEEMING is not supported (robots/image access). Use ONECHEQ."
             return
         if "cash" in name_l or "converters" in name_l:
             command.status = CommandStatus.HUMAN_REQUIRED
+            command.error_code = "SUPPLIER_NOT_SUPPORTED"
+            command.error_message = "CASH_CONVERTERS is out of scope."
+            return
+        if "onecheq" not in name_l:
+            command.status = CommandStatus.HUMAN_REQUIRED
             command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
-            command.error_message = "CASH_CONVERTERS is out of scope for pilot."
+            command.error_message = f"Pilot scope supports ONECHEQ only (got {supplier_name})."
             return
 
         # Per-supplier policy gate (DB-backed)
@@ -983,30 +989,12 @@ class CommandWorker:
                 session.commit()
                 
                 logger.info(f"SCRAPE_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} status=SUCCEEDED")
-            elif "noel" in supplier_name.lower() or "leeming" in supplier_name.lower():
-                from retail_os.scrapers.noel_leeming.adapter import NoelLeemingAdapter
-                adapter = NoelLeemingAdapter()
-                deep = payload.get("deep_scrape", False)
-                # Category-scoped scrape: category_url
-                adapter.run_sync(
-                    pages=pages, 
-                    category_url=source_category or "https://www.noelleeming.co.nz/shop/computers-office-tech/computers",
-                    deep_scrape=deep
-                )
-                
-                from datetime import datetime
-                from retail_os.core.database import SupplierProduct
-                session.query(SupplierProduct).filter_by(supplier_id=supplier_id).update(
-                    {"last_scraped_at": datetime.utcnow()},
-                    synchronize_session=False
-                )
-                session.commit()
-                
-                logger.info(f"SCRAPE_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} status=SUCCEEDED")
             else:
-                logger.warning(f"No scraper found for supplier: {supplier_name}")
-                # Don't fail - just mark as succeeded with warning
-                logger.info(f"SCRAPE_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} status=SUCCEEDED (no adapter)")
+                # Should be unreachable due to scope guard above.
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
+                command.error_message = f"Pilot scope supports ONECHEQ only (got {supplier_name})."
+                return
         except Exception as e:
             logger.error(f"SCRAPE_SUPPLIER_FAILED cmd_id={command.id} error={e}")
             session.rollback()
@@ -1273,17 +1261,22 @@ class CommandWorker:
             delay_seconds,
         )
 
-        # Pilot scope: ONECHEQ + NOEL_LEEMING only (no CC).
+        # Pilot scope: ONECHEQ only.
         name_l = str(supplier_name).lower()
-        if not ("onecheq" in name_l or "noel" in name_l or "leeming" in name_l):
+        if "noel" in name_l or "leeming" in name_l:
             command.status = CommandStatus.HUMAN_REQUIRED
-            command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
-            command.error_message = f"Pilot scope supports ONECHEQ and NOEL_LEEMING only (got {supplier_name})."
+            command.error_code = "SUPPLIER_NOT_SUPPORTED"
+            command.error_message = "NOEL_LEEMING is not supported (robots/image access)."
             return
         if "cash" in name_l or "converters" in name_l:
             command.status = CommandStatus.HUMAN_REQUIRED
+            command.error_code = "SUPPLIER_NOT_SUPPORTED"
+            command.error_message = "CASH_CONVERTERS is out of scope."
+            return
+        if "onecheq" not in name_l:
+            command.status = CommandStatus.HUMAN_REQUIRED
             command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
-            command.error_message = "CASH_CONVERTERS is out of scope for pilot."
+            command.error_message = f"Pilot scope supports ONECHEQ only (got {supplier_name})."
             return
 
         # Per-supplier policy gate (DB-backed)
@@ -1315,14 +1308,8 @@ class CommandWorker:
             if create_internal_products and supplier_id is not None:
                 from retail_os.core.database import SupplierProduct, InternalProduct
 
-                if "onecheq" in supplier_name.lower():
-                    prefix = "OC"
-                elif "noel" in supplier_name.lower() or "leeming" in supplier_name.lower():
-                    prefix = "NL"
-                elif "cash" in supplier_name.lower() or "converters" in supplier_name.lower():
-                    prefix = "CC"
-                else:
-                    prefix = "INT"
+                # Pilot scope: only ONECHEQ is supported.
+                prefix = "OC" if "onecheq" in supplier_name.lower() else "INT"
 
                 q = session.query(SupplierProduct).filter(SupplierProduct.supplier_id == int(supplier_id))
                 if source_category:

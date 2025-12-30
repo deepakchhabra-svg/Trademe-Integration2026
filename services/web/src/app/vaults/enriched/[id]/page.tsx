@@ -92,7 +92,7 @@ export default async function EnrichedDetailPage({
   ]);
 
   const sp = ip.supplier_product;
-  const tab = (spTab.tab || "supplier").toLowerCase();
+  const tab = (spTab.tab || "compare").toLowerCase();
 
   const draftStartPrice = draft?.payload?.StartPrice != null ? Number(draft.payload.StartPrice) : null;
   const sourcePrice = sp?.cost_price ?? null;
@@ -157,6 +157,7 @@ export default async function EnrichedDetailPage({
 
       <div className="flex flex-wrap gap-2">
         {[
+          ["compare", "Before vs after"],
           ["supplier", "Supplier truth"],
           ["enriched", "Enriched output"],
           ["pricing", "Pricing"],
@@ -180,6 +181,44 @@ export default async function EnrichedDetailPage({
         <Field label="Supplier price" value={sp?.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} testId="field-cost" />
         <Field label="Source category" value={<span className="font-mono text-xs">{sp?.source_category || "-"}</span>} testId="field-category" />
       </div>
+
+      {tab === "compare" ? (
+        <SectionCard title="Original vs enriched (fast judgement)">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Supplier truth (original)</div>
+              <div className="mt-3 grid grid-cols-1 gap-3">
+                <Field label="Raw title" value={sp?.title || "-"} />
+                <Field label="Raw description" value={(sp?.description || "").trim() ? "Present" : "Missing"} />
+                <Field label="Source URL" value={sp?.product_url ? <a className="underline" href={sp.product_url} target="_blank" rel="noreferrer">Supplier page</a> : "Missing (blocked)"} />
+                <Field label="Source price" value={sp?.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} />
+                <Field label="Cost price" value={sp?.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Enriched output (what will list)</div>
+              <div className="mt-3 grid grid-cols-1 gap-3">
+                <Field label="Enriched title" value={sp?.enriched_title || "Missing (blocked)"} />
+                <Field label="Enriched description" value={(sp?.enriched_description || "").trim() ? "Present" : "Missing (blocked)"} />
+                <Field label="Sell price" value={draft?.payload?.StartPrice != null ? `$${Number(draft.payload.StartPrice).toFixed(2)}` : "Not set (blocked)"} />
+                <Field
+                  label="Margin"
+                  value={(() => {
+                    const cost = sp?.cost_price;
+                    const sell = draft?.payload?.StartPrice;
+                    if (cost == null || sell == null) return "Not available";
+                    const amt = Number(sell) - Number(cost);
+                    const pct = Number(cost) ? amt / Number(cost) : null;
+                    return `${amt >= 0 ? "" : "-"}$${Math.abs(amt).toFixed(2)}${pct != null ? ` (${(pct * 100).toFixed(1)}%)` : ""}`;
+                  })()}
+                />
+                <Field label="Last scraped" value={formatNZT(sp?.last_scraped_at)} />
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+      ) : null}
 
       {tab === "supplier" ? (
         <>

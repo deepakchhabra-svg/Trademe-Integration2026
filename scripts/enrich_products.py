@@ -11,7 +11,6 @@ sys.path.append(os.getcwd())
 from typing import Optional
 
 from retail_os.core.database import SessionLocal, SupplierProduct, SystemSetting
-from retail_os.core.marketplace_adapter import MarketplaceAdapter
 
 
 def _get_enrichment_policy(db) -> dict:
@@ -29,9 +28,10 @@ def _get_enrichment_policy(db) -> dict:
     """
     default_policy = {
         # Pilot requirement: deterministic enrichment (no LLM) unless explicitly enabled.
-        "default": "NONE",
+        "default": "AI",
         "by_supplier": {
-            "ONECHEQ": "NONE",
+            "ONECHEQ": "AI",
+            # NOEL_LEEMING is blocked (robots/image access) and should not be enriched for publish.
             "NOEL_LEEMING": "NONE",
             # CASH_CONVERTERS intentionally out of scope for pilot
             "CASH_CONVERTERS": "NONE",
@@ -125,22 +125,29 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
 
                 supplier_name = (item.supplier.name if getattr(item, "supplier", None) else "").upper()
                 mode = (policy.get("by_supplier", {}).get(supplier_name) or policy.get("default") or "NONE").upper()
-                if supplier_name in {"ONECHEQ", "NOEL_LEEMING"}:
-                    mode = "NONE"
+                if supplier_name == "NOEL_LEEMING":
+                    raise RuntimeError("NOEL_LEEMING enrichment is disabled (supplier not supported).")
 
                 if mode == "AI":
-                    # AI mode is not used for OC/NL pilot; if enabled explicitly, it must fail loudly.
-                    result = MarketplaceAdapter.prepare_for_trademe(item, use_ai=True)
+                    # AI mode must fail loudly (no silent fallback).
+                    from retail_os.core.llm_enricher import enricher
+                    from retail_os.utils.cleaning import clean_title_for_trademe
+
+                    raw_title = (item.title or "").strip()
+                    if not raw_title:
+                        raise RuntimeError("Missing raw title (cannot enrich)")
+                    cleaned_title = clean_title_for_trademe(raw_title)
+                    desc = enricher.enrich(title=cleaned_title, raw_desc=item.description or "", specs=item.specs or {})
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None
-                    item.enriched_title = result["title"]
-                    item.enriched_description = result["description"]
+                    item.enriched_title = cleaned_title
+                    item.enriched_description = desc
                     print("    SUCCESS (AI)")
 
                 elif mode == "TEMPLATE":
                     # No LLM calls even if key exists.
-                    result = MarketplaceAdapter.prepare_for_trademe(item, use_ai=False)
-                    title = result["title"]
+                    from retail_os.utils.cleaning import clean_title_for_trademe
+                    title = clean_title_for_trademe((item.title or "").strip() or "Untitled")
                     item.enriched_title = title
                     item.enriched_description = _build_minimal_template(title=title, specs=item.specs or {})
                     item.enrichment_status = "SUCCESS"
@@ -148,12 +155,22 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
                     print("    SUCCESS (TEMPLATE)")
 
                 else:
-                    # NONE = heuristic-only (SEO + Standardizer), no LLM calls.
-                    result = MarketplaceAdapter.prepare_for_trademe(item, use_ai=False)
+                    # NONE = heuristic-only (no LLM). Explicit mode; not a fallback.
+                    from retail_os.utils.cleaning import clean_title_for_trademe
+                    from retail_os.utils.seo import build_seo_description
+                    from retail_os.core.standardizer import Standardizer
+
+                    raw_title = (item.title or "").strip()
+                    if not raw_title:
+                        raise RuntimeError("Missing raw title (cannot enrich)")
+                    title = clean_title_for_trademe(raw_title)
+                    item.enriched_title = title
+                    # Deterministic description from supplier truth + specs.
+                    item.enriched_description = Standardizer.polish(
+                        build_seo_description({"title": raw_title, "description": item.description or "", "specs": item.specs or {}})
+                    )
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None
-                    item.enriched_title = result["title"]
-                    item.enriched_description = result["description"]
                     print("    SUCCESS (NONE)")
                 
                 db.commit()

@@ -24,3 +24,7 @@ This doc captures final deletions and responsibility locks to make the repo feel
 - **Stop-on-failure default ON** for bulk draft creation and bulk publish approval (enqueues one at a time unless explicitly disabled).
 - **Trade Me health is binary and honest**: publishing endpoints refuse to enqueue when credentials are missing / auth fails.
 
+## Local run convenience
+
+- `scripts/run_local.ps1` starts API + Worker + Web with basic env sanity checks (Windows-first).
+

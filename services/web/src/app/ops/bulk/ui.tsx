@@ -135,7 +135,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
               ))}
             </select>
             <div className="mt-1 text-[11px] text-slate-500">
-              ONECHEQ / CASH_CONVERTERS / NOEL_LEEMING are supported.
+              Supported supplier: ONECHEQ.
             </div>
             <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">
               <div className="font-semibold">Category presets (from Supplier policy)</div>
@@ -192,7 +192,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
               placeholder="CC browse_url / NL category_url / OC collection handle"
             />
             <div className="mt-1 text-[11px] text-slate-500">
-              ONECHEQ: collection handle (e.g. smartphones-and-mobilephones) · CASH_CONVERTERS: browse URL · NOEL_LEEMING: category URL
+              ONECHEQ: collection handle (e.g. smartphones-and-mobilephones)
             </div>
           </label>
         </div>

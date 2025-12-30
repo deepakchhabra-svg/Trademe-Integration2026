@@ -62,8 +62,13 @@ class ImageGuard:
         if img_hash in self.cache:
             return self.cache[img_hash]
 
-        # Gemini 1.5 Flash Vision Call
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
+        # Gemini Vision Call (model must exist; no silent fallbacks)
+        try:
+            from retail_os.core.llm_enricher import enricher
+            model = enricher.gemini_model()
+        except Exception as e:
+            return {"is_safe": False, "reason": f"Image audit blocked: {str(e)[:200]}"}
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
         
         prompt = """
         Analyze this image. Returns JSON only.
@@ -109,7 +114,12 @@ class ImageGuard:
             return outcome
             
         except Exception as e:
-            print(f"ImageGuard Error: {e}")
-            return {"is_safe": True, "reason": "API Failure"}
+            # No silent "safe" fallback: if guard is active, failure blocks.
+            msg = str(e)[:200]
+            try:
+                print(f"ImageGuard Error: {msg}")
+            except Exception:
+                pass
+            return {"is_safe": False, "reason": f"Image audit failed: {msg}"}
 
 guard = ImageGuard()

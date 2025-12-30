@@ -53,7 +53,7 @@ export function ProductsClient({
       key: "supplier_product_id",
       label: "Raw ID",
       render: (val) => (
-        <Link className="underline" href={`/vaults/raw/${val}`} data-testid={`lnk-master-raw-${val}`}>
+        <Link className="underline" href={`/products/${val}`} data-testid={`lnk-master-raw-${val}`}>
           {val as number}
         </Link>
       ),

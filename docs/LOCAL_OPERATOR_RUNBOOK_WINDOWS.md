@@ -1,6 +1,6 @@
 ## Local Operator Runbook (Windows-first)
 
-This runbook is for running **OC (ONECHEQ)** and **NL (NOEL_LEEMING)** end-to-end locally with the operator console.
+This runbook is for running **OC (ONECHEQ)** end-to-end locally with the operator console.
 
 ### Prereqs
 
@@ -44,23 +44,20 @@ Open the UI at `http://localhost:3000`.
 
 ---
 
-## Operator flow (OC + NL)
+## Operator flow (OC)
 
-### 1) Scrape 2 categories per supplier
+### 1) Scrape 2 categories
 
 Go to **Ops Workbench** → **Runbook**.
 
-- **Select supplier**:
-  - ONECHEQ (OC)
-  - NOEL_LEEMING (NL)
+- **Select supplier**: ONECHEQ (OC)
 - **Source category**:
   - OC: Shopify collection handle (example: `smartphones-and-mobilephones`)
-  - NL: category URL (example: `https://www.noelleeming.co.nz/shop/computers-office-tech/computers`)
 - Set **Pages = 1–2** (start small)
 - Click **Start scrape**
 - Click **View results** to confirm items appear in **Vault 1**
 
-Repeat for a second category per supplier.
+Repeat for a second category.
 
 ### 2) Enrich
 

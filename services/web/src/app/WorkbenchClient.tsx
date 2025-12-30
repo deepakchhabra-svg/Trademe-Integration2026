@@ -219,7 +219,7 @@ export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
 
       <SectionCard
         title="Runbook: Scrape → Enrich → Draft → Publish"
-        subtitle="A new operator should be able to run ONECHEQ / NOEL_LEEMING end-to-end without guessing."
+        subtitle="A new operator should be able to run ONECHEQ end-to-end without guessing."
       >
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -244,9 +244,12 @@ export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
                 >
                   <option value="">Select supplier…</option>
                   {suppliers.map((s) => (
-                    <option key={s.id} value={`${s.id}:${s.name}`}>
-                      {s.name} (id {s.id})
-                    </option>
+                    // Noel Leeming is blocked; do not offer it as a supported option.
+                    s.name !== "NOEL_LEEMING" ? (
+                      <option key={s.id} value={`${s.id}:${s.name}`}>
+                        {s.name} (id {s.id})
+                      </option>
+                    ) : null
                   ))}
                 </select>
               </label>
