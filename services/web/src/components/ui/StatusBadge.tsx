@@ -8,6 +8,7 @@ export type StatusType =
     | "EXECUTING"
     | "LIVE"
     | "DRY_RUN"
+    | "BLOCKED"
     | "WITHDRAWN"
     | "ACTIVE"
     | "ENRICHED"
@@ -30,6 +31,7 @@ const statusColors: Record<string, string> = {
     EXECUTING: "bg-purple-100 text-purple-800 border-purple-200",
     LIVE: "bg-emerald-100 text-emerald-800 border-emerald-200",
     DRY_RUN: "bg-amber-100 text-amber-800 border-amber-200",
+    BLOCKED: "bg-red-100 text-red-800 border-red-200",
     WITHDRAWN: "bg-slate-100 text-slate-600 border-slate-200",
     ACTIVE: "bg-emerald-100 text-emerald-800 border-emerald-200",
     ENRICHED: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -46,6 +48,7 @@ const statusLabels: Record<string, string> = {
     EXECUTING: "Running",
     LIVE: "Live",
     DRY_RUN: "Draft",
+    BLOCKED: "Blocked",
     WITHDRAWN: "Withdrawn",
     ACTIVE: "Active",
     ENRICHED: "Enriched",
@@ -57,6 +60,7 @@ const statusTooltips: Record<string, string> = {
     DRY_RUN: "Draft listing created for review. Nothing has been published to Trade Me yet.",
     HUMAN_REQUIRED: "A human decision or fix is required before the system can continue.",
     FAILED: "The job failed. Check Jobs/Inbox for the error and recommended action.",
+    BLOCKED: "Draft created but blocked by hard gates. Open the listing to see the top blocker + full checklist.",
 };
 
 export function StatusBadge({ status, label, children, className = "" }: StatusBadgeProps) {

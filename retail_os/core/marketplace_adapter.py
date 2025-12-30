@@ -27,7 +27,9 @@ class MarketplaceAdapter:
         
         # 1. Clean Title
         raw_title = item.title or "Untitled Product"
-        final_title = clean_title_for_trademe(raw_title)
+        # For operator clarity + consistency with enrichment: prefer enriched title when present.
+        title_source = getattr(item, "enriched_title", None) or raw_title
+        final_title = clean_title_for_trademe(str(title_source))
         
         # 2. Build Description (deterministic for pilot)
         # For OC/NL we do not call LLM. We treat enrichment output as the single source of truth.

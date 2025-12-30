@@ -32,7 +32,6 @@ function typeLabel(t: string): string {
     WITHDRAW_LISTING: "Withdraw listing",
     SYNC_SOLD_ITEMS: "Sync sold items",
     SYNC_SELLING_ITEMS: "Sync selling items",
-    SCAN_COMPETITORS: "Scan competitors",
     RESET_ENRICHMENT: "Reset enrichment",
     TEST_COMMAND: "Test command",
   };

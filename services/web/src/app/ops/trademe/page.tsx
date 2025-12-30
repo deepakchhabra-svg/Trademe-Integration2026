@@ -1,5 +1,7 @@
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
+import { formatNZT } from "../../_components/time";
+import { ValidateDraftsClient } from "./ValidateDraftsClient";
 
 type Summary = {
   member_id: number | null;
@@ -14,6 +16,9 @@ type Summary = {
   offline?: boolean;
   error?: string;
   balance_raw?: Record<string, unknown>;
+  utc?: string;
+  configured?: boolean;
+  auth_ok?: boolean;
 };
 
 export default async function TradeMeHealthPage() {
@@ -27,6 +32,8 @@ export default async function TradeMeHealthPage() {
   }
 
   const isOffline = Boolean(summary?.offline) || Boolean(error);
+  const configured = Boolean(summary?.configured);
+  const authOk = Boolean(summary?.auth_ok) && !isOffline;
 
   return (
     <div className="space-y-4">
@@ -35,7 +42,14 @@ export default async function TradeMeHealthPage() {
           <h1 className="text-lg font-semibold tracking-tight">Trade Me Health</h1>
           <p className="mt-1 text-sm text-slate-600">Account balance + reputation signals (for safe publishing).</p>
         </div>
-        <Badge tone={!isOffline ? "emerald" : "red"}>{!isOffline ? "connected" : "offline"}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge tone={configured ? "indigo" : "slate"}>{configured ? "configured" : "not configured"}</Badge>
+          <Badge tone={authOk ? "emerald" : "red"}>{authOk ? "auth ok" : "auth failed"}</Badge>
+        </div>
+      </div>
+
+      <div className="text-xs text-slate-500">
+        Last checked: <span className="font-mono text-slate-700">{formatNZT(summary?.utc)}</span>
       </div>
 
       {error ? (
@@ -87,6 +101,8 @@ export default async function TradeMeHealthPage() {
           ) : null}
         </div>
       ) : null}
+
+      <ValidateDraftsClient />
     </div>
   );
 }

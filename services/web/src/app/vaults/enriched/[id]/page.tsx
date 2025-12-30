@@ -95,7 +95,11 @@ export default async function EnrichedDetailPage({
   const tab = (spTab.tab || "supplier").toLowerCase();
 
   const draftStartPrice = draft?.payload?.StartPrice != null ? Number(draft.payload.StartPrice) : null;
-  const supplierPrice = sp?.cost_price ?? null;
+  const sourcePrice = sp?.cost_price ?? null;
+  const costPrice = sourcePrice;
+  const sellPrice = draftStartPrice;
+  const marginAmount = sellPrice != null && costPrice != null ? (sellPrice - costPrice) : null;
+  const marginPct = marginAmount != null && costPrice ? (marginAmount / costPrice) : null;
 
   const breadcrumbs = (
     <div className="flex items-center gap-2 text-sm">
@@ -238,16 +242,16 @@ export default async function EnrichedDetailPage({
       {tab === "pricing" ? (
         <SectionCard title="Pricing" subtitle="What will I sell it for? Margin is shown only when sell price exists.">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
-            <Field label="Source price" value={supplierPrice == null ? "-" : `$${supplierPrice.toFixed(2)}`} />
-            <Field label="Cost" value="Not set" />
-            <Field label="Sell price" value="Not set" />
+            <Field label="Source price" value={sourcePrice == null ? "-" : `$${sourcePrice.toFixed(2)}`} />
+            <Field label="Cost price" value={costPrice == null ? "-" : `$${costPrice.toFixed(2)}`} />
+            <Field label="Sell price" value={sellPrice == null ? "Not set (blocked)" : `$${sellPrice.toFixed(2)}`} />
             <Field
               label="Margin $"
-              value="Not available"
+              value={marginAmount == null ? "Not available" : `$${marginAmount.toFixed(2)}`}
             />
             <Field
               label="Margin %"
-              value="Not available"
+              value={marginPct == null ? "Not available" : `${(marginPct * 100).toFixed(1)}%`}
             />
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">

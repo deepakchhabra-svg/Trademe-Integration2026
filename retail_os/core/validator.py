@@ -35,6 +35,10 @@ class LaunchLock:
              
         # 0. Required fields gate (Hard)
         sp = product.supplier_product
+        if sp.sync_status == "REMOVED":
+            raise ValueError("Removed from supplier feed (blocked)")
+        if not (sp.product_url or "").strip():
+            raise ValueError("Missing source URL (supplier product)")
         if not (sp.title or "").strip():
             raise ValueError("Missing title (supplier product)")
         if sp.cost_price is None or float(sp.cost_price or 0) <= 0:
@@ -63,6 +67,24 @@ class LaunchLock:
         cat_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
         if not cat_id:
             raise ValueError("Missing category mapping (source_category is empty/unmappable)")
+        # Do not treat the safe default category as "mapped" for Launch readiness.
+        try:
+            if getattr(CategoryMapper, "DEFAULT_CATEGORY", None) and cat_id == CategoryMapper.DEFAULT_CATEGORY:
+                raise ValueError("Unmapped Trade Me category (default fallback) (blocked)")
+        except Exception:
+            pass
+
+        # Require a sell price > 0 (Trade Me listing StartPrice).
+        # We use the same pricing strategy as listing payload generation.
+        try:
+            cost = float(sp.cost_price or 0)
+            calc_price = PricingStrategy.calculate_price(cost, supplier_name=sp.supplier.name if sp.supplier else None)
+            if calc_price is None or float(calc_price or 0) <= 0:
+                raise ValueError("Missing/invalid sell price (blocked)")
+        except ValueError:
+            raise
+        except Exception:
+            raise ValueError("Missing/invalid sell price (blocked)")
 
         # 1. Trust Gate (Hard)
         # We use the product report to get the specific score

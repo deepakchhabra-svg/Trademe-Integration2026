@@ -15,8 +15,12 @@ type EnrichedItem = {
     raw_title?: string | null;
     supplier_product_id: number | null;
     supplier_id: number | null;
+    source_price?: number | null;
     cost_price: number | null;
     internal_cost?: number | null;
+    sell_price?: number | null;
+    margin_amount?: number | null;
+    margin_percent?: number | null;
     enriched_title: string | null;
     enriched_description: string | null;
     has_raw_description?: boolean;
@@ -129,10 +133,19 @@ export function EnrichedVaultClient({
             label: "Enriched desc",
             render: (_val, row) => (row.has_enriched_description ? "Yes" : "No"),
         },
-        { key: "cost_price", label: "Source price", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
-        { key: "internal_cost", label: "Cost", render: () => "Not set" },
-        { key: "id", label: "Sell price", render: () => "Not set" },
-        { key: "sku", label: "Margin", render: () => "Not available" },
+        { key: "source_price", label: "Source price", render: (val, row) => (val ?? row.cost_price) == null ? "-" : `$${Number(val ?? row.cost_price).toFixed(2)}` },
+        { key: "cost_price", label: "Cost price", render: (val) => val == null ? "-" : `$${Number(val).toFixed(2)}` },
+        { key: "sell_price", label: "Sell price", render: (val) => val == null ? "Not set (blocked)" : `$${Number(val).toFixed(2)}` },
+        {
+            key: "margin_amount",
+            label: "Margin",
+            render: (_val, row) => {
+                if (row.sell_price == null || row.cost_price == null) return "Not available";
+                const amt = row.margin_amount ?? (row.sell_price - row.cost_price);
+                const pct = row.margin_percent;
+                return `${amt >= 0 ? "" : "-"}$${Math.abs(amt).toFixed(2)}${pct != null ? ` (${(pct * 100).toFixed(1)}%)` : ""}`;
+            }
+        },
         {
             key: "product_url",
             label: "Supplier page",

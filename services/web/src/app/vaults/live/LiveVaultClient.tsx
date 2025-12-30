@@ -7,6 +7,7 @@ import { FilterChips } from "../../../components/ui/FilterChips";
 import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { buttonClass } from "../../_components/ui";
+import { formatNZT } from "../../_components/time";
 
 type LiveItem = {
     id: number;
@@ -104,7 +105,7 @@ export function LiveVaultClient({
         { key: "actual_price", label: "Price", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
         { key: "view_count", label: "Views" },
         { key: "watch_count", label: "Watch" },
-        { key: "last_synced_at", label: "Synced" },
+        { key: "last_synced_at", label: "Synced", render: (val) => formatNZT(val as string | null) },
     ];
 
     return (
@@ -143,6 +144,7 @@ export function LiveVaultClient({
                             >
                                 <option value="Live">Live</option>
                                 <option value="DRY_RUN">Draft</option>
+                                <option value="BLOCKED">Blocked</option>
                                 <option value="Withdrawn">Withdrawn</option>
                                 <option value="All">All</option>
                             </select>

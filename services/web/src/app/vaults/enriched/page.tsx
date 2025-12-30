@@ -10,7 +10,11 @@ type EnrichedItem = {
   raw_title?: string | null;
   supplier_product_id: number | null;
   supplier_id: number | null;
+  source_price?: number | null;
   cost_price: number | null;
+  sell_price?: number | null;
+  margin_amount?: number | null;
+  margin_percent?: number | null;
   enriched_title: string | null;
   enriched_description: string | null;
   has_raw_description?: boolean;

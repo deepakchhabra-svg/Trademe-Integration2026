@@ -385,7 +385,55 @@ class CommandWorker:
 
                 # DRY_RUN must still respect strict gates (no fake listing-ready output).
                 validator = LaunchLock(session)
-                validator.validate_publish(prod, test_mode=False)
+                try:
+                    validator.validate_publish(prod, test_mode=False)
+                except Exception as e:
+                    # Create a Vault 3 record so operators can see BLOCKED reasons in one place.
+                    try:
+                        from retail_os.core.database import TradeMeListing
+                        import json as _json
+
+                        listing_id = f"DRYRUN-{command.id}"
+                        tm_listing = session.query(TradeMeListing).filter_by(
+                            internal_product_id=internal_id,
+                            tm_listing_id=listing_id
+                        ).first()
+                        blocked_snapshot = _json.dumps(
+                            {
+                                "_blocked": True,
+                                "top_blocker": str(e),
+                                "blockers": [str(e)],
+                                "_internal_product_id": internal_id,
+                            },
+                            ensure_ascii=True,
+                        )
+                        if not tm_listing:
+                            tm_listing = TradeMeListing(
+                                internal_product_id=internal_id,
+                                tm_listing_id=listing_id,
+                                desired_price=None,
+                                actual_price=None,
+                                actual_state="BLOCKED",
+                                payload_snapshot=blocked_snapshot,
+                                payload_hash=None,
+                                last_synced_at=datetime.now(timezone.utc),
+                            )
+                            session.add(tm_listing)
+                        else:
+                            tm_listing.actual_state = "BLOCKED"
+                            tm_listing.payload_snapshot = blocked_snapshot
+                            tm_listing.payload_hash = None
+                            tm_listing.last_synced_at = datetime.now(timezone.utc)
+                        session.commit()
+                    except Exception as e2:
+                        logger.warning(f"   -> [DRY RUN] Could not persist BLOCKED listing: {e2}")
+
+                    # Mark command as needing attention with a clear reason.
+                    command.status = CommandStatus.HUMAN_REQUIRED
+                    command.error_code = "LAUNCHLOCK_BLOCKED"
+                    command.error_message = str(e)[:2000]
+                    session.commit()
+                    raise ValueError(command.error_message)
                 
                 # Use authoritative payload builder
                 from retail_os.core.listing_builder import build_listing_payload, compute_payload_hash
@@ -1365,7 +1413,7 @@ class CommandWorker:
         """
         command.status = CommandStatus.HUMAN_REQUIRED
         command.error_code = "COMPETITOR_SCAN_DISABLED"
-        command.error_message = "Competitor scanning is disabled for pilot (no mocks allowed)."
+        command.error_message = "Competitor scanning is disabled for pilot."
         # Persist and stop.
         s = SessionLocal()
         try:
@@ -1379,112 +1427,6 @@ class CommandWorker:
         finally:
             s.close()
         raise ValueError(command.error_message)
-        cmd_type, payload = self.resolve_command(command)
-        listing_db_id = payload.get("listing_db_id")
-        tm_listing_id = payload.get("tm_listing_id")
-        internal_product_id = payload.get("internal_product_id")
-
-        session = SessionLocal()
-        try:
-            from retail_os.core.database import TradeMeListing, InternalProduct, AuditLog, SystemCommand, CommandStatus
-            from retail_os.scrapers.competitor_scanner import CompetitorScanner
-            import uuid
-
-            listing = None
-            ip = None
-
-            if listing_db_id is not None:
-                listing = session.query(TradeMeListing).get(int(listing_db_id))
-            elif tm_listing_id is not None:
-                listing = session.query(TradeMeListing).filter(TradeMeListing.tm_listing_id == str(tm_listing_id)).first()
-
-            if listing is not None:
-                ip = listing.product
-
-            if ip is None and internal_product_id is not None:
-                ip = session.query(InternalProduct).get(int(internal_product_id))
-
-            if ip is None:
-                raise ValueError("SCAN_COMPETITORS requires listing_db_id, tm_listing_id, or internal_product_id")
-
-            title = ip.title or (ip.supplier_product.title if ip.supplier_product else "Unknown")
-            my_price = None
-            if listing is not None and listing.actual_price is not None:
-                my_price = float(listing.actual_price)
-            elif listing is not None and listing.desired_price is not None:
-                my_price = float(listing.desired_price)
-
-            scanner = CompetitorScanner()
-            market = scanner.find_lowest_market_price(product_title=title, ean=None)
-
-            record = {
-                "title": title,
-                "my_price": my_price,
-                "market_lowest": market,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-
-            session.add(
-                AuditLog(
-                    entity_type="TradeMeListing" if listing is not None else "InternalProduct",
-                    entity_id=str(listing.tm_listing_id) if listing is not None and listing.tm_listing_id else str(ip.id),
-                    action="COMPETITOR_SCAN",
-                    old_value=None,
-                    new_value=json.dumps(record, sort_keys=True),
-                    user="CompetitorScanner",
-                    timestamp=datetime.utcnow(),
-                )
-            )
-
-            # Optional recommendation: if we are priced above market by >5%, enqueue a price update suggestion.
-            # Throttle + profit guardrails (configurable)
-            from retail_os.core.database import SystemSetting
-            cfg = session.query(SystemSetting).filter(SystemSetting.key == "competitor.policy").first()
-            pol = cfg.value if cfg and isinstance(cfg.value, dict) else {}
-            if pol.get("enabled") is False:
-                market = market  # no-op, keep audit record
-            else:
-                max_per_hour = int(pol.get("max_scans_per_hour") or 0)
-                if max_per_hour:
-                    window = datetime.utcnow() - timedelta(hours=1)
-                    scans = (
-                        session.query(AuditLog)
-                        .filter(AuditLog.action == "COMPETITOR_SCAN")
-                        .filter(AuditLog.timestamp >= window)
-                        .count()
-                    )
-                    if scans >= max_per_hour:
-                        session.commit()
-                        return
-
-            if my_price is not None and market is not None and scanner.check_competitor_undercut(my_price, market):
-                suggested = round(market * 0.99, 2)  # slight undercut; final rounding is strategy-owned later
-                if listing is not None and listing.tm_listing_id:
-                    # Optional profit floor: don't chase market into unprofitable territory
-                    min_profit = float(pol.get("min_profit_nzd") or 0.0) if isinstance(pol, dict) else 0.0
-                    if min_profit and ip.supplier_product and ip.supplier_product.cost_price is not None:
-                        try:
-                            from retail_os.analysis.profitability import ProfitabilityAnalyzer
-
-                            check = ProfitabilityAnalyzer.predict_profitability(suggested, float(ip.supplier_product.cost_price))
-                            if float(check.get("net_profit") or 0.0) < min_profit:
-                                session.commit()
-                                return
-                        except Exception:
-                            pass
-                    session.add(
-                        SystemCommand(
-                            id=str(uuid.uuid4()),
-                            type="UPDATE_PRICE",
-                            payload={"listing_id": str(listing.tm_listing_id), "new_price": suggested, "reason": "COMPETITOR_UNDERCUT"},
-                            status=CommandStatus.PENDING,
-                            priority=30,
-                        )
-                    )
-
-            session.commit()
-        finally:
-            session.close()
 
     def handle_sync_sold_items(self, command):
         """

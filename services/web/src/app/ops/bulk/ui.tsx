@@ -34,7 +34,6 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
   const [dryRunLimit, setDryRunLimit] = useState<string>("50");
   const [approveLimit, setApproveLimit] = useState<string>("50");
   const [resetEnrichLimit, setResetEnrichLimit] = useState<string>("200");
-  const [scanLimit, setScanLimit] = useState<string>("100");
   const [msg, setMsg] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [categoryPresets, setCategoryPresets] = useState<string[]>([]);
@@ -595,44 +594,6 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
         </div>
       </Section>
 
-      <Section title="Competitor scan (pricing intelligence)">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
-            <input
-              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              value={scanLimit}
-              onChange={(e) => setScanLimit(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!!busyKey}
-            aria-busy={busyKey === "BULK_SCAN_COMPETITORS"}
-            className={buttonClass({ variant: "primary", disabled: !!busyKey })}
-            onClick={() =>
-              run("BULK_SCAN_COMPETITORS", async () => {
-                const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/scan_competitors", {
-                  supplier_id: supplierId ? Number(supplierId) : undefined,
-                  source_category: sourceCategory || undefined,
-                  status: "Live",
-                  limit: Number(scanLimit || "100"),
-                  priority: 40,
-                });
-                return `Competitor scans queued: enqueued=${res.enqueued}`;
-              })
-            }
-          >
-            {busyKey === "BULK_SCAN_COMPETITORS" ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner /> Enqueuing…
-              </span>
-            ) : (
-              "Scan competitors"
-            )}
-          </button>
-        </div>
-      </Section>
     </div>
   );
 }

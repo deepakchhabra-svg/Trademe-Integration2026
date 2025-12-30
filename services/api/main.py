@@ -434,12 +434,105 @@ def trademe_account_summary(_role: Role = Depends(require_role("power"))) -> dic
     """
     Trade Me account health for ops decisions (balance, reputation signals).
     """
+    import os as _os
+    utc = datetime.utcnow().isoformat()
+    configured = bool(
+        (_os.getenv("CONSUMER_KEY") or "").strip()
+        and (_os.getenv("CONSUMER_SECRET") or "").strip()
+        and (_os.getenv("ACCESS_TOKEN") or "").strip()
+        and (_os.getenv("ACCESS_TOKEN_SECRET") or "").strip()
+    )
     try:
         api = TradeMeAPI()
-        return api.get_account_summary()
+        out = api.get_account_summary()
+        out["utc"] = utc
+        out["configured"] = True
+        out["auth_ok"] = True
+        return out
     except Exception as e:
         # Keep ops UI functional even when credentials are not configured in this environment.
-        return {"offline": True, "error": str(e)[:200]}
+        msg = str(e)[:200]
+        if not configured:
+            msg = "Not configured (missing Trade Me credentials)"
+        return {"offline": True, "error": msg, "utc": utc, "configured": configured, "auth_ok": False}
+
+
+class TradeMeValidateDraftsRequest(BaseModel):
+    supplier_id: Optional[int] = None
+    limit: int = 10
+
+
+@app.post("/trademe/validate_drafts")
+def trademe_validate_drafts(
+    req: TradeMeValidateDraftsRequest,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Validates a small batch of draft payloads using real Trade Me credentials.
+    This uses TradeMeAPI.validate_listing() and will return "Not configured" if credentials are missing.
+    """
+    import os as _os
+    from datetime import datetime as _dtm
+
+    utc = _dtm.utcnow().isoformat()
+    configured = bool(
+        (_os.getenv("CONSUMER_KEY") or "").strip()
+        and (_os.getenv("CONSUMER_SECRET") or "").strip()
+        and (_os.getenv("ACCESS_TOKEN") or "").strip()
+        and (_os.getenv("ACCESS_TOKEN_SECRET") or "").strip()
+    )
+    if not configured:
+        return {"utc": utc, "configured": False, "auth_ok": False, "results": [], "error": "Not configured"}
+
+    if req.limit < 1 or req.limit > 50:
+        raise HTTPException(status_code=400, detail="limit must be 1–50")
+
+    api = TradeMeAPI()
+
+    from retail_os.core.listing_builder import build_listing_payload
+
+    results: list[dict[str, Any]] = []
+    with get_db_session() as session:
+        q = session.query(InternalProduct).join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+        q = q.filter((SupplierProduct.sync_status.is_(None)) | (SupplierProduct.sync_status == "PRESENT"))
+        q = q.filter(SupplierProduct.enriched_title.isnot(None)).filter(SupplierProduct.enriched_description.isnot(None))
+        if req.supplier_id is not None:
+            q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
+
+        rows = q.order_by(SupplierProduct.last_scraped_at.desc()).limit(int(req.limit)).all()
+
+        for ip in rows:
+            sp = ip.supplier_product
+            item = {"internal_product_id": ip.id, "sku": ip.sku, "supplier_product_id": sp.id if sp else None}
+            try:
+                payload = build_listing_payload(ip.id)
+
+                # Upload ONE local image to get a real PhotoId (Trade Me validate is strict).
+                photo_id = None
+                if sp and sp.images and isinstance(sp.images, list):
+                    import os as _os2
+
+                    for img in sp.images:
+                        if isinstance(img, str) and _os2.path.exists(img):
+                            with open(img, "rb") as f:
+                                b = f.read()
+                            photo_id = api.upload_photo_idempotent(session, b, filename=_os2.path.basename(img) or "image.jpg")
+                            break
+                if photo_id:
+                    payload["PhotoIds"] = [photo_id]
+                # PhotoUrls are for operator preview only; validation uses PhotoIds.
+                payload.pop("PhotoUrls", None)
+
+                resp = api.validate_listing(payload)
+                ok = bool(resp.get("Success")) if isinstance(resp, dict) else False
+                item["ok"] = ok
+                item["response"] = resp
+            except Exception as e:
+                item["ok"] = False
+                item["error"] = str(e)[:400]
+            results.append(item)
+
+    return {"utc": utc, "configured": True, "auth_ok": True, "results": results}
 
 
 @app.get("/ops/alerts")
@@ -868,53 +961,6 @@ def bulk_reset_enrichment(req: BulkResetEnrichmentRequest, _role: Role = Depends
         return {"enqueued": enqueued, "requested_limit": req.limit}
 
 
-class BulkScanCompetitorsRequest(BaseModel):
-    supplier_id: Optional[int] = None
-    source_category: Optional[str] = None
-    status: str = "Live"  # Live | DRY_RUN
-    limit: int = 100
-    priority: int = 40
-
-
-@app.post("/ops/bulk/scan_competitors", response_model=dict[str, Any])
-def bulk_scan_competitors(req: BulkScanCompetitorsRequest, _role: Role = Depends(require_role("power"))) -> dict[str, Any]:
-    """
-    Enqueues SCAN_COMPETITORS commands for listings in scope.
-    """
-    if req.limit < 1 or req.limit > 2000:
-        raise HTTPException(status_code=400, detail="Invalid limit")
-
-    import uuid
-
-    with get_db_session() as session:
-        q = session.query(TradeMeListing).join(InternalProduct).join(SupplierProduct)
-        if req.supplier_id is not None:
-            q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
-        if req.source_category:
-            q = q.filter(SupplierProduct.source_category == req.source_category)
-        if req.status:
-            q = q.filter(TradeMeListing.actual_state == req.status)
-
-        q = q.order_by(TradeMeListing.last_synced_at.desc().nullslast())
-        rows = q.limit(int(req.limit)).all()
-
-        enqueued = 0
-        for l in rows:
-            session.add(
-                SystemCommand(
-                    id=str(uuid.uuid4()),
-                    type="SCAN_COMPETITORS",
-                    payload={"listing_db_id": l.id, "tm_listing_id": l.tm_listing_id, "internal_product_id": l.internal_product_id},
-                    status=CommandStatus.PENDING,
-                    priority=int(req.priority),
-                )
-            )
-            enqueued += 1
-
-        session.commit()
-        return {"enqueued": enqueued, "requested_limit": req.limit}
-
-
 class PageResponse(BaseModel):
     items: list[dict[str, Any]]
     total: int
@@ -1072,6 +1118,7 @@ def vault_enriched(
 
     with get_db_session() as session:
         from retail_os.core.category_mapper import CategoryMapper
+        from retail_os.strategy.pricing import PricingStrategy
         query = session.query(InternalProduct).join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
 
         if q:
@@ -1098,6 +1145,20 @@ def vault_enriched(
             final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "") if sp else None
             final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
             final_category_is_default = bool(final_category_id and final_category_id == getattr(CategoryMapper, "DEFAULT_CATEGORY", None))
+            source_price = float(sp.cost_price) if sp and sp.cost_price is not None else None
+            cost_price = source_price
+            sell_price = None
+            margin_amount = None
+            margin_percent = None
+            if cost_price is not None:
+                try:
+                    supplier_name = sp.supplier.name if sp and getattr(sp, "supplier", None) else None
+                    sell_price = float(PricingStrategy.calculate_price(cost_price, supplier_name=supplier_name))
+                except Exception:
+                    sell_price = None
+            if sell_price is not None and cost_price is not None and cost_price:
+                margin_amount = float(sell_price - cost_price)
+                margin_percent = float(margin_amount / cost_price) if cost_price else None
             items.append(
                 {
                     "id": ip.id,
@@ -1105,7 +1166,11 @@ def vault_enriched(
                     "title": ip.title,
                     "supplier_product_id": ip.primary_supplier_product_id,
                     "supplier_id": sp.supplier_id if sp else None,
-                    "cost_price": float(sp.cost_price) if sp and sp.cost_price is not None else None,
+                    "source_price": source_price,
+                    "cost_price": cost_price,
+                    "sell_price": sell_price,
+                    "margin_amount": margin_amount,
+                    "margin_percent": margin_percent,
                     "raw_title": sp.title if sp else None,
                     "enriched_title": sp.enriched_title if sp else None,
                     "enriched_description": sp.enriched_description if sp else None,
@@ -1628,6 +1693,86 @@ def listing_detail(listing_id: int) -> dict[str, Any]:
         if not l:
             raise HTTPException(status_code=404, detail="Listing not found")
         data = _serialize_listing(l)
+
+        # Listing preview + hard gate evaluation (Vault 3 should be "what buyers will see" + blockers).
+        try:
+            import json as _json
+            from retail_os.core.category_mapper import CategoryMapper
+
+            payload_obj: dict[str, Any] | None = None
+            if l.payload_snapshot:
+                try:
+                    payload_obj = _json.loads(l.payload_snapshot)
+                except Exception:
+                    payload_obj = None
+            data["payload_preview"] = payload_obj
+
+            checks: list[dict[str, Any]] = []
+            sp = l.product.supplier_product if l.product else None
+
+            def _add(key: str, ok: bool, reason: str | None = None):
+                checks.append({"key": key, "ok": bool(ok), "reason": reason})
+
+            # If the worker persisted a BLOCKED snapshot, treat that as authoritative.
+            if isinstance(payload_obj, dict) and payload_obj.get("_blocked") is True:
+                top = str(payload_obj.get("top_blocker") or payload_obj.get("error") or "Blocked")
+                data["launchlock"] = {"ready": False, "top_blocker": top, "checks": [{"key": "launchlock", "ok": False, "reason": top}]}
+                # Still include parsed payload for display (if any).
+                raise Exception("__BLOCKED_SNAPSHOT_HANDLED__")
+
+            if sp:
+                _add("source_url", bool((sp.product_url or "").strip()), "Missing source URL" if not (sp.product_url or "").strip() else None)
+                _add("removed_from_source", str(sp.sync_status or "").upper() != "REMOVED", "Removed from supplier feed" if str(sp.sync_status or "").upper() == "REMOVED" else None)
+            else:
+                _add("source_url", False, "Missing supplier product link")
+                _add("removed_from_source", False, "Missing supplier product link")
+
+            title = None
+            desc = None
+            category = None
+            start_price = None
+            photos = []
+            if isinstance(payload_obj, dict):
+                title = payload_obj.get("Title")
+                d0 = payload_obj.get("Description")
+                desc = (d0[0] if isinstance(d0, list) and d0 else d0) if d0 is not None else None
+                category = payload_obj.get("Category")
+                start_price = payload_obj.get("StartPrice")
+                photos = payload_obj.get("PhotoUrls") if isinstance(payload_obj.get("PhotoUrls"), list) else []
+
+            _add("final_title", bool(str(title or "").strip()) and str(title).strip().lower() not in {"untitled product", "tbd", "placeholder"}, "Missing/placeholder title" if not bool(str(title or "").strip()) else None)
+            _add("final_description", bool(str(desc or "").strip()) and str(desc).strip().lower() not in {"tbd", "placeholder"}, "Missing/placeholder description" if not bool(str(desc or "").strip()) else None)
+
+            # Category must be mapped (not default fallback)
+            default_cat = getattr(CategoryMapper, "DEFAULT_CATEGORY", None)
+            cat_ok = bool(str(category or "").strip()) and (default_cat is None or str(category) != str(default_cat))
+            _add("category_mapped", cat_ok, "Unmapped Trade Me category" if not cat_ok else None)
+
+            # Sell price comes from payload StartPrice
+            try:
+                sell_ok = start_price is not None and float(start_price) > 0
+            except Exception:
+                sell_ok = False
+            _add("sell_price", sell_ok, "Sell price not set" if not sell_ok else None)
+
+            # Require at least one local image usable for upload.
+            # (Remote-only images are blocked to avoid “looks visible but can’t upload” failures.)
+            has_local = False
+            if sp and sp.images and isinstance(sp.images, list):
+                import os as _os
+                for img in sp.images:
+                    if isinstance(img, str) and _os.path.exists(img):
+                        has_local = True
+                        break
+            _add("images_usable", has_local, "Images unavailable for upload (no local images)" if not has_local else None)
+
+            ready = all(x.get("ok") for x in checks)
+            top_blocker = next((x.get("reason") for x in checks if not x.get("ok") and x.get("reason")), None)
+            data["launchlock"] = {"ready": ready, "top_blocker": top_blocker, "checks": checks}
+        except Exception as e:
+            # Swallow sentinel used to stop further evaluation after BLOCKED snapshot handling.
+            if str(e) != "__BLOCKED_SNAPSHOT_HANDLED__":
+                data["launchlock_error"] = str(e)[:500]
 
         # Derived diagnostics for power users
         try:
