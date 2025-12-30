@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { setCookie, getCookie } from "./cookies";
+import { buttonClass } from "./ui";
 
 export function TokenSetter() {
   const [token, setToken] = useState<string>(() => getCookie("retailos_token") || "");
@@ -22,7 +23,7 @@ export function TokenSetter() {
           }}
         />
         <button
-          className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+          className={buttonClass({ variant: "primary" })}
           onClick={() => {
             setCookie("retailos_token", token);
             setSaved(true);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGetClient, apiPostClient } from "../../_components/api_client";
+import { buttonClass } from "../../_components/ui";
 
 type Resp = { id: string; status: string };
 type Supplier = { id: number; name: string };
@@ -55,7 +56,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
 
   async function enqueue(type: string, payload: Record<string, unknown>, priority = 60): Promise<string> {
     const res = await apiPostClient<Resp>("/ops/enqueue", { type, payload, priority });
-    return `Enqueued ${type} (${res.id.slice(0, 12)})`;
+    return `Queued action (${res.id.slice(0, 12)})`;
   }
 
   useEffect(() => {
@@ -87,19 +88,19 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
     <div className="space-y-4">
       {msg ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900">{msg}</div> : null}
 
-      <Section title="How to use (recommended flow)">
+      <Section title="Recommended flow (operator runbook)">
         <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
           <li>
-            Pick supplier + category scope below. Then run <span className="font-semibold">SCRAPE_SUPPLIER</span>.
+            Pick supplier + scope below. Then run <span className="font-semibold">Scrape</span>.
           </li>
           <li>
-            Run <span className="font-semibold">ENRICH_SUPPLIER</span> to populate Vault 2 (copy + internal products).
+            Run <span className="font-semibold">Enrich & standardise</span> to populate Vault 2 (copy + products).
           </li>
           <li>
-            Run <span className="font-semibold">DRY_RUN publish</span> and review in Vault 3 (status=DRY_RUN).
+            Run <span className="font-semibold">Create drafts</span> and review in Vault 3 (status=Draft).
           </li>
           <li>
-            Run <span className="font-semibold">Approve publish</span> to publish real listings (drift-safe + policy-safe).
+            Run <span className="font-semibold">Publish approved</span> to publish real listings (drift-safe + policy-safe).
           </li>
         </ol>
         <div className="mt-3 text-[11px] text-slate-500">
@@ -225,7 +226,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   ok += 1;
                   setMsg(`Working: SCRAPE_ALL_PRESETS… ${ok}/${presets.length}`);
                 }
-                return `Enqueued SCRAPE_SUPPLIER for ${ok} categories (from presets)`;
+                return `Queued scrape for ${ok} categories`;
               })
             }
           >
@@ -259,7 +260,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   ok += 1;
                   setMsg(`Working: ENRICH_ALL_PRESETS… ${ok}/${presets.length}`);
                 }
-                return `Enqueued ENRICH_SUPPLIER for ${ok} categories (from presets)`;
+                return `Queued enrichment for ${ok} categories`;
               })
             }
           >
@@ -296,8 +297,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             disabled={!!busyKey}
             aria-busy={busyKey === "SCRAPE_SUPPLIER"}
             data-testid="btn-bulk-scrape"
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-              }`}
+            className={buttonClass({ variant: "primary", disabled: !!busyKey })}
             onClick={() =>
               run("SCRAPE_SUPPLIER", () =>
                 enqueue(
@@ -318,7 +318,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 <Spinner /> Enqueuing…
               </span>
             ) : (
-              "Enqueue SCRAPE_SUPPLIER"
+              "Start scrape"
             )}
           </button>
         </div>
@@ -372,7 +372,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
         </div>
       </Section>
 
-      <Section title="Enrich supplier (category-scoped)">
+      <Section title="Enrich & standardise (run now)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
             <div className="mb-1 font-semibold uppercase tracking-wide">batch_size</div>
@@ -387,8 +387,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             disabled={!!busyKey}
             aria-busy={busyKey === "ENRICH_SUPPLIER"}
             data-testid="btn-bulk-enrich"
-            className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
-              }`}
+            className={buttonClass({ variant: "success", disabled: !!busyKey })}
             onClick={() =>
               run("ENRICH_SUPPLIER", () =>
                 enqueue(
@@ -410,20 +409,19 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 <Spinner /> Enqueuing…
               </span>
             ) : (
-              "Enqueue ENRICH_SUPPLIER"
+              "Enrich now"
             )}
           </button>
         </div>
       </Section>
 
-      <Section title="Marketplace sync (ops)">
+      <Section title="Marketplace sync">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "SYNC_SOLD_ITEMS"}
-            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-              }`}
+            className={buttonClass({ variant: "outline", disabled: !!busyKey })}
             onClick={() => run("SYNC_SOLD_ITEMS", () => enqueue("SYNC_SOLD_ITEMS", {}, 80))}
           >
             {busyKey === "SYNC_SOLD_ITEMS" ? (
@@ -435,15 +433,14 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 Enqueuing…
               </span>
             ) : (
-              "Enqueue SYNC_SOLD_ITEMS"
+              "Sync sold items"
             )}
           </button>
           <button
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "SYNC_SELLING_ITEMS"}
-            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-              }`}
+            className={buttonClass({ variant: "outline", disabled: !!busyKey })}
             onClick={() => run("SYNC_SELLING_ITEMS", () => enqueue("SYNC_SELLING_ITEMS", { limit: 50 }, 70))}
           >
             {busyKey === "SYNC_SELLING_ITEMS" ? (
@@ -455,13 +452,13 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 Enqueuing…
               </span>
             ) : (
-              "Enqueue SYNC_SELLING_ITEMS"
+              "Sync selling items"
             )}
           </button>
         </div>
       </Section>
 
-      <Section title="Bulk dry-run publish (safe review queue)">
+      <Section title="Create drafts (safe review queue)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
             <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
@@ -476,8 +473,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             disabled={!!busyKey}
             aria-busy={busyKey === "BULK_DRY_RUN_PUBLISH"}
             data-testid="btn-bulk-dryrun"
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-              }`}
+            className={buttonClass({ variant: "primary", disabled: !!busyKey })}
             onClick={() =>
               run("BULK_DRY_RUN_PUBLISH", async () => {
                 const res = await apiPostClient<{ enqueued: number; skipped_existing_cmd: number; skipped_already_listed: number }>(
@@ -498,16 +494,16 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 <Spinner /> Enqueuing…
               </span>
             ) : (
-              "Enqueue DRY_RUN publish"
+              "Create drafts"
             )}
           </button>
         </div>
         <div className="mt-2 text-[11px] text-slate-500">
-          Creates `PUBLISH_LISTING` commands with `dry_run=true` for review (skips Live/DRY_RUN and duplicates).
+          Creates Draft listing jobs for review (skips Live/Draft and duplicates).
         </div>
       </Section>
 
-      <Section title="Bulk approve publish (DRY_RUN → PUBLISH)">
+      <Section title="Publish approved (Draft → Live)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
             <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
@@ -522,8 +518,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             disabled={!!busyKey}
             aria-busy={busyKey === "BULK_APPROVE_PUBLISH"}
             data-testid="btn-bulk-approve"
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-              }`}
+            className={buttonClass({ variant: "success", disabled: !!busyKey })}
             onClick={() =>
               run("BULK_APPROVE_PUBLISH", async () => {
                 const res = await apiPostClient<{
@@ -548,17 +543,17 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 <Spinner /> Enqueuing…
               </span>
             ) : (
-              "Enqueue PUBLISH from DRY_RUN"
+              "Publish approved drafts"
             )}
           </button>
         </div>
         <div className="mt-2 text-[11px] text-slate-500">
-          Only enqueues real `PUBLISH_LISTING` if supplier snapshot hash matches the DRY_RUN snapshot (drift-safe). Disabled in
+          Only publishes if supplier snapshot hash matches the Draft snapshot (drift-safe). Disabled in
           store modes HOLIDAY/PAUSED.
         </div>
       </Section>
 
-      <Section title="Bulk reset enrichment (requeue copy generation)">
+      <Section title="Reset enrichment (re-run copy generation)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
             <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
@@ -572,8 +567,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "BULK_RESET_ENRICHMENT"}
-            className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-              }`}
+            className={buttonClass({ variant: "outline", disabled: !!busyKey })}
             onClick={() =>
               run("BULK_RESET_ENRICHMENT", async () => {
                 const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/reset_enrichment", {
@@ -595,13 +589,13 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 Enqueuing…
               </span>
             ) : (
-              "Enqueue RESET_ENRICHMENT"
+              "Reset enrichment"
             )}
           </button>
         </div>
       </Section>
 
-      <Section title="Bulk competitor scan (pricing intelligence)">
+      <Section title="Competitor scan (pricing intelligence)">
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-slate-600">
             <div className="mb-1 font-semibold uppercase tracking-wide">limit</div>
@@ -615,8 +609,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
             type="button"
             disabled={!!busyKey}
             aria-busy={busyKey === "BULK_SCAN_COMPETITORS"}
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-              }`}
+            className={buttonClass({ variant: "primary", disabled: !!busyKey })}
             onClick={() =>
               run("BULK_SCAN_COMPETITORS", async () => {
                 const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/scan_competitors", {
@@ -635,7 +628,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 <Spinner /> Enqueuing…
               </span>
             ) : (
-              "Enqueue SCAN_COMPETITORS"
+              "Scan competitors"
             )}
           </button>
         </div>

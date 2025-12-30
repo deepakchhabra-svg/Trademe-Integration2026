@@ -46,9 +46,9 @@ export default async function CommandsPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Commands (debug)</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Command log</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Low-level ledger of the worker queue. Default view hides SUCCEEDED so you can focus on what needs attention.
+            Full ledger of queued work. Default view hides completed items so you can focus on what needs attention.
           </p>
         </div>
         <Badge tone="blue">
@@ -125,7 +125,7 @@ export default async function CommandsPage({
                 name="status"
                 defaultValue={status}
                 className="w-40 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-                placeholder="PENDING/HUMAN_REQUIRED"
+                placeholder="Queued / Running / Needs attention"
               />
             </label>
             <label className="text-xs text-slate-600">

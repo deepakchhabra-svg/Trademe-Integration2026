@@ -123,7 +123,7 @@ export function LiveVaultClient({
                                 className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none"
                             >
                                 <option value="Live">Live</option>
-                                <option value="DRY_RUN">DRY_RUN</option>
+                                <option value="DRY_RUN">Draft</option>
                                 <option value="Withdrawn">Withdrawn</option>
                                 <option value="All">All</option>
                             </select>

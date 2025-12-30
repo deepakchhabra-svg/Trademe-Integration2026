@@ -79,7 +79,7 @@ export default async function TradeMeHealthPage() {
           </div>
           {summary.balance_raw ? (
             <div className="rounded-lg border border-slate-200 bg-white p-3 md:col-span-2 xl:col-span-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Balance raw (debug)</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Balance</div>
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
                 {JSON.stringify(summary.balance_raw, null, 2)}
               </pre>

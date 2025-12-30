@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { apiPostClient } from "../../../_components/api_client";
+import { buttonClass } from "../../../_components/ui";
 
 function Spinner() {
   return (
@@ -38,7 +39,7 @@ export function EnrichedActions({
 
   async function enqueue(type: string, payload: Record<string, unknown>): Promise<string> {
     const res = await apiPostClient<{ id: string; status: string }>("/commands", { type, payload, priority: 60 });
-    return `Enqueued ${type} (${res.id.slice(0, 12)})`;
+    return `Queued action (${res.id.slice(0, 12)})`;
   }
 
   return (
@@ -55,9 +56,7 @@ export function EnrichedActions({
           type="button"
           disabled={!!busyKey}
           aria-busy={busyKey === "RESET_ENRICHMENT"}
-          className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
-            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-          }`}
+          className={buttonClass({ variant: "outline", disabled: !!busyKey })}
           onClick={() => {
             if (!supplierProductId) {
               setStatus("No supplier product attached; cannot reset enrichment.");
@@ -83,9 +82,7 @@ export function EnrichedActions({
           type="button"
           disabled={!!busyKey}
           aria-busy={busyKey === "DRY_RUN_PUBLISH"}
-          className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
-            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-          }`}
+          className={buttonClass({ variant: "primary", disabled: !!busyKey })}
           onClick={() => run("DRY_RUN_PUBLISH", () => enqueue("PUBLISH_LISTING", { internal_product_id: internalProductId, dry_run: true }))}
         >
           {busyKey === "DRY_RUN_PUBLISH" ? (
@@ -93,7 +90,7 @@ export function EnrichedActions({
               <Spinner /> Enqueuing…
             </span>
           ) : (
-            "Dry-run publish"
+            "Create draft"
           )}
         </button>
 
@@ -101,9 +98,7 @@ export function EnrichedActions({
           type="button"
           disabled={!!busyKey}
           aria-busy={busyKey === "PUBLISH"}
-          className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${
-            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
-          }`}
+          className={buttonClass({ variant: "success", disabled: !!busyKey })}
           onClick={() => run("PUBLISH", () => enqueue("PUBLISH_LISTING", { internal_product_id: internalProductId, dry_run: false }))}
         >
           {busyKey === "PUBLISH" ? (
@@ -111,7 +106,7 @@ export function EnrichedActions({
               <Spinner /> Enqueuing…
             </span>
           ) : (
-            "Publish"
+            "Publish (go live)"
           )}
         </button>
       </div>

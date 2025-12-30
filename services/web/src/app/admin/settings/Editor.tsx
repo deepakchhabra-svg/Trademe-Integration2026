@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { apiPutClient } from "../../_components/api_client";
+import { buttonClass } from "../../_components/ui";
 
 type Setting = { key: string; value: unknown; updated_at: string | null };
 
@@ -58,7 +59,7 @@ export function SettingsEditor({ initial }: { initial: Setting[] }) {
               <div className="mt-3 flex items-center justify-end">
                 <button
                   type="button"
-                  className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+                  className={buttonClass({ variant: "primary" })}
                   onClick={() => save(key)}
                 >
                   Save

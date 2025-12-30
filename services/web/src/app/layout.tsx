@@ -7,8 +7,8 @@ import AppShell from "./_components/AppShell";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RetailOS Admin",
-  description: "RetailOS operations console",
+  title: "RetailOS",
+  description: "RetailOS operator console",
 };
 
 export default function RootLayout({

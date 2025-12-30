@@ -408,6 +408,7 @@ def ops_summary(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
         orders_pending = session.query(func.count(Order.id)).filter(Order.fulfillment_status == "PENDING").scalar() or 0
 
         return {
+            "utc": datetime.utcnow().isoformat(),
             "commands": {
                 "total": cmd_total,
                 "pending": cmd_pending,
@@ -946,6 +947,7 @@ def _serialize_supplier_product(sp: SupplierProduct) -> dict[str, Any]:
         "source_category": getattr(sp, "source_category", None),
         "collection_rank": sp.collection_rank,
         "collection_page": sp.collection_page,
+        "internal_product_id": sp.internal_product.id if getattr(sp, "internal_product", None) else None,
     }
 
 
@@ -997,6 +999,8 @@ def vault_raw(
         raise HTTPException(status_code=400, detail="Invalid pagination")
 
     with get_db_session() as session:
+        # For operator clarity: show both supplier "source category" and the mapped Trade Me category.
+        from retail_os.core.category_mapper import CategoryMapper
         query = session.query(SupplierProduct)
 
         if q:
@@ -1022,6 +1026,8 @@ def vault_raw(
 
         items = []
         for sp in rows:
+            final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+            final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
             items.append(
                 {
                     "id": sp.id,
@@ -1032,6 +1038,8 @@ def vault_raw(
                     "stock_level": sp.stock_level,
                     "sync_status": sp.sync_status,
                     "source_category": getattr(sp, "source_category", None),
+                    "final_category_id": final_category_id,
+                    "final_category_name": final_category_name,
                     "product_url": sp.product_url,
                     "images": _public_image_urls(sp.images or []),
                     "specs": sp.specs or {},
@@ -1057,6 +1065,7 @@ def vault_enriched(
         raise HTTPException(status_code=400, detail="Invalid pagination")
 
     with get_db_session() as session:
+        from retail_os.core.category_mapper import CategoryMapper
         query = session.query(InternalProduct).join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
 
         if q:
@@ -1080,6 +1089,8 @@ def vault_enriched(
         items = []
         for ip in rows:
             sp = ip.supplier_product
+            final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "") if sp else None
+            final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
             items.append(
                 {
                     "id": ip.id,
@@ -1092,6 +1103,8 @@ def vault_enriched(
                     "enriched_description": sp.enriched_description if sp else None,
                     "images": _public_image_urls((sp.images if sp else None) or []),
                     "source_category": getattr(sp, "source_category", None) if sp else None,
+                    "final_category_id": final_category_id,
+                    "final_category_name": final_category_name,
                     "product_url": sp.product_url if sp else None,
                     "sync_status": sp.sync_status if sp else None,
                     "enrichment_status": sp.enrichment_status if sp else None,
@@ -1156,6 +1169,118 @@ def vault_live(
                     "thumb": imgs[0] if imgs else None,
                     "source_category": getattr(sp, "source_category", None) if sp else None,
                     "last_synced_at": _dt(l.last_synced_at),
+                }
+            )
+
+        return PageResponse(items=items, total=total)
+
+
+@app.get("/products", response_model=PageResponse)
+def master_products(
+    q: Optional[str] = None,
+    supplier_id: Optional[int] = None,
+    source_category: Optional[str] = None,
+    stage: Optional[str] = None,  # raw|enriched|draft|live|blocked|all
+    page: int = 1,
+    per_page: int = 50,
+) -> PageResponse:
+    """
+    Master Product View: one row per supplier product (raw → enriched → listing).
+    This keeps the 3-vault architecture while providing an ERP-style "single pane" for operators.
+    """
+    if page < 1 or per_page < 1 or per_page > 1000:
+        raise HTTPException(status_code=400, detail="Invalid pagination")
+
+    from retail_os.core.category_mapper import CategoryMapper
+
+    def _blocked_reasons(sp: SupplierProduct) -> list[str]:
+        reasons: list[str] = []
+        if sp.sync_status == "REMOVED":
+            reasons.append("Removed from supplier feed")
+        if sp.cost_price is None or float(sp.cost_price or 0) <= 0:
+            reasons.append("Missing/invalid cost price")
+        if not (sp.images or []):
+            reasons.append("Missing images")
+        if not (sp.enriched_title or "").strip():
+            reasons.append("Missing enriched title")
+        if not (sp.enriched_description or "").strip():
+            reasons.append("Missing enriched description")
+        return reasons
+
+    def _listing_stage(ip: Optional[InternalProduct]) -> str | None:
+        if not ip:
+            return None
+        states = [str(l.actual_state) for l in (ip.listings or []) if getattr(l, "actual_state", None)]
+        if "Live" in states:
+            return "live"
+        if "DRY_RUN" in states:
+            return "draft"
+        return None
+
+    stage_norm = (stage or "all").strip().lower()
+
+    with get_db_session() as session:
+        query = session.query(SupplierProduct)
+
+        if q:
+            term = f"%{q}%"
+            query = query.filter((SupplierProduct.title.ilike(term)) | (SupplierProduct.external_sku.ilike(term)))
+        if supplier_id:
+            query = query.filter(SupplierProduct.supplier_id == supplier_id)
+        if source_category:
+            query = query.filter(getattr(SupplierProduct, "source_category") == source_category)
+
+        total = query.count()
+        rows = (
+            query.order_by(SupplierProduct.last_scraped_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+
+        items: list[dict[str, Any]] = []
+        for sp in rows:
+            ip = getattr(sp, "internal_product", None)
+            listing_stage = _listing_stage(ip)
+            blocked = _blocked_reasons(sp)
+
+            # Apply stage filter after compute (simple + safe).
+            if stage_norm not in ("", "all"):
+                if stage_norm == "raw" and ip is not None:
+                    continue
+                if stage_norm == "enriched" and (ip is None or blocked):
+                    continue
+                if stage_norm == "draft" and listing_stage != "draft":
+                    continue
+                if stage_norm == "live" and listing_stage != "live":
+                    continue
+                if stage_norm == "blocked" and not blocked:
+                    continue
+
+            final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+            final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
+
+            items.append(
+                {
+                    "supplier_product_id": sp.id,
+                    "supplier_id": sp.supplier_id,
+                    "supplier_name": sp.supplier.name if getattr(sp, "supplier", None) else None,
+                    "supplier_sku": sp.external_sku,
+                    "title": sp.title,
+                    "cost_price": float(sp.cost_price) if sp.cost_price is not None else None,
+                    "stock_level": sp.stock_level,
+                    "source_status": sp.sync_status,
+                    "source_category": getattr(sp, "source_category", None),
+                    "final_category_id": final_category_id,
+                    "final_category_name": final_category_name,
+                    "product_url": sp.product_url,
+                    "images": _public_image_urls(sp.images or []),
+                    "last_scraped_at": _dt(sp.last_scraped_at),
+                    "enrichment_status": sp.enrichment_status,
+                    "internal_product_id": ip.id if ip else None,
+                    "internal_sku": ip.sku if ip else None,
+                    "listing_stage": listing_stage,
+                    "blocked_reasons": blocked,
                 }
             )
 

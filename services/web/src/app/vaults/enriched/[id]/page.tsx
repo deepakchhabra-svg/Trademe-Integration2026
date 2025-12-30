@@ -4,6 +4,7 @@ import { apiGet } from "../../../_components/api";
 import { PageHeader } from "../../../../components/ui/PageHeader";
 import { SectionCard } from "../../../../components/ui/SectionCard";
 import { StatusBadge } from "../../../../components/ui/StatusBadge";
+import { buttonClass } from "../../../_components/ui";
 import { EnrichedActions } from "./Actions";
 
 type InternalProductDetail = {
@@ -57,8 +58,15 @@ function imgSrc(raw: string): string {
   return raw;
 }
 
-export default async function EnrichedDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EnrichedDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const spTab = await searchParams;
 
   const [ip, trust, validation, draft] = await Promise.all([
     apiGet<InternalProductDetail>(`/internal-products/${encodeURIComponent(id)}`),
@@ -68,6 +76,7 @@ export default async function EnrichedDetailPage({ params }: { params: Promise<{
   ]);
 
   const sp = ip.supplier_product;
+  const tab = (spTab.tab || "overview").toLowerCase();
 
   const breadcrumbs = (
     <div className="flex items-center gap-2 text-sm">
@@ -110,74 +119,128 @@ export default async function EnrichedDetailPage({ params }: { params: Promise<{
         breadcrumbs={breadcrumbs}
       />
 
+      <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">You are viewing</div>
+        <div className="mt-1 text-sm font-semibold text-slate-900">Vault 2 · Enriched product</div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          ["overview", "Overview"],
+          ["copy", "Enriched copy"],
+          ["preview", "Listing preview"],
+          ["images", "Images"],
+          ["audit", "Audit"],
+        ].map(([k, label]) => (
+          <Link
+            key={k}
+            href={`/vaults/enriched/${encodeURIComponent(String(ip.id))}?tab=${encodeURIComponent(k)}`}
+            className={buttonClass({ variant: k === tab ? "primary" : "outline" })}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Field label="Internal ID" value={ip.id} testId="field-internal-id" />
         <Field label="Supplier" value={sp?.supplier_name || sp?.supplier_id || "-"} testId="field-supplier" />
         <Field label="Cost" value={sp?.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} testId="field-cost" />
-        <Field label="Category" value={<span className="font-mono text-xs">{sp?.source_category || "-"}</span>} testId="field-category" />
+        <Field label="Source category" value={<span className="font-mono text-xs">{sp?.source_category || "-"}</span>} testId="field-category" />
       </div>
 
-      {!validation.ok && validation.reason ? (
-        <SectionCard title="Gate Failure" className="border-red-200 bg-red-50">
-          <pre className="whitespace-pre-wrap font-mono text-xs text-red-900" data-testid="gate-failure-reason">{validation.reason}</pre>
-        </SectionCard>
+      {tab === "overview" ? (
+        <>
+          {!validation.ok && validation.reason ? (
+            <SectionCard title="Publish gates (blocked)" className="border-red-200 bg-red-50">
+              <pre className="whitespace-pre-wrap font-mono text-xs text-red-900" data-testid="gate-failure-reason">{validation.reason}</pre>
+            </SectionCard>
+          ) : null}
+
+          {!trust.is_trusted && trust.blockers?.length ? (
+            <SectionCard title="Trust blockers" className="border-amber-200 bg-amber-50">
+              <ul className="list-disc pl-5 text-sm text-amber-950" data-testid="trust-blockers-list">
+                {trust.blockers.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            </SectionCard>
+          ) : null}
+
+          <SectionCard title="Actions" className="bg-slate-50/50">
+            <EnrichedActions internalProductId={ip.id} supplierProductId={sp?.id ?? null} />
+          </SectionCard>
+        </>
       ) : null}
 
-      {!trust.is_trusted && trust.blockers?.length ? (
-        <SectionCard title="Trust Blockers" className="border-amber-200 bg-amber-50">
-          <ul className="list-disc pl-5 text-sm text-amber-950" data-testid="trust-blockers-list">
-            {trust.blockers.map((b) => (
-              <li key={b}>{b}</li>
-            ))}
-          </ul>
-        </SectionCard>
-      ) : null}
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <SectionCard title="Enriched Description">
+      {tab === "copy" ? (
+        <SectionCard title="Enriched description">
           <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-sans" data-testid="enriched-description">
             {sp?.enriched_description || "-"}
           </pre>
         </SectionCard>
-        <SectionCard title="Trust Breakdown">
-          <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="trust-breakdown">
-            {JSON.stringify(trust.breakdown || {}, null, 2)}
-          </pre>
-        </SectionCard>
-      </div>
+      ) : null}
 
-      <SectionCard title="Trade Me Draft Payload" subtitle={`Hash: ${draft.payload_hash}`}>
-        <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="trademe-draft-payload">
-          {JSON.stringify(draft.payload || {}, null, 2)}
-        </pre>
-      </SectionCard>
+      {tab === "preview" ? (
+        <SectionCard title="Listing preview (Draft payload)" subtitle={`Hash: ${draft.payload_hash}`}>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Title</div>
+            <div className="mt-1 text-base font-semibold text-slate-900">{String(draft.payload?.Title || "-")}</div>
 
-      {sp?.images?.length ? (
-        <SectionCard title="Product Images">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {sp.images.map((src, idx) => (
-              <a key={idx} href={imgSrc(src)} target="_blank" rel="noreferrer" className="group">
-                <Image
-                  alt={`image-${idx + 1}`}
-                  src={imgSrc(src)}
-                  width={200}
-                  height={128}
-                  unoptimized
-                  className="h-32 w-full rounded-lg border border-slate-200 object-cover transition-opacity group-hover:opacity-80"
-                  data-testid={`product-img-${idx}`}
-                />
-              </a>
-            ))}
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Category" value={String(draft.payload?.Category || "-")} />
+              <Field label="Start price" value={draft.payload?.StartPrice != null ? `$${Number(draft.payload.StartPrice).toFixed(2)}` : "-"} />
+              <Field label="Duration" value={draft.payload?.Duration != null ? `${draft.payload.Duration} days` : "-"} />
+            </div>
+
+            <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Description</div>
+            <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900 whitespace-pre-wrap">
+              {Array.isArray(draft.payload?.Description) ? String(draft.payload?.Description?.[0] || "-") : String(draft.payload?.Description || "-")}
+            </div>
           </div>
         </SectionCard>
       ) : null}
 
-      <SectionCard title="Operator Actions" className="bg-slate-50/50">
-        <EnrichedActions
-          internalProductId={ip.id}
-          supplierProductId={sp?.id ?? null}
-        />
-      </SectionCard>
+      {tab === "images" ? (
+        sp?.images?.length ? (
+          <SectionCard title="Images">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {sp.images.map((src, idx) => (
+                <a key={idx} href={imgSrc(src)} target="_blank" rel="noreferrer" className="group">
+                  <Image
+                    alt={`image-${idx + 1}`}
+                    src={imgSrc(src)}
+                    width={200}
+                    height={128}
+                    unoptimized
+                    className="h-32 w-full rounded-lg border border-slate-200 object-cover transition-opacity group-hover:opacity-80"
+                    data-testid={`product-img-${idx}`}
+                  />
+                </a>
+              ))}
+            </div>
+          </SectionCard>
+        ) : (
+          <SectionCard title="Images">
+            <div className="text-sm text-slate-500">No images available.</div>
+          </SectionCard>
+        )
+      ) : null}
+
+      {tab === "audit" ? (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <SectionCard title="Trust breakdown">
+            <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="trust-breakdown">
+              {JSON.stringify(trust.breakdown || {}, null, 2)}
+            </pre>
+          </SectionCard>
+          <SectionCard title="Draft payload (raw JSON)">
+            <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="trademe-draft-payload">
+              {JSON.stringify(draft.payload || {}, null, 2)}
+            </pre>
+          </SectionCard>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -76,7 +76,7 @@ export default async function InboxPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4">
-            <div className="text-sm font-semibold">HUMAN_REQUIRED commands</div>
+          <div className="text-sm font-semibold">Needs attention</div>
             <div className="mt-1 text-xs text-slate-600">Fix blockers (balance, creds, policy, validation).</div>
           </div>
           <div className="divide-y divide-slate-100">

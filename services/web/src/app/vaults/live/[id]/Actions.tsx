@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { apiPostClient } from "../../../_components/api_client";
+import { buttonClass } from "../../../_components/ui";
 
 function Spinner() {
   return (
@@ -40,7 +41,7 @@ export function ListingActions({
 
   async function enqueue(type: string, payload: Record<string, unknown>): Promise<string> {
     const res = await apiPostClient<{ id: string; status: string }>("/commands", { type, payload, priority: 40 });
-    return `Enqueued ${type} (${res.id.slice(0, 12)})`;
+    return `Queued action (${res.id.slice(0, 12)})`;
   }
 
   return (
@@ -57,9 +58,7 @@ export function ListingActions({
           type="button"
           disabled={!!busyKey}
           aria-busy={busyKey === "SCAN_COMPETITORS"}
-          className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
-            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-          }`}
+          className={buttonClass({ variant: "primary", disabled: !!busyKey })}
           onClick={() =>
             run("SCAN_COMPETITORS", () =>
               enqueue("SCAN_COMPETITORS", {
@@ -82,9 +81,7 @@ export function ListingActions({
           type="button"
           disabled={!!busyKey}
           aria-busy={busyKey === "SYNC_SOLD_ITEMS"}
-          className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
-            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-          }`}
+          className={buttonClass({ variant: "outline", disabled: !!busyKey })}
           onClick={() => run("SYNC_SOLD_ITEMS", () => enqueue("SYNC_SOLD_ITEMS", {}))}
         >
           {busyKey === "SYNC_SOLD_ITEMS" ? (

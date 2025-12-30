@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { apiPostClient } from "../../../_components/api_client";
+import { buttonClass } from "../../../_components/ui";
 
 export function CommandActions({ commandId }: { commandId: string }) {
   const [msg, setMsg] = useState<string | null>(null);
@@ -29,9 +30,7 @@ export function CommandActions({ commandId }: { commandId: string }) {
           type="button"
           disabled={!!busyKey}
           aria-busy={busyKey === "retry"}
-          className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${
-            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-          }`}
+          className={buttonClass({ variant: "primary", disabled: !!busyKey })}
           onClick={() => act("retry")}
         >
           {busyKey === "retry" ? "Working…" : "Retry"}
@@ -40,20 +39,16 @@ export function CommandActions({ commandId }: { commandId: string }) {
           type="button"
           disabled={!!busyKey}
           aria-busy={busyKey === "ack"}
-          className={`rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 ${
-            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"
-          }`}
+          className={buttonClass({ variant: "outline", disabled: !!busyKey })}
           onClick={() => act("ack")}
         >
-          {busyKey === "ack" ? "Working…" : "Ack"}
+          {busyKey === "ack" ? "Working…" : "Acknowledge"}
         </button>
         <button
           type="button"
           disabled={!!busyKey}
           aria-busy={busyKey === "cancel"}
-          className={`rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-900 ${
-            busyKey ? "cursor-not-allowed opacity-60" : "hover:bg-red-100"
-          }`}
+          className={buttonClass({ variant: "danger", disabled: !!busyKey })}
           onClick={() => act("cancel")}
         >
           {busyKey === "cancel" ? "Working…" : "Cancel"}

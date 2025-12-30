@@ -3,6 +3,7 @@ import { apiGet } from "../../../_components/api";
 import { PageHeader } from "../../../../components/ui/PageHeader";
 import { SectionCard } from "../../../../components/ui/SectionCard";
 import { StatusBadge } from "../../../../components/ui/StatusBadge";
+import { buttonClass } from "../../../_components/ui";
 import { ListingActions } from "./Actions";
 
 type ListingDetail = {
@@ -37,9 +38,17 @@ function Field({ label, value, testId }: { label: string; value: React.ReactNode
   );
 }
 
-export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ListingDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const spTab = await searchParams;
   const l = await apiGet<ListingDetail>(`/listings/${encodeURIComponent(id)}`);
+  const tab = (spTab.tab || "overview").toLowerCase();
 
   const breadcrumbs = (
     <div className="flex items-center gap-2 text-sm">
@@ -93,6 +102,31 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         breadcrumbs={breadcrumbs}
       />
 
+      <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">You are viewing</div>
+        <div className="mt-1 text-sm font-semibold text-slate-900">Vault 3 · Listing</div>
+        <div className="mt-1 text-xs text-slate-600">
+          State: <span className="font-mono">{l.actual_state || "-"}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          ["overview", "Overview"],
+          ["preview", "Listing preview"],
+          ["payload", "Payload"],
+          ["audit", "Audit"],
+        ].map(([k, label]) => (
+          <Link
+            key={k}
+            href={`/vaults/live/${encodeURIComponent(String(l.id))}?tab=${encodeURIComponent(k)}`}
+            className={buttonClass({ variant: k === tab ? "primary" : "outline" })}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Field label="Current Price" value={l.actual_price == null ? "-" : `$${l.actual_price.toFixed(2)}`} testId="field-price" />
         <Field label="Views" value={l.view_count ?? 0} testId="field-views" />
@@ -100,38 +134,66 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         <Field label="Last Synced" value={l.last_synced_at || "-"} testId="field-last-synced" />
       </div>
 
-      {l.trust_report && !l.trust_report.is_trusted ? (
-        <SectionCard title="Trust Blockers" className="border-amber-200 bg-amber-50">
-          <ul className="list-disc pl-5 text-sm text-amber-950" data-testid="trust-blocker-list">
-            {l.trust_report.blockers.map((b) => (
-              <li key={b}>{b}</li>
-            ))}
-          </ul>
+      {tab === "overview" ? (
+        <>
+          {l.trust_report && !l.trust_report.is_trusted ? (
+            <SectionCard title="Trust blockers" className="border-amber-200 bg-amber-50">
+              <ul className="list-disc pl-5 text-sm text-amber-950" data-testid="trust-blocker-list">
+                {l.trust_report.blockers.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            </SectionCard>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <SectionCard title="Profitability">
+              <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="profitability-preview">
+                {JSON.stringify(l.profitability_preview || {}, null, 2)}
+              </pre>
+            </SectionCard>
+            <SectionCard title="Lifecycle recommendation">
+              <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="lifecycle-recommendation">
+                {JSON.stringify(l.lifecycle_recommendation || {}, null, 2)}
+              </pre>
+            </SectionCard>
+          </div>
+
+          <SectionCard title="Actions" className="bg-slate-50/50">
+            <ListingActions listingDbId={l.id} tmListingId={l.tm_listing_id} internalProductId={l.internal_product_id} />
+          </SectionCard>
+        </>
+      ) : null}
+
+      {tab === "preview" ? (
+        <SectionCard title="Listing preview">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Title</div>
+            <div className="mt-1 text-base font-semibold text-slate-900">{l.internal_product?.title || "-"}</div>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Trade Me ID" value={l.tm_listing_id || "-"} />
+              <Field label="Price" value={l.actual_price == null ? "-" : `$${l.actual_price.toFixed(2)}`} />
+              <Field label="Category" value={l.category_id || "-"} />
+            </div>
+          </div>
         </SectionCard>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <SectionCard title="Profitability Preview">
-          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="profitability-preview">
-            {JSON.stringify(l.profitability_preview || {}, null, 2)}
+      {tab === "payload" ? (
+        <SectionCard title="Payload snapshot" subtitle={`Hash: ${l.payload_hash || "-"}`}>
+          <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="payload-snapshot">
+            {l.payload_snapshot || "-"}
           </pre>
         </SectionCard>
-        <SectionCard title="Lifecycle Recommendation">
-          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="lifecycle-recommendation">
-            {JSON.stringify(l.lifecycle_recommendation || {}, null, 2)}
-          </pre>
+      ) : null}
+
+      {tab === "audit" ? (
+        <SectionCard title="Audit">
+          <div className="text-sm text-slate-600">
+            For full audit history, use the <Link className="underline" href="/ops/audits">Audit log</Link>.
+          </div>
         </SectionCard>
-      </div>
-
-      <SectionCard title="Operator Actions" className="bg-slate-50/50">
-        <ListingActions listingDbId={l.id} tmListingId={l.tm_listing_id} internalProductId={l.internal_product_id} />
-      </SectionCard>
-
-      <SectionCard title="Payload Snapshot" subtitle={`Hash: ${l.payload_hash || "-"}`}>
-        <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="payload-snapshot">
-          {l.payload_snapshot || "-"}
-        </pre>
-      </SectionCard>
+      ) : null}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { buttonClass } from "./_components/ui";
 
 type OpsSummary = {
+  utc?: string;
   commands: { total: number; pending: number; executing: number; human_required: number; failed: number };
   vaults: {
     raw_total: number;
@@ -28,14 +29,14 @@ export default async function Home() {
         href="/ops/bulk"
         data-testid="btn-nav-bulk"
       >
-        Run a batch (Bulk Ops)
+        Runbook
       </Link>
       <Link
         className={buttonClass({ variant: "outline" })}
         href="/ops/inbox"
         data-testid="btn-nav-inbox"
       >
-        Inbox (exceptions)
+        Inbox
       </Link>
     </div>
   );
@@ -44,46 +45,76 @@ export default async function Home() {
     <div className="space-y-6">
       <PageHeader
         title="Ops Workbench"
-        subtitle="Run the store in a guided flow: Scrape → Enrich → Dry-run → Publish. Use Vaults for inspection; use Ops only when something breaks."
-        actions={headerActions}
+        subtitle="Operator flow: Scrape → Enrich & standardise → Create drafts → Publish approved."
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-xs text-slate-500">
+              Last updated:{" "}
+              <span className="font-mono text-slate-700">{summary.utc ? summary.utc.replace("T", " ").slice(0, 16) : "-"}</span>
+            </div>
+            <Link className={buttonClass({ variant: "link" })} href="/">
+              Refresh
+            </Link>
+            {headerActions}
+          </div>
+        }
       />
 
       {summary ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SectionCard title="Queue" className="h-full">
             <div className="text-sm text-slate-900" data-testid="stat-queue-pending-exec">
-              pending <span className="font-semibold" data-testid="val-pending">{summary.commands.pending}</span> · executing{" "}
-              <span className="font-semibold" data-testid="val-executing">{summary.commands.executing}</span>
+              <Link className="hover:underline" href="/ops/queue?view=active">
+                queued <span className="font-semibold" data-testid="val-pending">{summary.commands.pending}</span> · running{" "}
+                <span className="font-semibold" data-testid="val-executing">{summary.commands.executing}</span>
+              </Link>
             </div>
             <div className="mt-1 text-sm text-slate-900" data-testid="stat-queue-human-failed">
-              human <span className="font-semibold" data-testid="val-human">{summary.commands.human_required}</span> · failed{" "}
-              <span className="font-semibold" data-testid="val-failed">{summary.commands.failed}</span>
+              <Link className="hover:underline" href="/ops/queue?view=attention">
+                needs attention <span className="font-semibold" data-testid="val-human">{summary.commands.human_required}</span> · failed{" "}
+                <span className="font-semibold" data-testid="val-failed">{summary.commands.failed}</span>
+              </Link>
+            </div>
+            <div className="mt-2">
+              <Link className={buttonClass({ variant: "link" })} href="/ops/queue?view=attention">
+                View queue →
+              </Link>
             </div>
           </SectionCard>
 
           <SectionCard title="Vaults" className="h-full">
             <div className="text-sm text-slate-900" data-testid="stat-vaults-raw">
-              raw <span className="font-semibold" data-testid="val-raw-present">{summary.vaults.raw_present}</span>/
-              <span className="font-semibold" data-testid="val-raw-total">{summary.vaults.raw_total}</span>
+              <Link className="hover:underline" href="/vaults/raw">
+                raw <span className="font-semibold" data-testid="val-raw-present">{summary.vaults.raw_present}</span>/
+                <span className="font-semibold" data-testid="val-raw-total">{summary.vaults.raw_total}</span>
+              </Link>
             </div>
             <div className="mt-1 text-sm text-slate-900" data-testid="stat-vaults-enriched">
-              enriched-ready <span className="font-semibold" data-testid="val-enriched-ready">{summary.vaults.enriched_ready}</span>/
-              <span className="font-semibold" data-testid="val-enriched-total">{summary.vaults.enriched_total}</span>
+              <Link className="hover:underline" href="/vaults/enriched">
+                enriched-ready <span className="font-semibold" data-testid="val-enriched-ready">{summary.vaults.enriched_ready}</span>/
+                <span className="font-semibold" data-testid="val-enriched-total">{summary.vaults.enriched_total}</span>
+              </Link>
             </div>
           </SectionCard>
 
           <SectionCard title="Listings" className="h-full">
             <div className="text-sm text-slate-900" data-testid="stat-listings-dry">
-              DRY_RUN <span className="font-semibold" data-testid="val-listings-dry">{summary.vaults.listings_dry_run}</span>
+              <Link className="hover:underline" href="/vaults/live?status=DRY_RUN">
+                Draft <span className="font-semibold" data-testid="val-listings-dry">{summary.vaults.listings_dry_run}</span>
+              </Link>
             </div>
             <div className="mt-1 text-sm text-slate-900" data-testid="stat-listings-live">
-              Live <span className="font-semibold" data-testid="val-listings-live">{summary.vaults.listings_live}</span>
+              <Link className="hover:underline" href="/vaults/live?status=Live">
+                Live <span className="font-semibold" data-testid="val-listings-live">{summary.vaults.listings_live}</span>
+              </Link>
             </div>
           </SectionCard>
 
           <SectionCard title="Fulfillment" className="h-full">
             <div className="text-sm text-slate-900" data-testid="stat-orders-pending">
-              pending orders <span className="font-semibold" data-testid="val-orders-pending">{summary.orders.pending_fulfillment}</span>
+              <Link className="hover:underline" href="/orders">
+                pending orders <span className="font-semibold" data-testid="val-orders-pending">{summary.orders.pending_fulfillment}</span>
+              </Link>
             </div>
             <div className="mt-1 text-xs text-slate-500">Use Inbox to clear exceptions.</div>
           </SectionCard>
@@ -91,55 +122,55 @@ export default async function Home() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <SectionCard title="1) Scrape supplier truth">
+        <SectionCard title="1) Scrape supplier data">
           <p className="text-sm text-slate-600">
             Pull the latest catalog from suppliers into <span className="font-semibold">Vault 1</span>.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link className={buttonClass({ variant: "primary" })} href="/ops/bulk" data-testid="btn-scrape-enqueue">
-              Enqueue SCRAPE_SUPPLIER
+              Start scrape
             </Link>
             <Link className={buttonClass({ variant: "outline" })} href="/vaults/raw" data-testid="btn-scrape-vault">
-              Inspect Vault 1
+              View Vault 1
             </Link>
           </div>
         </SectionCard>
 
-        <SectionCard title="2) Enrich + standardize copy">
+        <SectionCard title="2) Enrich & standardise">
           <p className="text-sm text-slate-600">
             Generate listing-ready copy and create internal products in <span className="font-semibold">Vault 2</span>.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link className={buttonClass({ variant: "primary" })} href="/ops/bulk" data-testid="btn-enrich-enqueue">
-              Enqueue ENRICH_SUPPLIER
+              Enrich now
             </Link>
             <Link className={buttonClass({ variant: "outline" })} href="/vaults/enriched" data-testid="btn-enrich-vault">
-              Inspect Vault 2
+              View Vault 2
             </Link>
           </div>
         </SectionCard>
 
-        <SectionCard title="3) Dry-run publish (safe)">
+        <SectionCard title="3) Create drafts (safe)">
           <p className="text-sm text-slate-600">
-            Create DRY_RUN listing drafts to review payload and guardrails without spending.
+            Create Draft listings to review payload and guardrails without spending.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link className={buttonClass({ variant: "primary" })} href="/ops/bulk" data-testid="btn-dryrun-enqueue">
-              Enqueue DRY_RUN publish
+              Create drafts
             </Link>
             <Link className={buttonClass({ variant: "outline" })} href="/vaults/live?status=DRY_RUN" data-testid="btn-dryrun-vault">
-              Review queue
+              Review drafts
             </Link>
           </div>
         </SectionCard>
 
-        <SectionCard title="4) Approve publish (real)">
+        <SectionCard title="4) Publish approved">
           <p className="text-sm text-slate-600">
-            Promote DRY_RUN → PUBLISH in controlled batches (drift-safe, quota-safe, store-mode safe).
+            Publish approved Drafts in controlled batches (drift-safe, quota-safe).
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link className={buttonClass({ variant: "primary" })} href="/ops/bulk" data-testid="btn-publish-enqueue">
-              Enqueue PUBLISH from DRY_RUN
+              Publish approved drafts
             </Link>
             <Link className={buttonClass({ variant: "outline" })} href="/ops/trademe" data-testid="btn-publish-trademe">
               Check balance/health
@@ -155,7 +186,7 @@ export default async function Home() {
           data-testid="card-nav-inbox"
         >
           <div className="text-sm font-semibold">Inbox</div>
-          <div className="mt-1 text-xs text-slate-600">All HUMAN_REQUIRED + failed jobs + pending orders.</div>
+          <div className="mt-1 text-xs text-slate-600">Exceptions needing attention (jobs + orders).</div>
         </Link>
         <Link
           className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:bg-slate-50 transition-colors"

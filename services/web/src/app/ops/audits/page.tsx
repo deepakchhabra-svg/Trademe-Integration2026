@@ -2,6 +2,7 @@ import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
 import Link from "next/link";
 import { buildQueryString } from "../../_components/pagination";
+import { buttonClass } from "../../_components/ui";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -108,10 +109,10 @@ export default async function AuditsPage({
                 <option value="200">200</option>
               </select>
             </label>
-            <button type="submit" className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+            <button type="submit" className={buttonClass({ variant: "primary" })}>
               Apply
             </button>
-            <Link className="text-xs text-slate-600 underline" href="/ops/audits">
+            <Link className={buttonClass({ variant: "link" })} href="/ops/audits">
               Reset
             </Link>
           </form>

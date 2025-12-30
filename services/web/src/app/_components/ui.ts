@@ -1,6 +1,6 @@
 import clsx from "clsx";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "success" | "outline";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "success" | "outline" | "link";
 export type ButtonSize = "sm" | "md";
 
 export function buttonClass(opts?: { variant?: ButtonVariant; size?: ButtonSize; disabled?: boolean }): string {
@@ -9,17 +9,21 @@ export function buttonClass(opts?: { variant?: ButtonVariant; size?: ButtonSize;
   const disabled = !!opts?.disabled;
 
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400/40";
-  const size = s === "md" ? "px-3 py-2 text-sm" : "px-3 py-1.5 text-xs";
+    "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2";
+  const size = s === "md" ? "px-3.5 py-2 text-sm" : "px-3 py-1.5 text-xs";
 
   const variant =
     v === "primary"
-      ? "bg-slate-900 text-white hover:bg-slate-800"
+      ? "bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500/30"
       : v === "success"
-        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+        ? "bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500/30"
         : v === "danger"
-          ? "border border-red-200 bg-red-50 text-red-900 hover:bg-red-100"
-          : "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50";
+          ? "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500/30"
+          : v === "outline"
+            ? "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 focus:ring-slate-400/30"
+            : v === "link"
+              ? "px-0 py-0 text-indigo-700 hover:text-indigo-800 hover:underline focus:ring-indigo-500/20"
+              : "border border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100 focus:ring-slate-400/25";
 
   const state = disabled ? "cursor-not-allowed opacity-60" : "";
 

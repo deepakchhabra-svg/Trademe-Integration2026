@@ -20,6 +20,8 @@ function canSee(role: string, min: "listing" | "fulfillment" | "power" | "root")
 
 export default async function AppShell({ children }: { children: React.ReactNode }) {
   const { who, health } = await getTopStatus();
+  const backendTone = health.status === "ok" ? "emerald" : health.status === "degraded" ? "amber" : "red";
+  const backendLabel = health.status === "ok" ? "Backend: Online" : health.status === "degraded" ? "Backend: Degraded" : "Backend: Offline";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -28,12 +30,14 @@ export default async function AppShell({ children }: { children: React.ReactNode
           <div className="border-b border-slate-200 px-4 py-4">
             <div className="flex items-center justify-between">
               <Link href="/" className="text-sm font-semibold tracking-tight">
-                RetailOS Admin
+                RetailOS
               </Link>
-              <Badge tone={health.status === "ok" ? "emerald" : "red"}>API {health.status}</Badge>
+              <span title="Backend API health (Online/Offline).">
+                <Badge tone={backendTone}>{backendLabel}</Badge>
+              </span>
             </div>
             <div className="mt-2 text-xs text-slate-500">
-              Role: <span className="font-mono text-slate-900">{who.role}</span>
+              Access: <span className="font-mono text-slate-900">{who.role}</span>
             </div>
           </div>
 
@@ -45,10 +49,17 @@ export default async function AppShell({ children }: { children: React.ReactNode
 
             <div className="space-y-1">
               <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Products
+              </div>
+              <NavLink href="/products" label="Master product view" />
+            </div>
+
+            <div className="space-y-1">
+              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Vaults
               </div>
-              <NavLink href="/vaults/raw" label="Vault 1 · Raw" />
-              <NavLink href="/vaults/enriched" label="Vault 2 · Enriched" />
+              <NavLink href="/vaults/raw" label="Vault 1 · Supplier data" />
+              <NavLink href="/vaults/enriched" label="Vault 2 · Enriched products" />
               <NavLink href="/vaults/live" label="Vault 3 · Listings" />
             </div>
 
@@ -57,18 +68,19 @@ export default async function AppShell({ children }: { children: React.ReactNode
                 Ops
               </div>
               {canSee(who.role, "power") ? <NavLink href="/ops/inbox" label="Inbox" /> : null}
+              {canSee(who.role, "power") ? <NavLink href="/ops/queue" label="Queue" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/alerts" label="Alerts" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/trademe" label="Trade Me Health" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/readiness" label="Publish Readiness" /> : null}
-              {canSee(who.role, "power") ? <NavLink href="/ops/bulk" label="Bulk Ops" /> : null}
+              {canSee(who.role, "power") ? <NavLink href="/ops/bulk" label="Runbook" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/jobs" label="Jobs" /> : null}
             </div>
 
             {canSee(who.role, "root") ? (
               <div className="space-y-1">
-                <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Debug</div>
-                <NavLink href="/ops/commands" label="Commands (debug)" />
-                <NavLink href="/ops/audits" label="Audits (debug)" />
+                <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Diagnostics</div>
+                <NavLink href="/ops/commands" label="Command log" />
+                <NavLink href="/ops/audits" label="Audit log" />
               </div>
             ) : null}
 
@@ -91,11 +103,11 @@ export default async function AppShell({ children }: { children: React.ReactNode
 
           <div className="border-t border-slate-200 px-4 py-4">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs text-slate-600">RBAC</div>
+              <div className="text-xs text-slate-600">Access</div>
               <RoleSwitcher />
             </div>
             <div className="mt-2 text-[11px] text-slate-500">
-              Use RBAC to keep normal users focused.
+              Use roles to keep day-to-day operation focused.
             </div>
           </div>
         </aside>

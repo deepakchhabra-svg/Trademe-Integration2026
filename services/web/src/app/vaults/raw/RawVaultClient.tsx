@@ -16,12 +16,38 @@ type RawItem = {
     stock_level: number | null;
     sync_status: string | null;
     source_category?: string | null;
+    final_category_id?: string | null;
+    final_category_name?: string | null;
     enrichment_status?: string | null;
     enriched_title?: string | null;
     product_url: string | null;
     images: string[];
     last_scraped_at: string | null;
 };
+
+function formatNZT(iso: string | null): string {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    const s = new Intl.DateTimeFormat("en-NZ", {
+        timeZone: "Pacific/Auckland",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    }).format(d);
+    return `${s} NZT`;
+}
+
+function domainLabel(url: string): string {
+    try {
+        const u = new URL(url);
+        return u.hostname.replace(/^www\./, "");
+    } catch {
+        return "Open";
+    }
+}
 
 function imgSrc(raw: string): string {
     const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -36,7 +62,8 @@ export function RawVaultClient({
     perPage,
     q,
     supplierId,
-    syncStatus
+    syncStatus,
+    sourceCategory
 }: {
     items: RawItem[],
     total: number,
@@ -80,25 +107,50 @@ export function RawVaultClient({
             key: "title",
             label: "Title",
             render: (val, row) => (
-                <Link className="text-slate-900 hover:underline" href={`/vaults/raw/${row.id}`} data-testid={`lnk-title-${row.id}`}>
-                    {val as string || "-"}
+                <Link
+                    className="block max-w-[520px] truncate text-slate-900 hover:underline"
+                    title={(val as string) || ""}
+                    href={`/vaults/raw/${row.id}`}
+                    data-testid={`lnk-title-${row.id}`}
+                >
+                    {(val as string) || "-"}
                 </Link>
             )
         },
         { key: "cost_price", label: "Cost", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
         {
             key: "product_url",
-            label: "Source",
+            label: "Source URL",
             render: (val) => val ? (
-                <a href={val as string} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                    Link
+                <a
+                    href={val as string}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-700 hover:underline"
+                    title={val as string}
+                >
+                    {domainLabel(val as string)}
                 </a>
             ) : "-"
         },
-        { key: "sync_status", label: "Sync", render: (val) => <StatusBadge status={val as string} /> },
-        { key: "source_category", label: "Category", className: "font-mono text-[11px] text-slate-700" },
-        { key: "enrichment_status", label: "Enrichment", render: (val) => <StatusBadge status={val as string} /> },
-        { key: "last_scraped_at", label: "Scraped" },
+        { key: "sync_status", label: "Source status", render: (val) => <StatusBadge status={val as string} /> },
+        { key: "source_category", label: "Source category", className: "font-mono text-[11px] text-slate-700" },
+        {
+            key: "final_category_id",
+            label: "Final category",
+            className: "font-mono text-[11px] text-slate-700",
+            render: (_val, row) => {
+                const id = row.final_category_id || "-";
+                const name = row.final_category_name || "";
+                return (
+                    <span title={name ? `${name} (${id})` : String(id)}>
+                        {name ? name : id}
+                    </span>
+                );
+            }
+        },
+        { key: "enrichment_status", label: "Downstream: enrichment", render: (val) => <StatusBadge status={val as string} /> },
+        { key: "last_scraped_at", label: "Last scraped", render: (val) => formatNZT(val as string | null) },
     ];
 
     return (
@@ -144,6 +196,16 @@ export function RawVaultClient({
                                 <option value="PRESENT">PRESENT</option>
                                 <option value="REMOVED">REMOVED</option>
                             </select>
+                        </label>
+                        <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+                            <span>Source category</span>
+                            <input
+                                name="source_category"
+                                defaultValue={sourceCategory}
+                                data-testid="inp-search-source-category"
+                                className="w-56 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none"
+                                placeholder="e.g. all"
+                            />
                         </label>
                         <div className="flex items-end gap-2">
                             <button
