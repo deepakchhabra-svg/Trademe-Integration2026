@@ -2183,6 +2183,121 @@ def ops_readiness(
         }
 
 
+@app.get("/ops/removed_items")
+def ops_removed_items(
+    supplier_id: Optional[int] = None,
+    page: int = 1,
+    per_page: int = 50,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Operator panel: supplier products confirmed REMOVED, linked listings, and withdraw command status.
+    """
+    if page < 1 or per_page < 1 or per_page > 200:
+        raise HTTPException(status_code=400, detail="Invalid pagination")
+
+    with get_db_session() as session:
+        q = session.query(SupplierProduct).filter(SupplierProduct.sync_status == "REMOVED")
+        if supplier_id is not None:
+            q = q.filter(SupplierProduct.supplier_id == int(supplier_id))
+
+        total = q.count()
+        rows = (
+            q.order_by(SupplierProduct.last_scraped_at.desc().nullslast(), SupplierProduct.id.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+
+        items: list[dict[str, Any]] = []
+        for sp in rows:
+            ip = sp.internal_product
+            listing = None
+            if ip and getattr(ip, "listings", None):
+                # Prefer live listing
+                for l in ip.listings:
+                    if getattr(l, "actual_state", None) == "Live":
+                        listing = l
+                        break
+                if listing is None and ip.listings:
+                    listing = ip.listings[0]
+
+            # Removed_at: from audit log status change if available
+            removed_at = None
+            try:
+                al = (
+                    session.query(AuditLog)
+                    .filter(AuditLog.entity_type == "SupplierProduct", AuditLog.entity_id == str(sp.id))
+                    .filter(AuditLog.action == "STATUS_CHANGE", AuditLog.new_value == "REMOVED")
+                    .order_by(AuditLog.timestamp.desc())
+                    .first()
+                )
+                removed_at = _dt(al.timestamp) if al else None
+            except Exception:
+                removed_at = None
+
+            # Best-effort: find a withdraw command targeting this tm_listing_id (if available).
+            withdraw_cmd = None
+            if listing and listing.tm_listing_id:
+                target = str(listing.tm_listing_id)
+                try:
+                    withdraw_cmd = (
+                        session.query(SystemCommand)
+                        .filter(SystemCommand.type == "WITHDRAW_LISTING")
+                        .filter(SystemCommand.payload.isnot(None))
+                        .filter(func.json_extract(SystemCommand.payload, "$.listing_id") == target)
+                        .order_by(SystemCommand.created_at.desc())
+                        .first()
+                    )
+                except Exception:
+                    withdraw_cmd = None
+                if not withdraw_cmd:
+                    # Fallback: string match (works even when json_extract is unavailable)
+                    withdraw_cmd = (
+                        session.query(SystemCommand)
+                        .filter(SystemCommand.type == "WITHDRAW_LISTING")
+                        .filter(SystemCommand.payload.like(f"%{target}%"))
+                        .order_by(SystemCommand.created_at.desc())
+                        .first()
+                    )
+
+            items.append(
+                {
+                    "supplier_product_id": sp.id,
+                    "supplier_id": sp.supplier_id,
+                    "external_sku": sp.external_sku,
+                    "title": sp.title,
+                    "product_url": sp.product_url,
+                    "source_category": getattr(sp, "source_category", None),
+                    "removed_at": removed_at,
+                    "internal_product_id": ip.id if ip else None,
+                    "listing": (
+                        {
+                            "id": listing.id,
+                            "tm_listing_id": listing.tm_listing_id,
+                            "actual_state": listing.actual_state,
+                            "last_synced_at": _dt(listing.last_synced_at),
+                        }
+                        if listing
+                        else None
+                    ),
+                    "withdraw_command": (
+                        {
+                            "id": withdraw_cmd.id,
+                            "status": withdraw_cmd.status.value if hasattr(withdraw_cmd.status, "value") else str(withdraw_cmd.status),
+                            "updated_at": _dt(withdraw_cmd.updated_at),
+                            "error_code": withdraw_cmd.error_code,
+                            "error_message": withdraw_cmd.error_message,
+                        }
+                        if withdraw_cmd
+                        else None
+                    ),
+                }
+            )
+
+        return {"utc": datetime.utcnow().isoformat(), "total": total, "items": items, "page": page, "per_page": per_page}
+
+
 @app.get("/listings/by-tm/{tm_listing_id}")
 def listing_detail_by_tm(tm_listing_id: str) -> dict[str, Any]:
     with get_db_session() as session:

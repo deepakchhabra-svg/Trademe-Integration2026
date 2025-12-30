@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { apiGetClient } from "../../../_components/api_client";
+import { formatNZT } from "../../../_components/time";
 
 type LogLine = {
   id: number;
@@ -127,7 +128,7 @@ export function CommandLogsPanel({
                 const ts = l.created_at || "";
                 const lvl = l.level || "INFO";
                 const msg = l.message || "";
-                return `${ts} [${lvl}] ${msg}`;
+                return `${formatNZT(ts)} [${lvl}] ${msg}`;
               })
               .join("\n")
           : "No logs yet."}

@@ -6,6 +6,7 @@ import { ErrorState } from "../../../../components/ui/ErrorState";
 import { CommandActions } from "./Actions";
 import { LiveCommandPanel } from "./LivePanel";
 import { CommandLogsPanel } from "./LogsPanel";
+import { formatNZT } from "../../../_components/time";
 
 type CommandDetail = {
   id: string;
@@ -80,8 +81,8 @@ export default async function CommandDetailPage({ params }: { params: Promise<{ 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Field label="Priority" value={cmd.priority} />
         <Field label="Attempts" value={`${cmd.attempts}/${cmd.max_attempts}`} />
-        <Field label="Created" value={cmd.created_at || "-"} />
-        <Field label="Updated" value={cmd.updated_at || "-"} />
+        <Field label="Created" value={formatNZT(cmd.created_at)} />
+        <Field label="Updated" value={formatNZT(cmd.updated_at)} />
       </div>
 
       {cmd.error_message || cmd.last_error ? (

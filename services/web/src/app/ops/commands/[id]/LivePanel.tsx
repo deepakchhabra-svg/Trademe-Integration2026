@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { apiGetClient } from "../../../_components/api_client";
+import { formatNZT } from "../../../_components/time";
 
 type CommandDetail = {
   id: string;
@@ -116,7 +117,7 @@ export function LiveCommandPanel({ commandId, initial }: { commandId: string; in
         <Badge tone="slate">
           attempts {cmd.attempts}/{cmd.max_attempts}
         </Badge>
-        <Badge tone="slate">updated {cmd.updated_at || "-"}</Badge>
+        <Badge tone="slate">updated {formatNZT(cmd.updated_at)}</Badge>
       </div>
 
       {pollError ? (
@@ -134,7 +135,7 @@ export function LiveCommandPanel({ commandId, initial }: { commandId: string; in
             {progress.collection ? <Badge tone="slate">collection {progress.collection}</Badge> : null}
             {typeof progress.scraped === "number" ? <Badge tone="amber">scraped {progress.scraped}</Badge> : null}
             {typeof progress.upserted === "number" ? <Badge tone="emerald">saved {progress.upserted}</Badge> : null}
-            {progress.updated_at ? <Badge tone="slate">progress updated {progress.updated_at}</Badge> : null}
+            {progress.updated_at ? <Badge tone="slate">progress updated {formatNZT(progress.updated_at)}</Badge> : null}
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
             {/* Unknown total: show an indeterminate bar while active */}
