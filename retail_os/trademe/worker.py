@@ -368,6 +368,16 @@ class CommandWorker:
             
             if not prod:
                 raise ValueError(f"Product {internal_id} not found")
+
+            # Supplier-removed items must never be listed (draft or live).
+            sp0 = prod.supplier_product
+            if sp0 and str(getattr(sp0, "sync_status", "") or "").upper() == "REMOVED":
+                command.status = CommandStatus.HUMAN_REQUIRED
+                command.error_code = "REMOVED_FROM_SUPPLIER"
+                last_seen = sp0.last_scraped_at.isoformat() if getattr(sp0, "last_scraped_at", None) else None
+                command.error_message = f"Removed from supplier (last seen: {last_seen or 'unknown'}). Blocked from listing."
+                session.commit()
+                raise ValueError(command.error_message)
             
             # --- DRY RUN MODE (Offline Safe) ---
             if dry_run:

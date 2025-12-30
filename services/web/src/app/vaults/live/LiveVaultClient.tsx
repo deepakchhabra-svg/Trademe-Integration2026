@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { PageHeader } from "../../../components/ui/PageHeader";
+import { FilterChips } from "../../../components/ui/FilterChips";
 import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { buttonClass } from "../../_components/ui";
@@ -36,7 +37,8 @@ export function LiveVaultClient({
     perPage,
     q,
     status,
-    supplierId
+    supplierId,
+    sourceCategory
 }: {
     items: LiveItem[],
     total: number,
@@ -47,6 +49,18 @@ export function LiveVaultClient({
     supplierId: string,
     sourceCategory: string
 }) {
+    const base = new URLSearchParams();
+    if (q) base.set("q", q);
+    if (status) base.set("status", status);
+    if (supplierId) base.set("supplier_id", supplierId);
+    if (sourceCategory) base.set("source_category", sourceCategory);
+    const clear = (key: string) => {
+        const p = new URLSearchParams(base.toString());
+        p.delete(key);
+        p.set("page", "1");
+        if (!p.get("status")) p.set("status", "Live");
+        return `/vaults/live?${p.toString()}`;
+    };
     const columns: ColumnDef<LiveItem>[] = [
         {
             key: "id",
@@ -99,6 +113,11 @@ export function LiveVaultClient({
                 title="Vault 3 · Listings"
                 subtitle="Click to inspect trust, profitability, payload drift, lifecycle."
             />
+            <FilterChips chips={[
+                { label: "Status", value: status || null, href: clear("status") },
+                { label: "Supplier ID", value: supplierId || null, href: clear("supplier_id") },
+                { label: "Search", value: q || null, href: clear("q") },
+            ]} />
 
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">

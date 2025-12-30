@@ -3,6 +3,8 @@ import { Badge } from "../_components/Badge";
 import Link from "next/link";
 import { buildQueryString } from "../_components/pagination";
 import { buttonClass } from "../_components/ui";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { FilterChips } from "../../components/ui/FilterChips";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -56,17 +58,24 @@ export default async function OrdersPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Orders</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Fulfillment-critical records. Keep everything visible and auditable.
-          </p>
-        </div>
-        <Badge tone="blue">
-          Page {page} · {perPage}/page
-        </Badge>
-      </div>
+      <PageHeader
+        title="Orders"
+        subtitle="Fulfillment-critical records. Filter to see what’s pending and what needs action."
+        actions={
+          <Badge tone="indigo">
+            Page {page} · {perPage}/page
+          </Badge>
+        }
+      />
+
+      <FilterChips
+        chips={[
+          { label: "Fulfillment", value: fulfillmentStatus || null, href: "/orders" },
+          { label: "Payment", value: paymentStatus || null, href: "/orders" },
+          { label: "Order", value: orderStatus || null, href: "/orders" },
+          { label: "Search", value: q || null, href: "/orders" },
+        ]}
+      />
 
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>

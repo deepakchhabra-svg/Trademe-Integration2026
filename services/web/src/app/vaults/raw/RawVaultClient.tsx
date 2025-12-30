@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { PageHeader } from "../../../components/ui/PageHeader";
+import { FilterChips } from "../../../components/ui/FilterChips";
 import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { buttonClass } from "../../_components/ui";
@@ -18,6 +19,7 @@ type RawItem = {
     source_category?: string | null;
     final_category_id?: string | null;
     final_category_name?: string | null;
+    final_category_is_default?: boolean;
     enrichment_status?: string | null;
     enriched_title?: string | null;
     product_url: string | null;
@@ -74,6 +76,29 @@ export function RawVaultClient({
     syncStatus: string,
     sourceCategory: string
 }) {
+    const base = new URLSearchParams();
+    if (q) base.set("q", q);
+    if (supplierId) base.set("supplier_id", supplierId);
+    // keep explicit so chip can clear it to "All"
+    if (syncStatus) base.set("sync_status", syncStatus);
+    if (sourceCategory) base.set("source_category", sourceCategory);
+    const clear = (key: string) => {
+        const p = new URLSearchParams(base.toString());
+        if (key === "sync_status") {
+            // Server defaults to PRESENT when missing; explicit empty disables filtering.
+            p.set("sync_status", "");
+        } else {
+            p.delete(key);
+        }
+        p.set("page", "1");
+        return `/vaults/raw?${p.toString()}`;
+    };
+    const chips = [
+        { label: "Supplier ID", value: supplierId || null, href: clear("supplier_id") },
+        { label: "Source status", value: syncStatus || null, href: clear("sync_status") },
+        { label: "Source category", value: sourceCategory || null, href: clear("source_category") },
+        { label: "Search", value: q || null, href: clear("q") },
+    ];
     const columns: ColumnDef<RawItem>[] = [
         {
             key: "id",
@@ -117,10 +142,11 @@ export function RawVaultClient({
                 </Link>
             )
         },
-        { key: "cost_price", label: "Cost", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
+        { key: "cost_price", label: "Supplier price", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
+        { key: "stock_level", label: "Stock", render: (val) => (val == null ? "-" : String(val)) },
         {
             key: "product_url",
-            label: "Source URL",
+            label: "Supplier page",
             render: (val) => val ? (
                 <a
                     href={val as string}
@@ -134,7 +160,16 @@ export function RawVaultClient({
             ) : "-"
         },
         { key: "sync_status", label: "Source status", render: (val) => <StatusBadge status={val as string} /> },
-        { key: "source_category", label: "Source category", className: "font-mono text-[11px] text-slate-700" },
+        {
+            key: "source_category",
+            label: "Source category",
+            className: "font-mono text-[11px] text-slate-700",
+            render: (val) => {
+                const v = (val as string | null) || "";
+                if (v.trim()) return v;
+                return <span title="Supplier did not provide a category/handle for this item.">Unknown</span>;
+            },
+        },
         {
             key: "final_category_id",
             label: "Final category",
@@ -142,14 +177,14 @@ export function RawVaultClient({
             render: (_val, row) => {
                 const id = row.final_category_id || "-";
                 const name = row.final_category_name || "";
+                const isDefault = Boolean(row.final_category_is_default);
                 return (
-                    <span title={name ? `${name} (${id})` : String(id)}>
-                        {name ? name : id}
+                    <span title={isDefault ? "Unmapped: default Trade Me category. Next: add/adjust mapping for this source category." : (name ? `${name} (${id})` : String(id))}>
+                        {isDefault ? "Unmapped (default)" : (name ? name : id)}
                     </span>
                 );
             }
         },
-        { key: "enrichment_status", label: "Downstream: enrichment", render: (val) => <StatusBadge status={val as string} /> },
         { key: "last_scraped_at", label: "Last scraped", render: (val) => formatNZT(val as string | null) },
     ];
 
@@ -159,6 +194,7 @@ export function RawVaultClient({
                 title="Vault 1 · Raw"
                 subtitle="Supplier products (click a row for full inspector)"
             />
+            <FilterChips chips={chips} />
 
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">

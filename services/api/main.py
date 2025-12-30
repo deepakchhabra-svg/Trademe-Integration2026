@@ -595,6 +595,8 @@ def bulk_dryrun_publish(req: BulkDryRunPublishRequest, _role: Role = Depends(req
             q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
         if req.source_category:
             q = q.filter(SupplierProduct.source_category == req.source_category)
+        # Block listing for supplier-removed items.
+        q = q.filter((SupplierProduct.sync_status.is_(None)) | (SupplierProduct.sync_status == "PRESENT"))
 
         # Skip anything already Live or DRY_RUN
         q = q.outerjoin(TradeMeListing, TradeMeListing.internal_product_id == InternalProduct.id).filter(
@@ -722,6 +724,8 @@ def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(r
 
         q = session.query(TradeMeListing).join(InternalProduct).join(SupplierProduct)
         q = q.filter(TradeMeListing.actual_state == "DRY_RUN")
+        # Block listing for supplier-removed items.
+        q = q.filter((SupplierProduct.sync_status.is_(None)) | (SupplierProduct.sync_status == "PRESENT"))
         if req.supplier_id is not None:
             q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
         if req.source_category:
@@ -1028,6 +1032,7 @@ def vault_raw(
         for sp in rows:
             final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
             final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
+            final_category_is_default = bool(final_category_id == getattr(CategoryMapper, "DEFAULT_CATEGORY", None))
             items.append(
                 {
                     "id": sp.id,
@@ -1040,6 +1045,7 @@ def vault_raw(
                     "source_category": getattr(sp, "source_category", None),
                     "final_category_id": final_category_id,
                     "final_category_name": final_category_name,
+                    "final_category_is_default": final_category_is_default,
                     "product_url": sp.product_url,
                     "images": _public_image_urls(sp.images or []),
                     "specs": sp.specs or {},
@@ -1091,6 +1097,7 @@ def vault_enriched(
             sp = ip.supplier_product
             final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "") if sp else None
             final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
+            final_category_is_default = bool(final_category_id and final_category_id == getattr(CategoryMapper, "DEFAULT_CATEGORY", None))
             items.append(
                 {
                     "id": ip.id,
@@ -1099,12 +1106,16 @@ def vault_enriched(
                     "supplier_product_id": ip.primary_supplier_product_id,
                     "supplier_id": sp.supplier_id if sp else None,
                     "cost_price": float(sp.cost_price) if sp and sp.cost_price is not None else None,
+                    "raw_title": sp.title if sp else None,
                     "enriched_title": sp.enriched_title if sp else None,
                     "enriched_description": sp.enriched_description if sp else None,
+                    "has_raw_description": bool((sp.description or "").strip()) if sp else False,
+                    "has_enriched_description": bool((sp.enriched_description or "").strip()) if sp else False,
                     "images": _public_image_urls((sp.images if sp else None) or []),
                     "source_category": getattr(sp, "source_category", None) if sp else None,
                     "final_category_id": final_category_id,
                     "final_category_name": final_category_name,
+                    "final_category_is_default": final_category_is_default,
                     "product_url": sp.product_url if sp else None,
                     "sync_status": sp.sync_status if sp else None,
                     "enrichment_status": sp.enrichment_status if sp else None,

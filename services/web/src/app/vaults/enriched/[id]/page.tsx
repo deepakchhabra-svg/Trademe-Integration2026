@@ -23,6 +23,7 @@ type InternalProductDetail = {
     product_url: string | null;
     images: string[];
     specs: Record<string, unknown>;
+    last_scraped_at?: string | null;
     sync_status: string | null;
     source_category: string | null;
     enrichment_status: string | null;
@@ -58,6 +59,21 @@ function imgSrc(raw: string): string {
   return raw;
 }
 
+function formatNZT(iso: string | null | undefined): string {
+  if (!iso) return "unknown";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const s = new Intl.DateTimeFormat("en-NZ", {
+    timeZone: "Pacific/Auckland",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+  return `${s} NZT`;
+}
+
 export default async function EnrichedDetailPage({
   params,
   searchParams,
@@ -76,7 +92,10 @@ export default async function EnrichedDetailPage({
   ]);
 
   const sp = ip.supplier_product;
-  const tab = (spTab.tab || "overview").toLowerCase();
+  const tab = (spTab.tab || "supplier").toLowerCase();
+
+  const draftStartPrice = draft?.payload?.StartPrice != null ? Number(draft.payload.StartPrice) : null;
+  const supplierPrice = sp?.cost_price ?? null;
 
   const breadcrumbs = (
     <div className="flex items-center gap-2 text-sm">
@@ -122,15 +141,24 @@ export default async function EnrichedDetailPage({
       <div className="rounded-xl border border-slate-200 bg-white p-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">You are viewing</div>
         <div className="mt-1 text-sm font-semibold text-slate-900">Vault 2 · Enriched product</div>
+        {String(sp?.sync_status || "").toUpperCase() === "REMOVED" ? (
+          <div className="mt-2 text-sm text-slate-800">
+            <StatusBadge status="REMOVED" />{" "}
+            <span className="ml-1">
+              Removed from supplier (last seen: <span className="font-mono text-xs">{formatNZT(sp?.last_scraped_at)}</span>). Blocked from listing.
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2">
         {[
-          ["overview", "Overview"],
-          ["copy", "Enriched copy"],
-          ["preview", "Listing preview"],
+          ["supplier", "Supplier truth"],
+          ["enriched", "Enriched output"],
+          ["pricing", "Pricing"],
           ["images", "Images"],
-          ["audit", "Audit"],
+          ["preview", "Listing preview"],
+          ["audit", "History"],
         ].map(([k, label]) => (
           <Link
             key={k}
@@ -145,12 +173,34 @@ export default async function EnrichedDetailPage({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Field label="Internal ID" value={ip.id} testId="field-internal-id" />
         <Field label="Supplier" value={sp?.supplier_name || sp?.supplier_id || "-"} testId="field-supplier" />
-        <Field label="Cost" value={sp?.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} testId="field-cost" />
+        <Field label="Supplier price" value={sp?.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} testId="field-cost" />
         <Field label="Source category" value={<span className="font-mono text-xs">{sp?.source_category || "-"}</span>} testId="field-category" />
       </div>
 
-      {tab === "overview" ? (
+      {tab === "supplier" ? (
         <>
+          <SectionCard
+            title="Supplier truth (Vault 1)"
+            subtitle="What was it originally? This is the scraped supplier data."
+            actions={
+              sp?.product_url ? (
+                <a className={buttonClass({ variant: "link" })} href={sp.product_url} target="_blank" rel="noreferrer">
+                  Supplier page →
+                </a>
+              ) : null
+            }
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Field label="Raw title" value={sp?.title || "-"} />
+              <Field label="External SKU" value={<span className="font-mono text-xs">{sp?.external_sku || "-"}</span>} />
+              <Field label="Raw description" value={(sp?.description || "").trim() ? "Present" : "Missing"} />
+              <Field label="Stock" value={sp?.stock_level == null ? "-" : String(sp.stock_level)} />
+            </div>
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900 whitespace-pre-wrap">
+              {(sp?.description || "").trim() ? sp?.description : "No supplier description provided."}
+            </div>
+          </SectionCard>
+
           {!validation.ok && validation.reason ? (
             <SectionCard title="Publish gates (blocked)" className="border-red-200 bg-red-50">
               <pre className="whitespace-pre-wrap font-mono text-xs text-red-900" data-testid="gate-failure-reason">{validation.reason}</pre>
@@ -168,16 +218,45 @@ export default async function EnrichedDetailPage({
           ) : null}
 
           <SectionCard title="Actions" className="bg-slate-50/50">
-            <EnrichedActions internalProductId={ip.id} supplierProductId={sp?.id ?? null} />
+            <EnrichedActions internalProductId={ip.id} supplierProductId={sp?.id ?? null} sourceStatus={sp?.sync_status ?? null} />
           </SectionCard>
         </>
       ) : null}
 
-      {tab === "copy" ? (
-        <SectionCard title="Enriched description">
-          <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-sans" data-testid="enriched-description">
-            {sp?.enriched_description || "-"}
-          </pre>
+      {tab === "enriched" ? (
+        <SectionCard title="Enriched output (Vault 2)" subtitle="What did we change? This is the listing-ready copy.">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Field label="Enriched title" value={sp?.enriched_title || "-"} />
+            <Field label="Enriched description" value={(sp?.enriched_description || "").trim() ? "Present" : "Missing"} />
+          </div>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900 whitespace-pre-wrap">
+            {(sp?.enriched_description || "").trim() ? sp?.enriched_description : "No enriched description yet. Run enrichment first."}
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {tab === "pricing" ? (
+        <SectionCard title="Pricing" subtitle="What will I sell it for? Margin is shown only when sell price exists.">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
+            <Field label="Source price" value={supplierPrice == null ? "-" : `$${supplierPrice.toFixed(2)}`} />
+            <Field label="Cost" value="Not set" />
+            <Field label="Sell price" value="Not set" />
+            <Field
+              label="Margin $"
+              value="Not available"
+            />
+            <Field
+              label="Margin %"
+              value="Not available"
+            />
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Field
+              label="Draft start price (from listing preview)"
+              value={draftStartPrice == null ? "-" : `$${draftStartPrice.toFixed(2)}`}
+            />
+          </div>
+          <div className="mt-3 text-xs text-slate-600">Draft pricing comes from the listing preview payload. It is not an operator-set sell price.</div>
         </SectionCard>
       ) : null}
 

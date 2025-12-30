@@ -7,13 +7,18 @@ type EnrichedItem = {
   id: number;
   sku: string;
   title: string | null;
+  raw_title?: string | null;
   supplier_product_id: number | null;
   supplier_id: number | null;
   cost_price: number | null;
   enriched_title: string | null;
   enriched_description: string | null;
+  has_raw_description?: boolean;
+  has_enriched_description?: boolean;
   images?: string[];
   source_category?: string | null;
+  final_category_is_default?: boolean;
+  final_category_name?: string | null;
   product_url?: string | null;
   sync_status?: string | null;
   enrichment_status?: string | null;

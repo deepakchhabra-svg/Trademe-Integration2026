@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { PageHeader } from "../../../components/ui/PageHeader";
+import { FilterChips } from "../../../components/ui/FilterChips";
 import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { buttonClass } from "../../_components/ui";
@@ -11,13 +12,19 @@ type EnrichedItem = {
     id: number;
     sku: string;
     title: string | null;
+    raw_title?: string | null;
     supplier_product_id: number | null;
     supplier_id: number | null;
     cost_price: number | null;
+    internal_cost?: number | null;
     enriched_title: string | null;
     enriched_description: string | null;
+    has_raw_description?: boolean;
+    has_enriched_description?: boolean;
     images?: string[];
     source_category?: string | null;
+    final_category_name?: string | null;
+    final_category_is_default?: boolean;
     product_url?: string | null;
     sync_status?: string | null;
     enrichment_status?: string | null;
@@ -36,7 +43,8 @@ export function EnrichedVaultClient({
     perPage,
     q,
     supplierId,
-    enrichment
+    enrichment,
+    sourceCategory
 }: {
     items: EnrichedItem[],
     total: number,
@@ -47,6 +55,23 @@ export function EnrichedVaultClient({
     enrichment: string,
     sourceCategory: string
 }) {
+    const base = new URLSearchParams();
+    if (q) base.set("q", q);
+    if (supplierId) base.set("supplier_id", supplierId);
+    if (enrichment) base.set("enrichment", enrichment);
+    if (sourceCategory) base.set("source_category", sourceCategory);
+    const clear = (key: string) => {
+        const p = new URLSearchParams(base.toString());
+        p.delete(key);
+        p.set("page", "1");
+        return `/vaults/enriched?${p.toString()}`;
+    };
+    const chips = [
+        { label: "Supplier ID", value: supplierId || null, href: clear("supplier_id") },
+        { label: "Enrichment", value: enrichment || null, href: clear("enrichment") },
+        { label: "Source category", value: sourceCategory || null, href: clear("source_category") },
+        { label: "Search", value: q || null, href: clear("q") },
+    ];
     const columns: ColumnDef<EnrichedItem>[] = [
         {
             key: "id",
@@ -78,28 +103,50 @@ export function EnrichedVaultClient({
         { key: "sku", label: "SKU", className: "font-mono text-xs" },
         {
             key: "title",
-            label: "Title",
+            label: "Raw title",
             render: (val, row) => (
                 <Link className="text-slate-900 hover:underline" href={`/vaults/enriched/${row.id}`} data-testid={`lnk-title-${row.id}`}>
                     {val as string || "-"}
                 </Link>
             )
         },
-        { key: "cost_price", label: "Cost", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
+        {
+            key: "enriched_title",
+            label: "Enriched title",
+            render: (val, row) => (
+                <Link className="text-slate-900 hover:underline" href={`/vaults/enriched/${row.id}`}>
+                    {(val as string) || "-"}
+                </Link>
+            ),
+        },
+        {
+            key: "has_raw_description",
+            label: "Raw desc",
+            render: (_val, row) => (row.has_raw_description ? "Yes" : "No"),
+        },
+        {
+            key: "has_enriched_description",
+            label: "Enriched desc",
+            render: (_val, row) => (row.has_enriched_description ? "Yes" : "No"),
+        },
+        { key: "cost_price", label: "Source price", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
+        { key: "internal_cost", label: "Cost", render: () => "Not set" },
+        { key: "id", label: "Sell price", render: () => "Not set" },
+        { key: "sku", label: "Margin", render: () => "Not available" },
         {
             key: "product_url",
-            label: "Source",
+            label: "Supplier page",
             render: (val) => val ? (
                 <a href={val as string} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                    Link
+                    Open
                 </a>
             ) : "-"
         },
-        { key: "sync_status", label: "Sync", render: (val) => <StatusBadge status={val as string} /> },
-        { key: "source_category", label: "Category", className: "font-mono text-[11px] text-slate-700" },
+        { key: "sync_status", label: "Source status", render: (val) => <StatusBadge status={val as string} /> },
+        { key: "source_category", label: "Source category", className: "font-mono text-[11px] text-slate-700" },
         {
             key: "enrichment_status",
-            label: "Enrichment",
+            label: "Copy",
             render: (val, row) => <StatusBadge status={val as string || (row.enriched_description ? "SUCCESS" : "NOT_ENRICHED")} />
         },
     ];
@@ -107,9 +154,10 @@ export function EnrichedVaultClient({
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Vault 2 · Enriched"
-                subtitle="Internal products (click a row for trust + gate inspector)"
+                title="Vault 2 · Enriched products"
+                subtitle="Before vs after: supplier truth → enriched copy → listing preview."
             />
+            <FilterChips chips={chips} />
 
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">

@@ -5,6 +5,8 @@ import { buildQueryString } from "../../_components/pagination";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { buttonClass } from "../../_components/ui";
+import { FilterChips } from "../../../components/ui/FilterChips";
+import { formatNZT } from "../../_components/time";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -88,6 +90,13 @@ export default async function QueuePage({
         }
       />
 
+      <FilterChips
+        chips={[
+          { label: "View", value: view, href: "/ops/queue" },
+          { label: "Type", value: type || null, href: `/ops/queue?${buildQueryString({ per_page: perPage, view }, { page: 1 })}` },
+        ]}
+      />
+
       <div className="flex flex-wrap items-center gap-2">
         <Link className={buttonClass({ variant: view === "attention" ? "primary" : "outline" })} href={tab("attention")}>
           Needs attention
@@ -169,7 +178,7 @@ export default async function QueuePage({
                   <td className="px-4 py-3">
                     {c.attempts}/{c.max_attempts}
                   </td>
-                  <td className="px-4 py-3">{c.created_at}</td>
+                  <td className="px-4 py-3">{formatNZT(c.created_at)}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{c.last_error || "-"}</td>
                 </tr>
               ))}

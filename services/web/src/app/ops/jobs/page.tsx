@@ -3,6 +3,11 @@ import Link from "next/link";
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
 import { buildQueryString } from "../../_components/pagination";
+import { buttonClass } from "../../_components/ui";
+import { PageHeader } from "../../../components/ui/PageHeader";
+import { FilterChips } from "../../../components/ui/FilterChips";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { formatNZT } from "../../_components/time";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -20,34 +25,91 @@ type JobRow = {
   summary: string | null;
 };
 
-export default async function JobsPage({ searchParams }: { searchParams: Promise<{ page?: string; per_page?: string }> }) {
+export default async function JobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; per_page?: string; status?: string; job_type?: string }>;
+}) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
+  const status = sp.status || "";
+  const jobType = sp.job_type || "";
 
-  const baseParams = { per_page: perPage };
-  const qs = buildQueryString({ page, per_page: perPage }, {});
+  const baseParams = { per_page: perPage, status, job_type: jobType };
+  const qs = buildQueryString({ page, per_page: perPage, status, job_type: jobType }, {});
   const data = await apiGet<PageResponse<JobRow>>(`/jobs?${qs}`);
   const prevHref = `/ops/jobs?${buildQueryString(baseParams, { page: Math.max(1, page - 1) })}`;
   const nextHref = `/ops/jobs?${buildQueryString(baseParams, { page: page + 1 })}`;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Jobs</h1>
-          <p className="mt-1 text-sm text-slate-600">Scheduler/worker runs with counts and summaries.</p>
-        </div>
-        <Badge tone="blue">
-          Page {page} · {perPage}/page
-        </Badge>
-      </div>
+      <PageHeader
+        title="Jobs"
+        subtitle="Background runs with counts and summaries. Filter by type/status to troubleshoot quickly."
+        actions={
+          <Badge tone="indigo">
+            Page {page} · {perPage}/page
+          </Badge>
+        }
+      />
+
+      <FilterChips
+        chips={[
+          { label: "Status", value: status || null, href: "/ops/jobs" },
+          { label: "Job type", value: jobType || null, href: "/ops/jobs" },
+        ]}
+      />
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 p-4">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-slate-700">
             Showing {data.items.length} of {data.total}
           </div>
+          <form className="flex flex-wrap items-center gap-2" method="get">
+            <input type="hidden" name="page" value="1" />
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Status</span>
+              <select
+                name="status"
+                defaultValue={status}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              >
+                <option value="">All</option>
+                <option value="RUNNING">RUNNING</option>
+                <option value="COMPLETED">COMPLETED</option>
+                <option value="FAILED">FAILED</option>
+              </select>
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Job type</span>
+              <input
+                name="job_type"
+                defaultValue={jobType}
+                className="w-48 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+                placeholder="e.g. ENRICH_SUPPLIER"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mr-1">Per</span>
+              <select
+                name="per_page"
+                defaultValue={String(perPage)}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
+              >
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+            <button type="submit" className={buttonClass({ variant: "primary" })}>
+              Apply
+            </button>
+            <Link className={buttonClass({ variant: "link" })} href="/ops/jobs">
+              Reset
+            </Link>
+          </form>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -71,9 +133,9 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
                     </Link>
                   </td>
                   <td className="px-4 py-3">{j.job_type || "-"}</td>
-                  <td className="px-4 py-3">{j.status || "-"}</td>
-                  <td className="px-4 py-3">{j.start_time || "-"}</td>
-                  <td className="px-4 py-3">{j.end_time || "-"}</td>
+                  <td className="px-4 py-3"><StatusBadge status={j.status || "UNKNOWN"} /></td>
+                  <td className="px-4 py-3">{formatNZT(j.start_time)}</td>
+                  <td className="px-4 py-3">{formatNZT(j.end_time)}</td>
                   <td className="px-4 py-3">{j.items_processed ?? 0}</td>
                   <td className="px-4 py-3">{j.items_failed ?? 0}</td>
                 </tr>

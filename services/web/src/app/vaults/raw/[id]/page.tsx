@@ -46,6 +46,21 @@ function imgSrc(raw: string): string {
   return raw;
 }
 
+function formatNZT(iso: string | null): string {
+  if (!iso) return "unknown";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const s = new Intl.DateTimeFormat("en-NZ", {
+    timeZone: "Pacific/Auckland",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+  return `${s} NZT`;
+}
+
 export default async function RawDetailPage({
   params,
   searchParams,
@@ -107,6 +122,14 @@ export default async function RawDetailPage({
       <div className="rounded-xl border border-slate-200 bg-white p-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">You are viewing</div>
         <div className="mt-1 text-sm font-semibold text-slate-900">Vault 1 · Supplier data</div>
+        {String(sp.sync_status || "").toUpperCase() === "REMOVED" ? (
+          <div className="mt-2 text-sm text-slate-800" data-testid="removed-explainer">
+            <StatusBadge status="REMOVED" />{" "}
+            <span className="ml-1">
+              Removed from supplier (last seen: <span className="font-mono text-xs">{formatNZT(sp.last_scraped_at)}</span>). Hidden by default and blocked from listing.
+            </span>
+          </div>
+        ) : null}
         {sp.internal_product_id ? (
           <div className="mt-1 text-xs text-slate-600">
             Linked enriched product:{" "}

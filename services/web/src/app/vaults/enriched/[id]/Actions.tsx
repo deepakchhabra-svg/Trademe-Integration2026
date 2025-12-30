@@ -16,9 +16,11 @@ function Spinner() {
 export function EnrichedActions({
   internalProductId,
   supplierProductId,
+  sourceStatus,
 }: {
   internalProductId: number;
   supplierProductId: number | null;
+  sourceStatus: string | null;
 }) {
   const [status, setStatus] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -80,9 +82,9 @@ export function EnrichedActions({
 
         <button
           type="button"
-          disabled={!!busyKey}
+          disabled={!!busyKey || String(sourceStatus || "").toUpperCase() === "REMOVED"}
           aria-busy={busyKey === "DRY_RUN_PUBLISH"}
-          className={buttonClass({ variant: "primary", disabled: !!busyKey })}
+          className={buttonClass({ variant: "primary", disabled: !!busyKey || String(sourceStatus || "").toUpperCase() === "REMOVED" })}
           onClick={() => run("DRY_RUN_PUBLISH", () => enqueue("PUBLISH_LISTING", { internal_product_id: internalProductId, dry_run: true }))}
         >
           {busyKey === "DRY_RUN_PUBLISH" ? (
@@ -96,9 +98,9 @@ export function EnrichedActions({
 
         <button
           type="button"
-          disabled={!!busyKey}
+          disabled={!!busyKey || String(sourceStatus || "").toUpperCase() === "REMOVED"}
           aria-busy={busyKey === "PUBLISH"}
-          className={buttonClass({ variant: "success", disabled: !!busyKey })}
+          className={buttonClass({ variant: "success", disabled: !!busyKey || String(sourceStatus || "").toUpperCase() === "REMOVED" })}
           onClick={() => run("PUBLISH", () => enqueue("PUBLISH_LISTING", { internal_product_id: internalProductId, dry_run: false }))}
         >
           {busyKey === "PUBLISH" ? (
@@ -110,6 +112,12 @@ export function EnrichedActions({
           )}
         </button>
       </div>
+
+      {String(sourceStatus || "").toUpperCase() === "REMOVED" ? (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-900">
+          Listing blocked: this item is <span className="font-semibold">Removed from supplier</span>. Scrape again or replace the supplier truth before listing.
+        </div>
+      ) : null}
 
       {status ? <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-900">{status}</div> : null}
     </div>
