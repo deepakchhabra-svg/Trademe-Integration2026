@@ -209,6 +209,63 @@ def test_supplier_policy_endpoints(tmp_path: Path):
     assert j2["policy"]["scrape"]["enabled"] is False
 
 
+def test_draft_payload_endpoint_does_not_500_on_blocked_item(tmp_path: Path):
+    """
+    Regression: /draft/internal-products/{id}/trademe should not 500 when a listing is blocked
+    (e.g. unmapped Trade Me category). It should return a blocked snapshot the UI can render.
+    """
+    import importlib
+    import os
+    from fastapi.testclient import TestClient
+
+    db_file = tmp_path / "retail_os.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+    os.environ["RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES"] = "true"
+
+    import retail_os.core.database as db
+    import services.api.main as mod
+
+    importlib.reload(db)
+    db.init_db()
+
+    # Seed a supplier product with an unmapped/default source_category.
+    with db.get_db_session() as session:
+        s = session.query(db.Supplier).filter(db.Supplier.name == "ONECHEQ").first()
+        if not s:
+            s = db.Supplier(name="ONECHEQ", base_url="https://example.com", is_active=True)
+            session.add(s)
+            session.flush()
+
+        sp = db.SupplierProduct(
+            supplier_id=int(s.id),
+            external_sku="TESTSKU1",
+            title="Test product",
+            description="Test description",
+            cost_price=123.45,
+            product_url="https://example.com/p/1",
+            images=[],
+            source_category="all",
+            sync_status="PRESENT",
+        )
+        session.add(sp)
+        session.flush()
+        ip = db.InternalProduct(sku="OC-TESTSKU1", title="Test product", primary_supplier_product_id=sp.id)
+        session.add(ip)
+        session.flush()
+        internal_id = int(ip.id)
+
+    importlib.reload(mod)
+    client = TestClient(mod.app)
+    res = client.get(f"/draft/internal-products/{internal_id}/trademe", headers={"X-RetailOS-Role": "power"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["internal_product_id"] == internal_id
+    assert "payload" in data
+    # Blocked snapshots include _blocked + top_blocker for operator visibility
+    assert bool(data["payload"].get("_blocked")) is True
+    assert isinstance(data["payload"].get("top_blocker"), str)
+
+
 def test_onecheq_normalize_sku_alnum_upper():
     from retail_os.scrapers.onecheq.scraper import normalize_sku
 

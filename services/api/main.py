@@ -2303,7 +2303,54 @@ def draft_trademe_payload(
         ip = session.query(InternalProduct).filter(InternalProduct.id == internal_product_id).first()
         if not ip:
             raise HTTPException(status_code=404, detail="InternalProduct not found")
-        payload = build_listing_payload(internal_product_id)
+        try:
+            payload = build_listing_payload(internal_product_id)
+        except Exception as e:
+            # Operator visibility must never 500. If an item is blocked, return a blocked snapshot
+            # that the UI can render (with the top blocker) instead of crashing the page.
+            sp = ip.supplier_product
+            title = ""
+            desc = ""
+            price = None
+            photo_urls: list[str] = []
+            try:
+                if sp:
+                    title = (sp.enriched_title or sp.title or "").strip()
+                    desc = (sp.enriched_description or sp.description or "").strip()
+                    try:
+                        price = float(sp.cost_price) if sp.cost_price is not None else None
+                    except Exception:
+                        price = None
+                    try:
+                        imgs = sp.images if isinstance(sp.images, list) else []
+                        for raw in imgs:
+                            if not raw or not isinstance(raw, str):
+                                continue
+                            norm = raw.replace("\\", "/")
+                            if norm.startswith("http://") or norm.startswith("https://"):
+                                photo_urls.append(norm)
+                            elif norm.startswith("data/media/"):
+                                photo_urls.append("/media/" + norm[len("data/media/") :])
+                    except Exception:
+                        photo_urls = []
+            except Exception:
+                pass
+
+            top = str(e)[:500]
+            payload = {
+                "_blocked": True,
+                "top_blocker": top,
+                "error": top,
+                "Category": "",
+                "Title": (title or f"Internal #{internal_product_id}")[:49],
+                "Description": [desc or "(Blocked: missing listing requirements)"],
+                "StartPrice": price,
+                "BuyNowPrice": price,
+                "PhotoUrls": photo_urls,
+                "PhotoIds": [],
+                "HasGallery": bool(photo_urls),
+                "_internal_product_id": internal_product_id,
+            }
         return {
             "internal_product_id": internal_product_id,
             "payload": payload,
