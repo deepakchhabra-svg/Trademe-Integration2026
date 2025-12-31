@@ -322,7 +322,8 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                         <div className="h-2 bg-indigo-600" style={{ width: `${percent}%` }} />
                       </div>
                       <div className="mt-1 text-[11px] text-slate-500">
-                        {p.done ?? 0}/{p.total ?? 0} · {percent}%{p.eta_seconds != null ? ` · ETA ~${Math.max(0, Math.round(p.eta_seconds))}s` : ""}
+                        {p?.done ?? 0}/{p?.total ?? 0} · {percent}%
+                        {p?.eta_seconds != null ? ` · ETA ~${Math.max(0, Math.round(p.eta_seconds))}s` : ""}
                       </div>
                     </div>
                   ) : p?.done != null ? (

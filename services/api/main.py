@@ -732,7 +732,15 @@ def trademe_account_summary(_role: Role = Depends(require_role("power"))) -> dic
         msg = str(e)[:200]
         if not configured:
             msg = "Not configured (missing Trade Me credentials)"
-        return {"offline": True, "error": msg, "utc": utc, "configured": configured, "auth_ok": False}
+        return {
+            "offline": True,
+            "error": msg,
+            "utc": utc,
+            "configured": configured,
+            "auth_ok": False,
+            # Safe diagnostics: never include secrets.
+            "diagnostics": {"configured": configured},
+        }
 
 
 @app.get("/llm/health")
@@ -891,19 +899,32 @@ def ops_alerts(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
     try:
         api = TradeMeAPI()
         summary = api.get_account_summary()
-        balance = float(summary.get("account_balance") or 0.0)
+        balance_raw = summary.get("account_balance")
 
         # Default threshold can be overridden by setting: ops.balance_min
         min_balance = float(os.getenv("RETAIL_OS_MIN_BALANCE") or 20.0)
-        if balance < min_balance:
+        if balance_raw is None:
+            # No fake “$0.00”: if the API doesn't return it, we treat it as unknown.
+            note = summary.get("balance_error") or "Balance not returned by Trade Me API for this account/app"
             alerts.append(
                 {
-                    "severity": "high",
-                    "code": "LOW_BALANCE",
-                    "title": "Trade Me account balance low",
-                    "detail": f"Balance ${balance:.2f} is below ${min_balance:.2f}",
+                    "severity": "medium",
+                    "code": "TRADEME_BALANCE_UNAVAILABLE",
+                    "title": "Trade Me balance unavailable",
+                    "detail": str(note)[:200],
                 }
             )
+        else:
+            balance = float(balance_raw)
+            if balance < min_balance:
+                alerts.append(
+                    {
+                        "severity": "high",
+                        "code": "LOW_BALANCE",
+                        "title": "Trade Me account balance low",
+                        "detail": f"Balance ${balance:.2f} is below ${min_balance:.2f}",
+                    }
+                )
     except Exception as e:
         alerts.append(
             {

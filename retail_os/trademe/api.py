@@ -305,17 +305,28 @@ class TradeMeAPI:
             res = self.session.get(f"{PROD_URL}/MyTradeMe/Summary.json", timeout=TIMEOUT_SECS)
             res.raise_for_status()
             data = res.json()
+            if not isinstance(data, dict):
+                data = {}
 
             # 2) Balances endpoint (matches "My balances" screen more closely)
             bal = {}
             bal_err = None
+            bal_status = None
             try:
                 r2 = self.session.get(f"{PROD_URL}/Account/Balance.json", timeout=TIMEOUT_SECS)
+                bal_status = r2.status_code
                 r2.raise_for_status()
                 bal = r2.json() if isinstance(r2.json(), dict) else {}
-            except Exception:
+            except Exception as e:
                 bal = {}
-                bal_err = "Balance endpoint not available for this account/app"
+                code = getattr(getattr(e, "response", None), "status_code", None)
+                if code is None and getattr(e, "args", None):
+                    # requests.HTTPError often has response attached; keep generic otherwise.
+                    pass
+                if code:
+                    bal_err = f"Balance endpoint not available for this account/app (HTTP {code})"
+                else:
+                    bal_err = "Balance endpoint not available for this account/app"
 
             # Prefer Balance.json if present; fallback to Summary.json fields.
             account_balance = bal.get("Balance")
@@ -323,6 +334,15 @@ class TradeMeAPI:
                 # IMPORTANT: do not default to 0.0 (looks like “real $0”).
                 # If Summary doesn't provide a balance, return None + diagnostic instead.
                 account_balance = data.get("AccountBalance", None)
+
+            summary_has = {
+                "AccountBalance": "AccountBalance" in data and data.get("AccountBalance") is not None,
+                "PayNowBalance": "PayNowBalance" in data and data.get("PayNowBalance") is not None,
+                "UniquePositive": "UniquePositive" in data and data.get("UniquePositive") is not None,
+                "UniqueNegative": "UniqueNegative" in data and data.get("UniqueNegative") is not None,
+                "FeedbackCount": "FeedbackCount" in data and data.get("FeedbackCount") is not None,
+                "TotalItemsSold": "TotalItemsSold" in data and data.get("TotalItemsSold") is not None,
+            }
 
             # Parse and return key fields
             return {
@@ -338,6 +358,14 @@ class TradeMeAPI:
                 # Extra diagnostics (safe)
                 "balance_raw": bal,
                 "balance_error": bal_err,
+                "diagnostics": {
+                    "summary_endpoint": "/MyTradeMe/Summary.json",
+                    "summary_status_code": res.status_code,
+                    "summary_has": summary_has,
+                    "balance_endpoint": "/Account/Balance.json",
+                    "balance_status_code": bal_status,
+                    "balance_keys": sorted(list(bal.keys())) if isinstance(bal, dict) else [],
+                },
             }
         except Exception as e:
             raise Exception(f"Get Account Summary Failed: {e}")

@@ -17,6 +17,7 @@ type Summary = {
   error?: string;
   balance_raw?: Record<string, unknown>;
   balance_error?: string | null;
+  diagnostics?: Record<string, unknown>;
   utc?: string;
   configured?: boolean;
   auth_ok?: boolean;
@@ -115,6 +116,22 @@ export default async function TradeMeHealthPage() {
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
                 {JSON.stringify(summary.balance_raw, null, 2)}
               </pre>
+            </div>
+          ) : null}
+
+          {summary.diagnostics ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 md:col-span-2 xl:col-span-4">
+              <details>
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Diagnostics (safe)
+                </summary>
+                <div className="mt-2 text-xs text-slate-600">
+                  Shows endpoint availability + missing fields. No keys/tokens are ever returned here.
+                </div>
+                <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
+                  {JSON.stringify(summary.diagnostics, null, 2)}
+                </pre>
+              </details>
             </div>
           ) : null}
         </div>
