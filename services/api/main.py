@@ -2337,6 +2337,28 @@ def draft_trademe_payload(
                 pass
 
             top = str(e)[:500]
+            # Even when blocked, keep the operator preview structurally realistic
+            # (shipping/payment/duration/pickup defaults) so the UI doesn't show empty blanks.
+            try:
+                from retail_os.trademe.config import TradeMeConfig
+                from retail_os.strategy.pricing import PricingStrategy
+
+                supplier_name = None
+                try:
+                    supplier_name = sp.supplier.name if sp and getattr(sp, "supplier", None) else None
+                except Exception:
+                    supplier_name = None
+
+                suggested_price = None
+                try:
+                    if sp and sp.cost_price is not None:
+                        suggested_price = PricingStrategy.calculate_price(float(sp.cost_price), "General", supplier_name)
+                except Exception:
+                    suggested_price = price
+            except Exception:
+                TradeMeConfig = None  # type: ignore
+                suggested_price = price
+
             payload = {
                 "_blocked": True,
                 "top_blocker": top,
@@ -2344,12 +2366,17 @@ def draft_trademe_payload(
                 "Category": "",
                 "Title": (title or f"Internal #{internal_product_id}")[:49],
                 "Description": [desc or "(Blocked: missing listing requirements)"],
-                "StartPrice": price,
-                "BuyNowPrice": price,
+                "StartPrice": suggested_price if suggested_price is not None else price,
+                "BuyNowPrice": suggested_price if suggested_price is not None else price,
+                "Duration": getattr(TradeMeConfig, "DEFAULT_DURATION", None),
+                "Pickup": getattr(TradeMeConfig, "PICKUP_OPTION", None),
+                "PaymentOptions": (TradeMeConfig.get_payment_methods() if TradeMeConfig else None),
+                "ShippingOptions": getattr(TradeMeConfig, "DEFAULT_SHIPPING", None),
                 "PhotoUrls": photo_urls,
                 "PhotoIds": [],
                 "HasGallery": bool(photo_urls),
                 "_internal_product_id": internal_product_id,
+                "_cost_price": float(sp.cost_price or 0) if sp and sp.cost_price is not None else None,
             }
         return {
             "internal_product_id": internal_product_id,

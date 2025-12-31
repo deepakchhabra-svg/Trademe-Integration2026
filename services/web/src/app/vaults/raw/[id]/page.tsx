@@ -143,7 +143,7 @@ export default async function RawDetailPage({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Field label="Cost price" value={sp.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} testId="field-cost" />
         <Field label="Source category" value={<span className="font-mono text-xs">{sp.source_category || "-"}</span>} testId="field-category" />
-        <Field label="Last scraped" value={sp.last_scraped_at || "-"} testId="field-last-scraped" />
+        <Field label="Last scraped" value={formatNZT(sp.last_scraped_at)} testId="field-last-scraped" />
       </div>
 
       {tab === "raw" ? (
@@ -265,7 +265,7 @@ export default async function RawDetailPage({
             <Field label="Raw ID" value={sp.id} />
             <Field label="Source status" value={<StatusBadge status={sp.sync_status || "UNKNOWN"} />} />
             <Field label="Enrichment status" value={<StatusBadge status={sp.enrichment_status || "UNKNOWN"} />} />
-            <Field label="Last scraped (UTC)" value={sp.last_scraped_at || "-"} />
+            <Field label="Last scraped" value={formatNZT(sp.last_scraped_at)} />
           </div>
           <div className="mt-4">
             <SectionCard title="Technical specifications" subtitle={`Snapshot: ${sp.snapshot_hash || "-"}`}>
