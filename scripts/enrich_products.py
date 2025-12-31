@@ -48,8 +48,8 @@ def _get_enrichment_policy(db) -> dict:
         "default": "AI",
         "by_supplier": {
             "ONECHEQ": "AI",
-            # NOEL_LEEMING is blocked (robots/image access) and should not be enriched for publish.
-            "NOEL_LEEMING": "NONE",
+            # Noel Leeming is supported: keep deterministic (no LLM) by default.
+            "NOEL_LEEMING": "TEMPLATE",
             # CASH_CONVERTERS intentionally out of scope for pilot
             "CASH_CONVERTERS": "NONE",
         },
@@ -143,8 +143,6 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
 
                 supplier_name = (item.supplier.name if getattr(item, "supplier", None) else "").upper()
                 mode = (policy.get("by_supplier", {}).get(supplier_name) or policy.get("default") or "NONE").upper()
-                if supplier_name == "NOEL_LEEMING":
-                    raise RuntimeError("NOEL_LEEMING enrichment is disabled (supplier not supported).")
 
                 if mode == "AI":
                     # AI mode must fail loudly (no silent fallback).

@@ -12,6 +12,7 @@ import threading
 from pathlib import Path
 from urllib.parse import urljoin
 from typing import List, Dict, Optional
+import base64
 
 # Third-party imports
 from selectolax.parser import HTMLParser
@@ -33,6 +34,51 @@ except ImportError:
 
 BASE_URL = "https://www.noelleeming.co.nz"
 DEFAULT_CATEGORY_URL = f"{BASE_URL}/search?cgid=computersofficetech-computers"
+
+def _save_media_bytes(filename: str, data: bytes) -> str:
+    media_dir = Path("data") / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    p = media_dir / filename
+    p.write_bytes(data)
+    return str(p)
+
+
+def _fetch_bytes_via_selenium(driver, url: str) -> bytes | None:
+    """
+    Fetch binary bytes using the browser session (cookies/anti-bot compatible).
+    Returns bytes or None.
+    """
+    try:
+        # Must run on the same origin (Noel Leeming) for credentials to work.
+        js = """
+        const url = arguments[0];
+        const cb = arguments[1];
+        fetch(url, { credentials: 'include' })
+          .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.blob();
+          })
+          .then(b => {
+            const reader = new FileReader();
+            reader.onloadend = () => cb(reader.result);
+            reader.readAsDataURL(b);
+          })
+          .catch(e => cb('ERROR:' + (e && e.message ? e.message : String(e))));
+        """
+        out = driver.execute_async_script(js, url)
+        if not out or not isinstance(out, str):
+            return None
+        if out.startswith("ERROR:"):
+            return None
+        if not out.startswith("data:"):
+            return None
+        # data:<mime>;base64,<...>
+        if ";base64," not in out:
+            return None
+        b64 = out.split(";base64,", 1)[1]
+        return base64.b64decode(b64)
+    except Exception:
+        return None
 
 def scrape_product_detail(driver, url: str) -> Dict[str, any]:
     """
@@ -420,6 +466,38 @@ def scrape_category(
             # Extract Listing Data first
             html = driver.page_source
             page_products = extract_products_from_html(html, page_num, overall_rank_persistent)
+
+            # Best-effort: download the tile image via the browser session (avoids 403 on demandware images).
+            # This keeps NL usable in the operator flow without needing deep_scrape.
+            try:
+                dl = (os.getenv("RETAILOS_NL_BROWSER_IMAGE_DOWNLOAD", "true") or "true").lower() in ("1", "true", "yes", "on")
+                per_page = int(os.getenv("RETAILOS_NL_BROWSER_IMAGE_DOWNLOAD_PER_PAGE", "32") or "32")
+                per_page = max(0, min(64, per_page))
+                if dl and per_page:
+                    for i, p in enumerate(page_products[:per_page], 0):
+                        try:
+                            if should_abort and bool(should_abort()):
+                                return all_products
+                        except Exception:
+                            pass
+                        img = (p or {}).get("photo1") or ""
+                        pid = str((p or {}).get("source_listing_id") or "").strip()
+                        if not pid or not img or not isinstance(img, str):
+                            continue
+                        if not img.startswith("http"):
+                            continue
+                        if "noelleeming.co.nz/dw/image/" not in img:
+                            continue
+                        b = _fetch_bytes_via_selenium(driver, img)
+                        if not b:
+                            continue
+                        try:
+                            local = _save_media_bytes(f"NL-{pid}.jpg", b)
+                            p["photo1"] = local
+                        except Exception:
+                            pass
+            except Exception:
+                pass
             
             # Count how many NEW products we found to update rank counter
             new_this_page = 0
@@ -449,8 +527,29 @@ def scrape_category(
                         details = scrape_product_detail(driver, p["url"])
                         
                         if details["images"]:
-                            for i, img in enumerate(details["images"]):
+                            # Prefer browser-session downloads for NL images (requests often 403).
+                            # This makes NL scrape end-to-end on anti-bot protected media.
+                            limit_imgs = int(os.getenv("RETAILOS_NL_IMAGE_LIMIT_PER_PRODUCT", "2") or "2")
+                            limit_imgs = max(0, min(4, limit_imgs))
+                            dl = (os.getenv("RETAILOS_NL_BROWSER_IMAGE_DOWNLOAD", "true") or "true").lower() in ("1", "true", "yes", "on")
+
+                            for i, img in enumerate(details["images"][: max(1, limit_imgs)], 0):
+                                if not img:
+                                    continue
+                                # Default to remote URL
                                 p[f"photo{i+1}"] = img
+                                if not dl:
+                                    continue
+                                b = _fetch_bytes_via_selenium(driver, img)
+                                if b:
+                                    pid = str(p.get("source_listing_id") or "").strip() or "NL"
+                                    fn = f"NL-{pid}.jpg" if i == 0 else f"NL-{pid}_{i+1}.jpg"
+                                    try:
+                                        local = _save_media_bytes(fn, b)
+                                        p[f"photo{i+1}"] = local
+                                    except Exception:
+                                        # leave remote URL
+                                        pass
                         if details["description"] and len(details["description"]) > len(p.get("title", "")):
                              p["description"] = details["description"]
                         if details.get("specs"):

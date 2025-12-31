@@ -149,12 +149,19 @@ class NoelLeemingAdapter:
         # DOWNLOADING
         local_images = []
         try:
+            # If scraper already wrote local media paths (via Selenium fetch), keep them as-is and skip re-download.
+            for raw in list(imgs or [])[:4]:
+                if isinstance(raw, str) and raw and os.path.exists(raw):
+                    local_images.append(raw)
+
             from concurrent.futures import ThreadPoolExecutor, as_completed
             img_conc = int(os.getenv("RETAILOS_IMAGE_CONCURRENCY_PER_PRODUCT", "4") or "4")
             img_conc = max(1, min(8, img_conc))
             tasks: list[tuple[int, str, str]] = []
             for idx, img_url in enumerate(imgs[:4], 1):
                 if not img_url:
+                    continue
+                if isinstance(img_url, str) and os.path.exists(img_url):
                     continue
                 img_sku = f"{sku}_{idx}" if idx > 1 else sku
                 tasks.append((idx, img_url, img_sku))
@@ -179,6 +186,9 @@ class NoelLeemingAdapter:
             # Fallback to sequential (best-effort)
             for idx, img_url in enumerate(imgs[:4], 1):
                 img_sku = f"{sku}_{idx}" if idx > 1 else sku
+                if isinstance(img_url, str) and os.path.exists(img_url):
+                    local_images.append(img_url)
+                    continue
                 result = downloader.download_image(img_url, img_sku, should_abort=should_abort)
                 if result.get("success"):
                     local_images.append(result.get("path"))

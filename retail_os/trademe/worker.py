@@ -1538,22 +1538,28 @@ class CommandWorker:
             delay_seconds,
         )
 
-        # Pilot scope: ONECHEQ only.
+        # Resolve supplier name from DB (do not rely on caller).
+        try:
+            if supplier_id is not None:
+                with SessionLocal() as s0:
+                    from retail_os.core.database import Supplier as _Supplier
+
+                    sup = s0.query(_Supplier).filter(_Supplier.id == int(supplier_id)).first()
+                    if sup and sup.name:
+                        supplier_name = sup.name
+        except Exception:
+            pass
+
         name_l = str(supplier_name).lower()
-        if "noel" in name_l or "leeming" in name_l:
-            command.status = CommandStatus.HUMAN_REQUIRED
-            command.error_code = "SUPPLIER_NOT_SUPPORTED"
-            command.error_message = "NOEL_LEEMING is not supported (robots/image access)."
-            return
         if "cash" in name_l or "converters" in name_l:
             command.status = CommandStatus.HUMAN_REQUIRED
             command.error_code = "SUPPLIER_NOT_SUPPORTED"
             command.error_message = "CASH_CONVERTERS is out of scope."
             return
-        if "onecheq" not in name_l:
+        if not ("onecheq" in name_l or "noel" in name_l or "leeming" in name_l):
             command.status = CommandStatus.HUMAN_REQUIRED
-            command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
-            command.error_message = f"Pilot scope supports ONECHEQ only (got {supplier_name})."
+            command.error_code = "SUPPLIER_NOT_SUPPORTED"
+            command.error_message = f"Supplier not supported for enrichment (got {supplier_name})."
             return
 
         # Per-supplier policy gate (DB-backed)
@@ -1585,8 +1591,8 @@ class CommandWorker:
             if create_internal_products and supplier_id is not None:
                 from retail_os.core.database import SupplierProduct, InternalProduct
 
-                # Pilot scope: only ONECHEQ is supported.
-                prefix = "OC" if "onecheq" in supplier_name.lower() else "INT"
+                # Prefix by supplier for deterministic SKUs.
+                prefix = "OC" if "onecheq" in name_l else ("NL" if ("noel" in name_l or "leeming" in name_l) else "INT")
 
                 q = session.query(SupplierProduct).filter(SupplierProduct.supplier_id == int(supplier_id))
                 if source_category:
