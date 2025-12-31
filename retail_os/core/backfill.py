@@ -49,6 +49,9 @@ def backfill_supplier_images_onecheq(
     batch: int = 5000,
     concurrency: int = 16,
     max_seconds: float = 540.0,
+    cmd_id: str | None = None,
+    progress_hook=None,
+    should_abort=None,
 ) -> dict[str, Any]:
     """
     Backfills local images for ONECHEQ SupplierProducts.
@@ -88,17 +91,23 @@ def backfill_supplier_images_onecheq(
     ok = 0
     fail = 0
     reasons: Counter[str] = Counter()
+    total = len(candidates)
 
     def _dl(sp_id: int, sku: str, url: str, mode: str) -> tuple[int, dict]:
         try:
+            try:
+                if should_abort and bool(should_abort()):
+                    return sp_id, {"success": False, "error": "cancelled"}
+            except Exception:
+                pass
             if mode == "html_discover":
                 with httpx.Client(follow_redirects=True, timeout=25.0) as c:
                     parsed = scrape_onecheq_product(url, client=c) or {}
                 remote_imgs = [parsed.get(k) for k in ("photo1", "photo2", "photo3", "photo4") if parsed.get(k)]
                 if not remote_imgs:
                     return sp_id, {"success": False, "error": "no_images_found_on_product_page"}
-                return sp_id, downloader.download_image(remote_imgs[0], sku)
-            return sp_id, downloader.download_image(url, sku)
+                return sp_id, downloader.download_image(remote_imgs[0], sku, should_abort=should_abort)
+            return sp_id, downloader.download_image(url, sku, should_abort=should_abort)
         except Exception as e:
             return sp_id, {"success": False, "error": f"exception: {e}"}
 
@@ -108,6 +117,11 @@ def backfill_supplier_images_onecheq(
             futures.append(ex.submit(_dl, sp_id, sku, url, mode))
 
         for fut in as_completed(futures):
+            try:
+                if should_abort and bool(should_abort()):
+                    break
+            except Exception:
+                pass
             if (time.perf_counter() - started) > max_seconds:
                 break
             sp_id, res = fut.result()
@@ -130,6 +144,27 @@ def backfill_supplier_images_onecheq(
             else:
                 fail += 1
                 reasons[str(res.get("error") or "download_failed")[:160]] += 1
+
+            # Progress (best-effort)
+            done = ok + fail
+            try:
+                if progress_hook:
+                    elapsed = time.perf_counter() - started
+                    rate = (done / elapsed) if elapsed > 0 else 0.0
+                    eta = int(round((max(total - done, 0) / rate))) if rate > 0 and total else None
+                    progress_hook(
+                        {
+                            "phase": "images",
+                            "supplier_id": int(supplier_id),
+                            "done": int(done),
+                            "total": int(total),
+                            "eta_seconds": eta,
+                            "message": f"Images: {done}/{total} (ok {ok}, failed {fail})",
+                            "cmd_id": cmd_id,
+                        }
+                    )
+            except Exception:
+                pass
 
     session.commit()
     elapsed = time.perf_counter() - started
@@ -160,6 +195,9 @@ def validate_launchlock(
     session,
     supplier_id: int,
     limit: int | None = 1000,
+    cmd_id: str | None = None,
+    progress_hook=None,
+    should_abort=None,
 ) -> dict[str, Any]:
     from retail_os.core.database import SupplierProduct, InternalProduct
     from retail_os.core.validator import LaunchLock
@@ -180,7 +218,15 @@ def validate_launchlock(
     reasons: Counter[str] = Counter()
     blocked_samples: list[dict[str, Any]] = []
 
-    for ip in ips:
+    total = len(ips)
+    started = time.perf_counter()
+
+    for i, ip in enumerate(ips, 1):
+        try:
+            if should_abort and bool(should_abort()):
+                break
+        except Exception:
+            pass
         try:
             v.validate_publish(ip, test_mode=False)
             ready += 1
@@ -200,8 +246,28 @@ def validate_launchlock(
                     }
                 )
 
+        # Progress (best-effort)
+        try:
+            if progress_hook and (i == 1 or i % 50 == 0 or i == total):
+                elapsed = time.perf_counter() - started
+                rate = (i / elapsed) if elapsed > 0 else 0.0
+                eta = int(round(max(total - i, 0) / rate)) if rate > 0 else None
+                progress_hook(
+                    {
+                        "phase": "validate",
+                        "supplier_id": int(supplier_id),
+                        "done": int(i),
+                        "total": int(total),
+                        "eta_seconds": eta,
+                        "message": f"Validate: {i}/{total} (ready {ready}, blocked {blocked})",
+                        "cmd_id": cmd_id,
+                    }
+                )
+        except Exception:
+            pass
+
     return {
-        "validated": len(ips),
+        "validated": int(min(total, (ready + blocked))),
         "ready": ready,
         "blocked": blocked,
         "top_blockers": reasons.most_common(20),

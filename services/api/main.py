@@ -9,11 +9,12 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, text
+from sqlalchemy import func, or_, text
 
 from retail_os.core.database import (
     AuditLog,
     CommandLog,
+    CommandProgress,
     CommandStatus,
     InternalProduct,
     JobStatus,
@@ -506,6 +507,203 @@ def ops_summary(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
                 "listings_live": listings_live,
             },
             "orders": {"total": orders_total, "pending_fulfillment": orders_pending},
+        }
+
+
+@app.get("/ops/pipeline_summary")
+def ops_pipeline_summary(
+    supplier_id: int,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Per-supplier end-to-end pipeline rollup for the operator "Pipeline" screen.
+    Scrape → Images → Enrich → Draft → Validate → Publish
+    """
+    from collections import Counter
+
+    from retail_os.core.category_mapper import CategoryMapper
+
+    with get_db_session() as session:
+        sup = session.query(Supplier).filter(Supplier.id == int(supplier_id)).first()
+        if not sup:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+
+        # Vault 1 (supplier truth)
+        raw_total = session.query(func.count(SupplierProduct.id)).filter(SupplierProduct.supplier_id == sup.id).scalar() or 0
+        raw_present = (
+            session.query(func.count(SupplierProduct.id))
+            .filter(SupplierProduct.supplier_id == sup.id, SupplierProduct.sync_status == "PRESENT")
+            .scalar()
+            or 0
+        )
+        raw_removed = (
+            session.query(func.count(SupplierProduct.id))
+            .filter(SupplierProduct.supplier_id == sup.id, SupplierProduct.sync_status == "REMOVED")
+            .scalar()
+            or 0
+        )
+
+        # Images: "listing-usable" means at least one local image reference (data/media/*).
+        # SQLite JSON functions are not always available, so use string match.
+        has_local = or_(
+            SupplierProduct.images.like("%data/media/%"),
+            SupplierProduct.images.like(r"%data\\media\\%"),
+        )
+        images_missing = (
+            session.query(func.count(SupplierProduct.id))
+            .filter(SupplierProduct.supplier_id == sup.id)
+            .filter((SupplierProduct.images.is_(None)) | (~has_local))
+            .scalar()
+            or 0
+        )
+
+        # Enrich readiness: enriched title+description present
+        enrich_ready = (
+            session.query(func.count(SupplierProduct.id))
+            .filter(SupplierProduct.supplier_id == sup.id)
+            .filter(SupplierProduct.enriched_title.isnot(None))
+            .filter(SupplierProduct.enriched_description.isnot(None))
+            .filter((SupplierProduct.sync_status.is_(None)) | (SupplierProduct.sync_status == "PRESENT"))
+            .scalar()
+            or 0
+        )
+
+        # Drafts: current representation is TradeMeListing rows
+        drafts = (
+            session.query(func.count(TradeMeListing.id))
+            .join(InternalProduct, TradeMeListing.internal_product_id == InternalProduct.id)
+            .join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+            .filter(SupplierProduct.supplier_id == sup.id)
+            .filter(TradeMeListing.actual_state == "DRY_RUN")
+            .scalar()
+            or 0
+        )
+        live = (
+            session.query(func.count(TradeMeListing.id))
+            .join(InternalProduct, TradeMeListing.internal_product_id == InternalProduct.id)
+            .join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
+            .filter(SupplierProduct.supplier_id == sup.id)
+            .filter(TradeMeListing.actual_state == "Live")
+            .scalar()
+            or 0
+        )
+
+        # Top blockers: run a lightweight readiness pass (no per-item payload build)
+        q = session.query(SupplierProduct).filter(SupplierProduct.supplier_id == sup.id)
+        q = q.filter((SupplierProduct.sync_status.is_(None)) | (SupplierProduct.sync_status == "PRESENT"))
+        rows = q.limit(20000).all()
+        reasons: Counter[str] = Counter()
+        for sp in rows:
+            if sp.cost_price is None or float(sp.cost_price or 0) <= 0:
+                reasons["Missing/invalid cost price"] += 1
+                continue
+            if not (sp.enriched_title or "").strip():
+                reasons["Missing enriched title"] += 1
+                continue
+            if not (sp.enriched_description or "").strip():
+                reasons["Missing enriched description"] += 1
+                continue
+            imgs = sp.images or []
+            has_local = any(isinstance(x, str) and x.replace("\\", "/").startswith("data/media/") for x in (imgs if isinstance(imgs, list) else []))
+            if not has_local:
+                reasons["Missing images (local)"] += 1
+                continue
+            if not CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or ""):
+                reasons["Missing category mapping"] += 1
+                continue
+
+        return {
+            "utc": datetime.utcnow().isoformat(),
+            "supplier": {"id": sup.id, "name": sup.name},
+            "counts": {
+                "raw_total": raw_total,
+                "raw_present": raw_present,
+                "raw_removed": raw_removed,
+                "images_missing": images_missing,
+                "enrich_ready": enrich_ready,
+                "drafts_dry_run": drafts,
+                "live": live,
+            },
+            "top_blockers": reasons.most_common(10),
+        }
+
+
+@app.get("/ops/suppliers/{supplier_id}/pipeline")
+def ops_supplier_pipeline(
+    supplier_id: int,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    Operator-grade, single-screen pipeline view per supplier.
+    Includes:
+    - pipeline summary counts + top blockers
+    - active commands scoped to this supplier (best-effort payload match)
+    - DB-backed progress for active commands
+    """
+    with get_db_session() as session:
+        sup = session.query(Supplier).filter(Supplier.id == int(supplier_id)).first()
+        if not sup:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+
+        # Summary (reuse the same logic)
+        summary = ops_pipeline_summary(supplier_id=int(supplier_id), _role=_role)
+
+        # Active commands for this supplier (payload match; works in sqlite without json_extract)
+        pat_a = f'%\"supplier_id\": {int(supplier_id)}%'
+        pat_b = f'%\"supplier_id\":{int(supplier_id)}%'
+        q = (
+            session.query(SystemCommand)
+            .filter(SystemCommand.status.in_([CommandStatus.PENDING, CommandStatus.EXECUTING]))
+            .filter(or_(SystemCommand.payload.like(pat_a), SystemCommand.payload.like(pat_b)))
+            .order_by(SystemCommand.updated_at.desc())
+            .limit(50)
+        )
+        cmds = q.all()
+
+        # Join progress (1:1) via separate lookup (avoid outerjoin complexity across sqlite/JSON)
+        progresses = {
+            p.command_id: p
+            for p in session.query(CommandProgress)
+            .filter(CommandProgress.command_id.in_([c.id for c in cmds] or ["__none__"]))
+            .all()
+        }
+
+        items: list[dict[str, Any]] = []
+        for c in cmds:
+            p = progresses.get(c.id)
+            items.append(
+                {
+                    "id": c.id,
+                    "type": c.type,
+                    "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+                    "priority": c.priority,
+                    "attempts": c.attempts,
+                    "max_attempts": c.max_attempts,
+                    "error_code": c.error_code,
+                    "error_message": c.error_message,
+                    "payload": c.payload or {},
+                    "created_at": _dt(c.created_at),
+                    "updated_at": _dt(c.updated_at),
+                    "progress": (
+                        {
+                            "phase": p.phase,
+                            "done": p.done,
+                            "total": p.total,
+                            "eta_seconds": p.eta_seconds,
+                            "message": p.message,
+                            "updated_at": _dt(p.updated_at),
+                        }
+                        if p
+                        else None
+                    ),
+                }
+            )
+
+        return {
+            "utc": datetime.utcnow().isoformat(),
+            "supplier": {"id": sup.id, "name": sup.name, "base_url": sup.base_url, "is_active": sup.is_active},
+            "summary": summary,
+            "active_commands": items,
         }
 
 
@@ -1173,6 +1371,7 @@ def _serialize_supplier_product(sp: SupplierProduct) -> dict[str, Any]:
         "snapshot_hash": sp.snapshot_hash,
         "sync_status": sp.sync_status,
         "source_category": getattr(sp, "source_category", None),
+        "source_categories": getattr(sp, "source_categories", None),
         "collection_rank": sp.collection_rank,
         "collection_page": sp.collection_page,
         "internal_product_id": sp.internal_product.id if getattr(sp, "internal_product", None) else None,
@@ -1798,6 +1997,38 @@ def command_detail(
             "payload": c.payload or {},
             "created_at": _dt(c.created_at),
             "updated_at": _dt(c.updated_at),
+        }
+
+
+@app.get("/commands/{command_id}/progress")
+def command_progress(
+    command_id: str,
+    _role: Role = Depends(require_role("power")),
+) -> dict[str, Any]:
+    """
+    DB-backed progress snapshot for long-running commands.
+    Designed for reliable progress bars even after restarts.
+    """
+    with get_db_session() as session:
+        exists = session.query(SystemCommand.id).filter(SystemCommand.id == command_id).first()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Command not found")
+
+        p = session.query(CommandProgress).filter(CommandProgress.command_id == command_id).first()
+        return {
+            "command_id": command_id,
+            "progress": (
+                {
+                    "phase": p.phase,
+                    "done": p.done,
+                    "total": p.total,
+                    "eta_seconds": p.eta_seconds,
+                    "message": p.message,
+                    "updated_at": _dt(p.updated_at),
+                }
+                if p
+                else None
+            ),
         }
 
 

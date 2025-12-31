@@ -3,9 +3,14 @@ import requests
 from pathlib import Path
 from urllib.parse import urlparse
 import time
+import threading
+
+from retail_os.utils.http_throttle import GlobalHTTPThrottle
 
 class ImageDownloader:
     """Physical image download service with verification."""
+    _locks: dict[str, threading.Lock] = {}
+    _locks_lock = threading.Lock()
     
     def __init__(self, base_dir="data/media"):
         self.base_dir = Path(base_dir)
@@ -45,98 +50,109 @@ class ImageDownloader:
             headers["Referer"] = referer
 
         try:
-            # Determine extension
-            ext = ".jpg"
-            if ".png" in url.lower():
-                ext = ".png"
-            elif ".webp" in url.lower():
-                ext = ".webp"
-            
-            # Target path
-            filename = f"{sku}{ext}"
-            filepath = self.base_dir / filename
-            
-            # Use a session for better connection handling + retries (NL can be flaky)
-            last_err: Exception | None = None
-            for attempt in range(1, 4):
-                try:
+            # Per-SKU lock so concurrent threads don't fight over the same file.
+            with self._get_lock(sku):
+                # Determine extension
+                ext = ".jpg"
+                if ".png" in url.lower():
+                    ext = ".png"
+                elif ".webp" in url.lower():
+                    ext = ".webp"
+
+                # Target path
+                filename = f"{sku}{ext}"
+                filepath = self.base_dir / filename
+
+                # Idempotent: if we already have a usable JPG for this SKU, skip download.
+                # (We always convert to JPG when PIL is available.)
+                jpg_path = self.base_dir / f"{sku}.jpg"
+                existing = jpg_path if jpg_path.exists() else filepath
+                if existing.exists():
                     try:
-                        if should_abort and bool(should_abort()):
-                            return {"success": False, "path": None, "size": 0, "error": "Cancelled"}
+                        sz = existing.stat().st_size
+                        if sz >= 300:
+                            return {"success": True, "path": str(existing), "size": sz, "error": None}
                     except Exception:
                         pass
-                    with requests.Session() as session:
-                        response = session.get(url, headers=headers, timeout=20, stream=True, allow_redirects=True)
-                        response.raise_for_status()
 
-                        ctype = (response.headers.get("content-type") or "").lower()
-                        if ctype and "image" not in ctype:
-                            raise RuntimeError(f"Non-image response content-type: {ctype}")
+                # Use a session for better connection handling + retries (NL can be flaky)
+                last_err: Exception | None = None
+                for attempt in range(1, 4):
+                    try:
+                        try:
+                            if should_abort and bool(should_abort()):
+                                return {"success": False, "path": None, "size": 0, "error": "Cancelled"}
+                        except Exception:
+                            pass
+                        with requests.Session() as session:
+                            with GlobalHTTPThrottle.request(url):
+                                response = session.get(url, headers=headers, timeout=20, stream=True, allow_redirects=True)
+                                response.raise_for_status()
 
-                        with open(filepath, 'wb') as f:
-                            for chunk in response.iter_content(chunk_size=8192):
-                                try:
-                                    if should_abort and bool(should_abort()):
-                                        return {"success": False, "path": None, "size": 0, "error": "Cancelled"}
-                                except Exception:
-                                    pass
-                                if chunk:
-                                    f.write(chunk)
-                    last_err = None
-                    break
+                            ctype = (response.headers.get("content-type") or "").lower()
+                            if ctype and "image" not in ctype:
+                                raise RuntimeError(f"Non-image response content-type: {ctype}")
+
+                            with open(filepath, "wb") as f:
+                                for chunk in response.iter_content(chunk_size=8192):
+                                    try:
+                                        if should_abort and bool(should_abort()):
+                                            return {"success": False, "path": None, "size": 0, "error": "Cancelled"}
+                                    except Exception:
+                                        pass
+                                    if chunk:
+                                        f.write(chunk)
+                        last_err = None
+                        break
+                    except Exception as e:
+                        last_err = e
+                        time.sleep(min(2.0, 0.5 * (2 ** (attempt - 1))))
+                if last_err is not None:
+                    raise last_err
+
+                # --- IMAGE TUNING (Added for Trade Me Compliance) ---
+                # Trade Me prefers JPG. We convert everything to JPG.
+                try:
+                    from PIL import Image
+
+                    with Image.open(filepath) as img:
+                        # Convert P (indexed) or RGBA to RGB
+                        if img.mode in ("RGBA", "P"):
+                            img = img.convert("RGB")
+
+                        # Target Filename (force .jpg)
+                        jpg_filename = f"{sku}.jpg"
+                        jpg_path = self.base_dir / jpg_filename
+
+                        # Resize if huge (Trade Me Max 2048x2048 recommended)
+                        if img.width > 2048 or img.height > 2048:
+                            img.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+
+                        img.save(jpg_path, "JPEG", quality=85, optimize=True)
+
+                        # Update return path to the new JPG
+                        filepath = jpg_path
+                        filename = jpg_filename
+
+                except ImportError:
+                    print("ImageDownloader: PIL not installed. Skipping tuning.")
                 except Exception as e:
-                    last_err = e
-                    time.sleep(min(2.0, 0.5 * (2 ** (attempt - 1))))
-            if last_err is not None:
-                raise last_err
-            
-            # --- IMAGE TUNING (Added for Trade Me Compliance) ---
-            # Trade Me prefers JPG. We convert everything to JPG.
-            try:
-                from PIL import Image
-                with Image.open(filepath) as img:
-                    # Convert P (indexed) or RGBA to RGB
-                    if img.mode in ('RGBA', 'P'):
-                        img = img.convert('RGB')
-                        
-                    # Target Filename (force .jpg)
-                    jpg_filename = f"{sku}.jpg"
-                    jpg_path = self.base_dir / jpg_filename
-                    
-                    # Resize if huge (Trade Me Max 2048x2048 recommended)
-                    if img.width > 2048 or img.height > 2048:
-                        img.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
-                        
-                    img.save(jpg_path, "JPEG", quality=85, optimize=True)
-                    
-                    # Update return path to the new JPG
-                    filepath = jpg_path
-                    filename = jpg_filename
-                    
-            except ImportError:
-                print("ImageDownloader: PIL not installed. Skipping tuning.")
-            except Exception as e:
-                print(f"ImageDownloader: Tuning Failed ({e}). Using raw.")
-            # ----------------------------------------------------
-            
-            # Verify
-            if not filepath.exists():
-                return {"success": False, "path": None, "size": 0, "error": "File not saved"}
-            
-            file_size = filepath.stat().st_size
-            
-            # Suspiciously small (often an HTML error page), but allow very small legit thumbs.
-            # Trade Me may still reject low-res images; LaunchLock separately enforces "exists".
-            if file_size < 300:
-                 return {"success": False, "path": None, "size": file_size, "error": "File too small (<300B)"}
+                    print(f"ImageDownloader: Tuning Failed ({e}). Using raw.")
+                # ----------------------------------------------------
 
-            return {
-                "success": True,
-                "path": str(filepath),
-                "size": file_size,
-                "error": None
-            }
-            
+                # Verify
+                if not filepath.exists():
+                    return {"success": False, "path": None, "size": 0, "error": "File not saved"}
+
+                file_size = filepath.stat().st_size
+
+                # Suspiciously small (often an HTML error page), but allow very small legit thumbs.
+                # Trade Me may still reject low-res images; LaunchLock separately enforces "exists".
+                if file_size < 300:
+                    return {"success": False, "path": None, "size": file_size, "error": "File too small (<300B)"}
+
+                return {"success": True, "path": str(filepath), "size": file_size, "error": None}
+
         except Exception as e:
             # Fallback to system curl (robustness for Pilot)
             print(f"ImageDownloader: Python requests failed ({e}). Trying system curl...")
@@ -206,3 +222,12 @@ class ImageDownloader:
                 }
         
         return {"exists": False, "path": None, "size": 0}
+
+    @classmethod
+    def _get_lock(cls, sku: str) -> threading.Lock:
+        with cls._locks_lock:
+            lk = cls._locks.get(sku)
+            if lk is None:
+                lk = threading.Lock()
+                cls._locks[sku] = lk
+            return lk

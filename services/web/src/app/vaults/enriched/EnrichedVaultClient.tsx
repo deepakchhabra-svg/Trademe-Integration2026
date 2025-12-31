@@ -233,6 +233,20 @@ export function EnrichedVaultClient({
                     totalCount={total}
                     currentPage={page}
                     pageSize={perPage}
+                    emptyState={
+                        <div className="text-center">
+                            <div className="text-sm font-semibold text-slate-900">No enriched products match this filter.</div>
+                            <div className="mt-1 text-sm text-slate-600">Next action: open Pipeline and run Enrich (and Images if needed), or reset filters.</div>
+                            <div className="mt-3 flex justify-center gap-2">
+                                <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                                    Open Pipeline
+                                </Link>
+                                <Link className={buttonClass({ variant: "outline" })} href="/vaults/enriched">
+                                    Reset filters
+                                </Link>
+                            </div>
+                        </div>
+                    }
                 />
             </div>
         </div>

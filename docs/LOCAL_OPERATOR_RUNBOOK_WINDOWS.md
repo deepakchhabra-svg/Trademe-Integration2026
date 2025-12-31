@@ -48,28 +48,28 @@ Open the UI at `http://localhost:3000`.
 
 ### 1) Scrape 2 categories
 
-Go to **Ops Workbench** → **Runbook**.
+Go to **Ops → Pipeline** and open the supplier (ONECHEQ).
 
 - **Select supplier**: ONECHEQ (OC)
 - **Source category**:
   - OC: Shopify collection handle (example: `smartphones-and-mobilephones`)
 - Set **Pages = 1–2** (start small)
-- Click **Start scrape**
-- Click **View results** to confirm items appear in **Vault 1**
+- Click **Run scrape**
+- Click **Open Vault 1** to confirm items appear
 
 Repeat for a second category.
 
 ### 2) Enrich
 
-In Ops Workbench runbook:
+In **Pipeline**:
 
 - Set **Batch size** (start with 25)
-- Click **Enrich now**
-- Click **View results** to confirm items appear in **Vault 2**
+- Click **Run enrich**
+- Click **Open Vault 2** to confirm items appear
 
 ### 3) Create drafts
 
-- Click **Create drafts** (safe)
+- In **Pipeline**, click **Build drafts** (safe)
 - Then open **Vault 3** filtered to **Draft**
 
 ### 4) Judge quality in Vault 3 only
@@ -93,7 +93,7 @@ Only do this if:
 - Trade Me Health shows **Configured + Auth OK**
 - The Draft you chose is **READY**
 
-In Ops Workbench:
+In **Pipeline / Runbook**:
 
 - Click **Publish approved drafts**
 - Default safety: stop-on-failure (enqueues one at a time)

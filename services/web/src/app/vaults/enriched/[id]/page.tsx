@@ -5,6 +5,7 @@ import { PageHeader } from "../../../../components/ui/PageHeader";
 import { SectionCard } from "../../../../components/ui/SectionCard";
 import { StatusBadge } from "../../../../components/ui/StatusBadge";
 import { buttonClass } from "../../../_components/ui";
+import { formatNZT } from "../../../_components/time";
 import { EnrichedActions } from "./Actions";
 
 type InternalProductDetail = {
@@ -56,21 +57,6 @@ function Field({ label, value, testId }: { label: string; value: React.ReactNode
 function imgSrc(raw: string): string {
   if (raw.startsWith("/media/")) return raw.replace(/^\/media\//, "/api/media/");
   return raw;
-}
-
-function formatNZT(iso: string | null | undefined): string {
-  if (!iso) return "unknown";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  const s = new Intl.DateTimeFormat("en-NZ", {
-    timeZone: "Pacific/Auckland",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(d);
-  return `${s} NZT`;
 }
 
 export default async function EnrichedDetailPage({

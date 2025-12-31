@@ -125,21 +125,39 @@ export default async function JobsPage({
               </tr>
             </thead>
             <tbody>
-              {data.items.map((j) => (
-                <tr key={j.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-4 py-3 font-mono text-xs">
-                    <Link className="underline" href={`/ops/jobs#job-${j.id}`}>
-                      {j.id}
-                    </Link>
+              {data.items.length ? (
+                data.items.map((j) => (
+                  <tr key={j.id} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-mono text-xs">
+                      <Link className="underline" href={`/ops/jobs#job-${j.id}`}>
+                        {j.id}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">{j.job_type || "-"}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={j.status || "UNKNOWN"} />
+                    </td>
+                    <td className="px-4 py-3">{formatNZT(j.start_time)}</td>
+                    <td className="px-4 py-3">{formatNZT(j.end_time)}</td>
+                    <td className="px-4 py-3">{j.items_processed ?? 0}</td>
+                    <td className="px-4 py-3">{j.items_failed ?? 0}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="px-4 py-6 text-sm text-slate-600" colSpan={7}>
+                    No jobs match this filter. Next action: run the pipeline for your supplier, then return here to review summaries.
+                    <div className="mt-2 flex gap-2">
+                      <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                        Open Pipeline
+                      </Link>
+                      <Link className={buttonClass({ variant: "outline" })} href="/ops/jobs">
+                        Reset filters
+                      </Link>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">{j.job_type || "-"}</td>
-                  <td className="px-4 py-3"><StatusBadge status={j.status || "UNKNOWN"} /></td>
-                  <td className="px-4 py-3">{formatNZT(j.start_time)}</td>
-                  <td className="px-4 py-3">{formatNZT(j.end_time)}</td>
-                  <td className="px-4 py-3">{j.items_processed ?? 0}</td>
-                  <td className="px-4 py-3">{j.items_failed ?? 0}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

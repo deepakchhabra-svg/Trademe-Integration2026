@@ -7,6 +7,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { buttonClass } from "./_components/ui";
+import { formatNZT } from "./_components/time";
 
 type OpsSummary = {
   utc?: string;
@@ -25,22 +26,6 @@ type OpsSummary = {
 
 type Supplier = { id: number; name: string };
 type TradeMeHealth = { configured?: boolean; auth_ok?: boolean; utc?: string; offline?: boolean; error?: string };
-
-function formatNZTFromUTC(utcIso?: string): string {
-  if (!utcIso) return "-";
-  const d = new Date(utcIso);
-  if (Number.isNaN(d.getTime())) return utcIso;
-  return (
-    new Intl.DateTimeFormat("en-NZ", {
-      timeZone: "Pacific/Auckland",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(d) + " NZT"
-  );
-}
 
 async function enqueue(type: string, payload: Record<string, unknown>, priority = 60): Promise<{ id: string }> {
   return await apiPostClient<{ id: string }>("/ops/enqueue", { type, payload, priority });
@@ -97,7 +82,7 @@ export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
     };
   }, []);
 
-  const updatedLabel = useMemo(() => formatNZTFromUTC(summary.utc), [summary.utc]);
+  const updatedLabel = useMemo(() => formatNZT(summary.utc), [summary.utc]);
 
   async function refresh() {
     if (refreshing) return;

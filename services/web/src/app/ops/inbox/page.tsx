@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiGet } from "../../_components/api";
 import { Badge } from "../../_components/Badge";
 import { InboxCommandActions } from "./Actions";
+import { formatNZT } from "../../_components/time";
 
 type Inbox = {
   offline?: boolean;
@@ -92,7 +93,7 @@ export default async function InboxPage() {
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <Badge tone={g.error_code === "NONE" ? "amber" : "red"}>{g.error_code}</Badge>
                             <Badge tone="blue">{g.count}</Badge>
-                            <span className="text-[11px] text-slate-600">{g.latest_updated_at || "-"}</span>
+                            <span className="text-[11px] text-slate-600">{formatNZT(g.latest_updated_at)}</span>
                           </div>
                         </div>
                         <Link
@@ -119,7 +120,7 @@ export default async function InboxPage() {
                         {c.id.slice(0, 12)}
                       </Link>
                       <div className="mt-1 text-sm">{c.type}</div>
-                      <div className="mt-1 text-xs text-slate-600">{c.updated_at || "-"}</div>
+                      <div className="mt-1 text-xs text-slate-600">{formatNZT(c.updated_at)}</div>
                     </div>
                     <div className="flex items-start gap-3">
                       {c.error_code ? <Badge tone="red">{c.error_code}</Badge> : <Badge tone="amber">{c.status}</Badge>}
@@ -152,7 +153,7 @@ export default async function InboxPage() {
                     <div>
                       <div className="font-mono text-xs">{o.tm_order_ref}</div>
                       <div className="mt-1 text-sm">{o.buyer_name || "-"}</div>
-                      <div className="mt-1 text-xs text-slate-600">{o.created_at || "-"}</div>
+                      <div className="mt-1 text-xs text-slate-600">{formatNZT(o.created_at)}</div>
                     </div>
                     <Badge tone="amber">{o.sold_price == null ? "-" : `$${o.sold_price.toFixed(2)}`}</Badge>
                   </div>
@@ -183,7 +184,7 @@ export default async function InboxPage() {
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <Badge tone="amber">{g.status}</Badge>
                           <Badge tone="blue">{g.count}</Badge>
-                          <span className="text-[11px] text-slate-600">{g.latest_updated_at || "-"}</span>
+                          <span className="text-[11px] text-slate-600">{formatNZT(g.latest_updated_at)}</span>
                         </div>
                       </div>
                       <Link
@@ -208,7 +209,7 @@ export default async function InboxPage() {
                     </Link>
                     <div className="mt-1 text-sm">{c.type}</div>
                     <div className="mt-1 text-xs text-slate-600">
-                      {c.status} · {c.attempts}/{c.max_attempts} · {c.updated_at || "-"}
+                      {c.status} · {c.attempts}/{c.max_attempts} · {formatNZT(c.updated_at)}
                     </div>
                   </div>
                   <Badge tone="amber">{c.status}</Badge>

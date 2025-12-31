@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import Link from "next/link";
+import { useUISettings } from "../../app/_components/UISettingsProvider";
 
 export interface ColumnDef<T> {
     key: string;
@@ -21,9 +22,11 @@ export interface DataTableProps<T> {
     sortDirection?: "asc" | "desc";
     onSort?: (column: string) => void;
     emptyMessage?: string;
+    emptyState?: ReactNode;
     stickyHeader?: boolean;
     loading?: boolean;
     rowIdKey?: string;
+    density?: "compact" | "comfortable";
 }
 
 export function DataTable<T extends Record<string, unknown>>({
@@ -36,10 +39,14 @@ export function DataTable<T extends Record<string, unknown>>({
     sortDirection,
     onSort,
     emptyMessage = "No data available",
+    emptyState,
     stickyHeader = true,
     loading = false,
     rowIdKey = "id",
+    density,
 }: DataTableProps<T>) {
+    const { density: uiDensity } = useUISettings();
+    const effectiveDensity = density ?? uiDensity ?? "compact";
     if (loading) {
         return (
             <div className="animate-pulse space-y-2" data-testid="table-loading">
@@ -56,7 +63,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 className="flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-12"
                 data-testid="table-empty"
             >
-                <p className="text-sm text-slate-600">{emptyMessage}</p>
+                {emptyState ? <div className="px-6">{emptyState}</div> : <p className="text-sm text-slate-600">{emptyMessage}</p>}
             </div>
         );
     }
@@ -65,21 +72,24 @@ export function DataTable<T extends Record<string, unknown>>({
     const startRow = (currentPage - 1) * pageSize + 1;
     const endRow = Math.min(currentPage * pageSize, totalCount);
 
+    const thPad = effectiveDensity === "comfortable" ? "px-4 py-3" : "px-3 py-2";
+    const tdPad = effectiveDensity === "comfortable" ? "px-4 py-3" : "px-3 py-2";
+
     return (
         <div className="space-y-4" data-testid="data-table">
             <div className="text-sm text-slate-600" data-testid="table-pagination-info">
                 Showing {startRow}-{endRow} of {totalCount}
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto rounded-xl border ros-border ros-surface ros-shadow">
+                <table className="w-full border-collapse text-left text-sm tabular-nums">
                     <thead
-                        className={`bg-slate-50 text-xs uppercase tracking-wide text-slate-500 ${stickyHeader ? "sticky top-0 z-10" : ""
+                        className={`ros-surface-strong text-[11px] uppercase tracking-wide ros-muted ${stickyHeader ? "sticky top-0 z-10 shadow-sm" : ""
                             }`}
                     >
                         <tr>
                             {columns.map((column) => (
-                                <th key={column.key} className={`px-4 py-3 ${column.className || ""}`}>
+                                <th key={column.key} className={`${thPad} border-b ros-border ${column.className || ""}`}>
                                     {column.sortable && onSort ? (
                                         <button
                                             type="button"
@@ -107,7 +117,7 @@ export function DataTable<T extends Record<string, unknown>>({
                             return (
                                 <tr
                                     key={rowIndex}
-                                    className="border-t border-slate-100 align-top hover:bg-slate-50"
+                                    className="align-top odd:bg-white even:bg-slate-50/40 hover:bg-indigo-50/40"
                                     data-testid={`row-${rowId}`}
                                 >
                                     {columns.map((column) => {
@@ -115,7 +125,7 @@ export function DataTable<T extends Record<string, unknown>>({
                                         return (
                                             <td
                                                 key={column.key}
-                                                className={`px-4 py-3 ${column.className || ""}`}
+                                                className={`${tdPad} border-t ros-border ${column.className || ""}`}
                                                 data-testid={`cell-${rowId}-${column.key}`}
                                             >
                                                 {column.render ? column.render(value, row) : String(value ?? "-")}

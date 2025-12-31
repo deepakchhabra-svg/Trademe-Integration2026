@@ -1,8 +1,10 @@
 import { apiGet } from "../../_components/api";
+import Link from "next/link";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { DataTable } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { buttonClass } from "../../_components/ui";
 
 type Readiness = {
   totals: { internal_products: number; ready: number; blocked: number };
@@ -70,7 +72,20 @@ export default async function PublishReadinessPage() {
             totalCount={r.top_blockers.length}
             currentPage={1}
             pageSize={r.top_blockers.length || 1}
-            emptyMessage="No blockers"
+            emptyState={
+              <div className="text-center">
+                <div className="text-sm font-semibold text-slate-900">No blockers found.</div>
+                <div className="mt-1 text-sm text-slate-600">Next action: validate drafts on Trade Me Health, then publish from Pipeline/Runbook.</div>
+                <div className="mt-3 flex justify-center gap-2">
+                  <Link className={buttonClass({ variant: "outline" })} href="/ops/trademe">
+                    Trade Me health →
+                  </Link>
+                  <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                    Pipeline →
+                  </Link>
+                </div>
+              </div>
+            }
             stickyHeader={false}
           />
         </SectionCard>

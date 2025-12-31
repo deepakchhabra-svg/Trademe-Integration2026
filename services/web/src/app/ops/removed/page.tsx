@@ -137,8 +137,16 @@ export default async function RemovedItemsPage({ searchParams }: { searchParams:
                 ))
               ) : (
                 <tr>
-                  <td className="p-4 text-slate-500" colSpan={6}>
-                    No removed items found.
+                        <td className="p-4 text-slate-600" colSpan={6}>
+                          No removed items found. Next action: run a fresh Scrape in Pipeline, then come back here to confirm removals and withdraw status.
+                          <div className="mt-2 flex gap-2">
+                            <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                              Open Pipeline
+                            </Link>
+                            <Link className={buttonClass({ variant: "outline" })} href="/ops/removed">
+                              Reset filters
+                            </Link>
+                          </div>
                   </td>
                 </tr>
               )}

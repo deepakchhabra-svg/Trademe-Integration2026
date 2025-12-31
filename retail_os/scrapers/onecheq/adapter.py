@@ -53,6 +53,7 @@ class OneCheqAdapter:
             
         print(f"Adapter: Starting Sync for {self.supplier_name} (Pages={'UNLIMITED' if pages == 0 else pages}, Collection={collection})...")
         sync_start_time = datetime.utcnow()
+        t0 = datetime.utcnow()
         
         # 1. Get Raw Data
         concurrency = int(os.getenv("RETAILOS_ONECHEQ_CONCURRENCY", "8"))
@@ -66,6 +67,16 @@ class OneCheqAdapter:
         log = logging.getLogger(__name__)
         if progress_every <= 0:
             progress_every = 0
+
+        # Best-effort total estimate for progress bars (honest: omit when unknown).
+        total_estimate = None
+        try:
+            if pages and int(pages) > 0:
+                json_limit = int(os.getenv("RETAILOS_ONECHEQ_JSON_LIMIT", "250") or "250")
+                json_limit = max(1, min(250, json_limit))
+                total_estimate = int(pages) * int(json_limit)
+        except Exception:
+            total_estimate = None
         
         for item in raw_items_gen:
             # Cooperative cancellation: allow the operator to cancel long runs.
@@ -84,8 +95,14 @@ class OneCheqAdapter:
                 unified: UnifiedProduct = normalize_onecheq_row(item)
 
                 # Category/collection partitioning (critical for 20k+ scale)
-                # Store Shopify collection handle as supplier-native category.
-                unified["source_category"] = collection
+                # Preserve traversal context and/or derived membership from scraper.
+                # - For /collections/all, the scraper derives a primary source_category from membership.
+                # - For scoped runs, primary source_category remains the collection handle.
+                unified["source_category"] = (item.get("source_category") or collection) if isinstance(item, dict) else collection
+                if isinstance(item, dict) and item.get("source_categories") is not None:
+                    unified["source_categories"] = item.get("source_categories")
+                else:
+                    unified["source_categories"] = [collection] if collection else []
                 
                 # 3. Validation
                 if not unified["source_listing_id"] or not unified["title"]:
@@ -118,6 +135,16 @@ class OneCheqAdapter:
                     pass
                 try:
                     if progress_hook:
+                        # ETA only when we have a total estimate
+                        eta = None
+                        try:
+                            if total_estimate is not None:
+                                elapsed = (datetime.utcnow() - t0).total_seconds()
+                                rate = (count_total_scraped / elapsed) if elapsed > 0 else 0.0
+                                if rate > 0:
+                                    eta = int(round(max(total_estimate - count_total_scraped, 0) / rate))
+                        except Exception:
+                            eta = None
                         progress_hook(
                             {
                                 "phase": "scrape",
@@ -125,6 +152,10 @@ class OneCheqAdapter:
                                 "collection": collection,
                                 "scraped": int(count_total_scraped),
                                 "upserted": int(count_updated),
+                                "done": int(count_total_scraped),
+                                "total": int(total_estimate) if total_estimate is not None else None,
+                                "eta_seconds": eta,
+                                "message": f"Scrape: {count_total_scraped} scraped ({count_updated} upserted)",
                             }
                         )
                 except Exception:
@@ -150,7 +181,11 @@ class OneCheqAdapter:
                             "collection": collection,
                             "scraped": int(count_total_scraped),
                             "upserted": int(count_updated),
-                            "done": True,
+                            "done": int(count_total_scraped),
+                            "total": int(total_estimate) if total_estimate is not None else None,
+                            "eta_seconds": 0 if total_estimate is not None else None,
+                            "message": f"Scrape: {count_total_scraped} scraped ({count_updated} upserted)",
+                            "finished": True,
                         }
                     )
             except Exception:
@@ -303,6 +338,7 @@ class OneCheqAdapter:
                 collection_rank=data.get("collection_rank"),
                 collection_page=data.get("collection_page"),
                 source_category=data.get("source_category"),
+                source_categories=data.get("source_categories"),
                 snapshot_hash=current_hash,
                 last_scraped_at=datetime.utcnow()
             )
@@ -330,6 +366,7 @@ class OneCheqAdapter:
             # Always refresh category/ranking metadata even if content snapshot is unchanged.
             # Otherwise older rows (or newly-added DB columns) never get populated.
             sp.source_category = data.get("source_category")
+            sp.source_categories = data.get("source_categories")
             sp.collection_rank = data.get("collection_rank")
             sp.collection_page = data.get("collection_page")
             
@@ -374,6 +411,8 @@ class OneCheqAdapter:
                 sp.specs = specs
                 sp.collection_rank = data.get("collection_rank")
                 sp.collection_page = data.get("collection_page")
+                sp.source_category = data.get("source_category")
+                sp.source_categories = data.get("source_categories")
                 sp.snapshot_hash = current_hash
                 
                 self.db.commit()

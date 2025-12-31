@@ -73,6 +73,9 @@ class SupplierProduct(Base):
     # Categorization (for scaling to 20k+ listings)
     # Supplier-native category/collection path or identifier.
     source_category = Column(String)
+    # Supplier-native category memberships (e.g. Shopify collection handles).
+    # This enables accurate mapping even when scraping /collections/all.
+    source_categories = Column(JSON)
     
     # Ranking Data (Added for Noel Leeming prioritization)
     collection_rank = Column(Integer)
@@ -215,6 +218,26 @@ class SystemCommand(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CommandProgress(Base):
+    """
+    DB-backed progress for long-running commands.
+    This persists across restarts and avoids hiding progress inside free-form JSON payloads.
+    """
+
+    __tablename__ = "command_progress"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    command_id = Column(String, ForeignKey("system_commands.id"), unique=True, nullable=False)
+    phase = Column(String)  # scrape/images/enrich/draft/validate/publish/withdraw
+    done = Column(Integer)  # processed count
+    total = Column(Integer)  # optional total estimate
+    eta_seconds = Column(Integer)  # optional ETA estimate
+    message = Column(Text)  # operator-friendly summary
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    command = relationship("SystemCommand")
 
 
 class CommandLog(Base):
@@ -388,6 +411,8 @@ def _auto_migrate_sqlite_schema() -> None:
             {
                 # Added for category-based scaling.
                 "source_category": "VARCHAR",
+                # Added for multi-category membership (Shopify collections)
+                "source_categories": "TEXT",
                 # Added for Noel Leeming ranking support.
                 "collection_rank": "INTEGER",
                 "collection_page": "INTEGER",

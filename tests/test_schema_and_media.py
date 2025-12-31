@@ -112,6 +112,8 @@ def test_ops_summary_endpoint_shape(tmp_path: Path):
 
     db_file = tmp_path / "retail_os.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+    # Tests use header roles; production should keep this off by default.
+    os.environ["RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES"] = "true"
 
     import services.api.main as mod
 
@@ -133,6 +135,7 @@ def test_command_logs_endpoint_shape(tmp_path: Path):
 
     db_file = tmp_path / "retail_os.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+    os.environ["RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES"] = "true"
 
     import retail_os.core.database as db
     import services.api.main as mod
@@ -167,6 +170,7 @@ def test_supplier_policy_endpoints(tmp_path: Path):
 
     db_file = tmp_path / "retail_os.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
+    os.environ["RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES"] = "true"
 
     import retail_os.core.database as db
     import services.api.main as mod

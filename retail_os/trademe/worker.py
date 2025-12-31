@@ -1021,6 +1021,33 @@ class CommandWorker:
                             p["progress"]["updated_at"] = datetime.now(timezone.utc).isoformat()
                             row.payload = p
                             row.updated_at = datetime.now(timezone.utc)
+
+                            # DB-backed progress snapshot (survives restarts)
+                            try:
+                                from retail_os.core.database import CommandProgress
+
+                                pr = (
+                                    s2.query(CommandProgress)
+                                    .filter(CommandProgress.command_id == str(command.id))
+                                    .first()
+                                )
+                                if not pr:
+                                    pr = CommandProgress(command_id=str(command.id))
+                                    s2.add(pr)
+
+                                pr.phase = str((info or {}).get("phase") or pr.phase or "")
+                                pr.done = (info or {}).get("done") if (info or {}).get("done") is not None else pr.done
+                                pr.total = (info or {}).get("total") if (info or {}).get("total") is not None else pr.total
+                                pr.eta_seconds = (
+                                    (info or {}).get("eta_seconds")
+                                    if (info or {}).get("eta_seconds") is not None
+                                    else pr.eta_seconds
+                                )
+                                pr.message = str((info or {}).get("message") or pr.message or "")
+                                pr.updated_at = datetime.utcnow()
+                            except Exception:
+                                pass
+
                             s2.commit()
                     except Exception:
                         return
@@ -1242,12 +1269,67 @@ class CommandWorker:
             job_row_id = job.id
 
         with SessionLocal() as s:
+            def _is_cancelled() -> bool:
+                try:
+                    with SessionLocal() as s0:
+                        row0 = s0.query(SystemCommand).filter(SystemCommand.id == str(command.id)).first()
+                        if not row0:
+                            return False
+                        return row0.status == CommandStatus.CANCELLED
+                except Exception:
+                    return False
+
+            def _progress_hook(info: dict) -> None:
+                try:
+                    with SessionLocal() as s2:
+                        row = s2.query(SystemCommand).filter(SystemCommand.id == str(command.id)).first()
+                        if not row:
+                            return
+                        p = row.payload or {}
+                        p["progress"] = {**(p.get("progress") or {}), **(info or {})}
+                        p["progress"]["updated_at"] = datetime.now(timezone.utc).isoformat()
+                        row.payload = p
+                        row.updated_at = datetime.now(timezone.utc)
+
+                        # DB-backed progress snapshot (survives restarts)
+                        try:
+                            from retail_os.core.database import CommandProgress
+
+                            pr = (
+                                s2.query(CommandProgress)
+                                .filter(CommandProgress.command_id == str(command.id))
+                                .first()
+                            )
+                            if not pr:
+                                pr = CommandProgress(command_id=str(command.id))
+                                s2.add(pr)
+
+                            pr.phase = str((info or {}).get("phase") or pr.phase or "")
+                            pr.done = (info or {}).get("done") if (info or {}).get("done") is not None else pr.done
+                            pr.total = (info or {}).get("total") if (info or {}).get("total") is not None else pr.total
+                            pr.eta_seconds = (
+                                (info or {}).get("eta_seconds")
+                                if (info or {}).get("eta_seconds") is not None
+                                else pr.eta_seconds
+                            )
+                            pr.message = str((info or {}).get("message") or pr.message or "")
+                            pr.updated_at = datetime.utcnow()
+                        except Exception:
+                            pass
+
+                        s2.commit()
+                except Exception:
+                    return
+
             res = backfill_supplier_images_onecheq(
                 session=s,
                 supplier_id=supplier_id,
                 batch=batch,
                 concurrency=concurrency,
                 max_seconds=max_seconds,
+                cmd_id=str(command.id),
+                progress_hook=_progress_hook,
+                should_abort=_is_cancelled,
             )
 
         with SessionLocal() as s:
@@ -1293,7 +1375,59 @@ class CommandWorker:
             job_row_id = job.id
 
         with SessionLocal() as s:
-            res = validate_launchlock(session=s, supplier_id=supplier_id, limit=limit)
+            def _is_cancelled() -> bool:
+                try:
+                    with SessionLocal() as s0:
+                        row0 = s0.query(SystemCommand).filter(SystemCommand.id == str(command.id)).first()
+                        if not row0:
+                            return False
+                        return row0.status == CommandStatus.CANCELLED
+                except Exception:
+                    return False
+
+            def _progress_hook(info: dict) -> None:
+                try:
+                    with SessionLocal() as s2:
+                        row = s2.query(SystemCommand).filter(SystemCommand.id == str(command.id)).first()
+                        if not row:
+                            return
+                        p = row.payload or {}
+                        p["progress"] = {**(p.get("progress") or {}), **(info or {})}
+                        p["progress"]["updated_at"] = datetime.now(timezone.utc).isoformat()
+                        row.payload = p
+                        row.updated_at = datetime.now(timezone.utc)
+
+                        # DB-backed progress snapshot (survives restarts)
+                        try:
+                            from retail_os.core.database import CommandProgress
+
+                            pr = (
+                                s2.query(CommandProgress)
+                                .filter(CommandProgress.command_id == str(command.id))
+                                .first()
+                            )
+                            if not pr:
+                                pr = CommandProgress(command_id=str(command.id))
+                                s2.add(pr)
+
+                            pr.phase = str((info or {}).get("phase") or pr.phase or "")
+                            pr.done = (info or {}).get("done") if (info or {}).get("done") is not None else pr.done
+                            pr.total = (info or {}).get("total") if (info or {}).get("total") is not None else pr.total
+                            pr.eta_seconds = (
+                                (info or {}).get("eta_seconds")
+                                if (info or {}).get("eta_seconds") is not None
+                                else pr.eta_seconds
+                            )
+                            pr.message = str((info or {}).get("message") or pr.message or "")
+                            pr.updated_at = datetime.utcnow()
+                        except Exception:
+                            pass
+
+                        s2.commit()
+                except Exception:
+                    return
+
+            res = validate_launchlock(session=s, supplier_id=supplier_id, limit=limit, cmd_id=str(command.id), progress_hook=_progress_hook, should_abort=_is_cancelled)
 
         with SessionLocal() as s:
             job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None

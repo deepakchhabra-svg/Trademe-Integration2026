@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from selectolax.parser import HTMLParser
 import httpx
 
+from retail_os.utils.http_throttle import GlobalHTTPThrottle
+
 
 def _fmt_secs(secs: float) -> str:
     if secs < 0:
@@ -38,9 +40,11 @@ def get_html_via_httpx(url: str, client: Optional[httpx.Client] = None) -> Optio
         try:
             if client is None:
                 with httpx.Client(headers=headers, follow_redirects=True, timeout=20.0) as c:
-                    response = c.get(url)
+                    with GlobalHTTPThrottle.request(url):
+                        response = c.get(url)
             else:
-                response = client.get(url, headers=headers)
+                with GlobalHTTPThrottle.request(url):
+                    response = client.get(url, headers=headers)
 
             if response.status_code in (429, 503, 502, 504):
                 raise httpx.HTTPStatusError(
@@ -236,6 +240,131 @@ def _shopify_products_json_url(collection: str, page: int, limit: int = 250) -> 
     return f"https://onecheq.co.nz/collections/{collection}/products.json?limit={int(limit)}&page={int(page)}"
 
 
+def _shopify_collections_json_url(page: int, limit: int = 250) -> str:
+    return f"https://onecheq.co.nz/collections.json?limit={int(limit)}&page={int(page)}"
+
+
+def _fetch_json_with_retries(url: str, client: httpx.Client, attempts: int = 4) -> dict:
+    last_err: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with GlobalHTTPThrottle.request(url):
+                r = client.get(url, headers={"Accept": "application/json"})
+            if r.status_code in (429, 503, 502, 504):
+                raise httpx.HTTPStatusError(f"{r.status_code} from supplier", request=r.request, response=r)
+            r.raise_for_status()
+            data = r.json()
+            if isinstance(data, dict):
+                return data
+            return {}
+        except Exception as e:
+            last_err = e
+            time.sleep(min(8.0, 0.7 * (2 ** (attempt - 1))))
+    raise RuntimeError(f"Failed to fetch JSON: {url} ({last_err})")
+
+
+def _choose_primary_collection(handles: list[str]) -> str:
+    hs = [h for h in (handles or []) if isinstance(h, str) and h.strip()]
+    hs = sorted(set(hs), key=lambda x: (-len(x), x.lower()))
+    return hs[0] if hs else "all"
+
+
+def build_onecheq_collection_index(client: httpx.Client, cmd_id: str | None = None) -> dict[str, list[str]]:
+    """
+    Build mapping: product_handle -> [collection_handle...]
+    Used to derive an accurate source_category even when scraping /collections/all.
+    """
+    import logging
+    from pathlib import Path
+
+    log = logging.getLogger(__name__)
+    cache_dir = Path("data") / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / "onecheq_collection_index.json"
+    ttl_hours = float(os.getenv("RETAILOS_ONECHEQ_COLLECTION_INDEX_TTL_HOURS", "24") or "24")
+
+    # Cache load
+    try:
+        if cache_path.exists():
+            raw = json.loads(cache_path.read_text(encoding="utf-8"))
+            built_at = float(raw.get("built_at_unix") or 0.0)
+            if built_at:
+                age_h = (time.time() - built_at) / 3600.0
+                if age_h <= ttl_hours and isinstance(raw.get("index"), dict):
+                    return {str(k): list(v) for k, v in raw["index"].items()}
+    except Exception:
+        pass
+
+    if cmd_id:
+        log.info(f"COLLECTION_INDEX_START cmd_id={cmd_id} supplier=ONECHEQ")
+
+    handles: list[str] = []
+    page = 1
+    limit = 250
+    max_collections = int(os.getenv("RETAILOS_ONECHEQ_COLLECTION_INDEX_MAX_COLLECTIONS", "2000") or "2000")
+    while True:
+        u = _shopify_collections_json_url(page=page, limit=limit)
+        data = _fetch_json_with_retries(u, client=client)
+        cols = data.get("collections") if isinstance(data, dict) else None
+        if not cols or not isinstance(cols, list):
+            break
+        for c in cols:
+            if isinstance(c, dict) and (c.get("handle") or "").strip():
+                handles.append(str(c["handle"]).strip())
+        if len(handles) >= max_collections:
+            handles = handles[:max_collections]
+            break
+        if len(cols) < limit:
+            break
+        page += 1
+
+    handles = sorted(set(handles))
+    index: dict[str, list[str]] = {}
+
+    conc = int(os.getenv("RETAILOS_ONECHEQ_COLLECTION_INDEX_CONCURRENCY", "4") or "4")
+    conc = max(1, min(16, conc))
+
+    def _scan_collection(handle: str) -> tuple[str, list[str]]:
+        products: list[str] = []
+        p = 1
+        while True:
+            url = _shopify_products_json_url(collection=handle, page=p, limit=250)
+            d = _fetch_json_with_retries(url, client=client)
+            prods = d.get("products") if isinstance(d, dict) else None
+            if not prods or not isinstance(prods, list):
+                break
+            for pr in prods:
+                if isinstance(pr, dict) and pr.get("handle"):
+                    products.append(str(pr["handle"]))
+            if len(prods) < 250:
+                break
+            p += 1
+        return handle, products
+
+    with ThreadPoolExecutor(max_workers=min(conc, max(1, len(handles)))) as ex:
+        futs = [ex.submit(_scan_collection, h) for h in handles]
+        done = 0
+        for fut in as_completed(futs):
+            h, prods = fut.result()
+            for ph in prods:
+                index.setdefault(ph, []).append(h)
+            done += 1
+            if cmd_id and (done % 25 == 0):
+                log.info(f"COLLECTION_INDEX_PROGRESS cmd_id={cmd_id} supplier=ONECHEQ scanned={done}/{len(handles)}")
+
+    for k, v in list(index.items()):
+        index[k] = sorted(set(v), key=lambda x: (-len(x), x.lower()))
+
+    try:
+        cache_path.write_text(json.dumps({"built_at_unix": time.time(), "index": index}), encoding="utf-8")
+    except Exception:
+        pass
+
+    if cmd_id:
+        log.info(f"COLLECTION_INDEX_DONE cmd_id={cmd_id} supplier=ONECHEQ collections={len(handles)} products={len(index)}")
+    return index
+
+
 def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, client: httpx.Client, cmd_id: str | None = None):
     """
     Fast, authoritative Shopify JSON scrape.
@@ -260,6 +389,18 @@ def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, cli
     import logging
     log = logging.getLogger(__name__)
 
+    membership_index: dict[str, list[str]] | None = None
+    if collection == "all":
+        try:
+            membership_index = build_onecheq_collection_index(client=client, cmd_id=cmd_id)
+        except Exception as e:
+            membership_index = None
+            try:
+                if cmd_id:
+                    log.warning(f"COLLECTION_INDEX_FAILED cmd_id={cmd_id} supplier=ONECHEQ error={str(e)[:200]}")
+            except Exception:
+                pass
+
     while True:
         if max_pages and pages_seen >= int(max_pages):
             break
@@ -273,7 +414,8 @@ def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, cli
         except Exception:
             pass
 
-        r = client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        with GlobalHTTPThrottle.request(url):
+            r = client.get(url, headers={"User-Agent": "Mozilla/5.0"})
         r.raise_for_status()
         products = (r.json() or {}).get("products") or []
         if not products:
@@ -334,6 +476,23 @@ def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, cli
                 specs["SupplierLot"] = lot
             specs["Condition"] = condition
 
+            # Category membership (fix for /collections/all correctness):
+            # - collection != all: preserve traversal context
+            # - collection == all: derive from collection membership index
+            source_categories: list[str] = []
+            primary_source_category = collection
+            try:
+                if collection != "all":
+                    source_categories = [collection]
+                    primary_source_category = collection
+                else:
+                    cats = (membership_index or {}).get(handle) or []
+                    source_categories = list(cats)
+                    primary_source_category = _choose_primary_collection(cats)
+            except Exception:
+                source_categories = [collection]
+                primary_source_category = collection
+
             total += 1
             yield {
                 "source_id": f"OC-{handle}",
@@ -343,7 +502,8 @@ def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, cli
                 "brand": brand,
                 "condition": condition,
                 "buy_now_price": price,
-                "stock_level": 1 if available else 0,
+                # Quantity is not reliably exposed by OneCheq (Shopify JSON). Keep null and use source_status.
+                "stock_level": None,
                 "photo1": imgs[0] if len(imgs) > 0 else None,
                 "photo2": imgs[1] if len(imgs) > 1 else None,
                 "photo3": imgs[2] if len(imgs) > 2 else None,
@@ -351,6 +511,8 @@ def _iter_onecheq_products_via_shopify_json(collection: str, max_pages: int, cli
                 "source_status": "Available" if available else "Sold",
                 "specs": specs,
                 "sku": handle,
+                "source_category": primary_source_category,
+                "source_categories": source_categories,
                 "collection_rank": total,
                 "collection_page": page,
             }

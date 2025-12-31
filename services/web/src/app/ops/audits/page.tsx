@@ -3,6 +3,7 @@ import { Badge } from "../../_components/Badge";
 import Link from "next/link";
 import { buildQueryString } from "../../_components/pagination";
 import { buttonClass } from "../../_components/ui";
+import { formatNZT } from "../../_components/time";
 
 type PageResponse<T> = { items: T[]; total: number };
 
@@ -129,22 +130,39 @@ export default async function AuditsPage({
               </tr>
             </thead>
             <tbody>
-              {data.items.map((a) => (
-                <tr key={a.id} className="border-t border-slate-100 hover:bg-slate-50 align-top">
-                  <td className="px-4 py-3 font-mono text-xs">{a.timestamp || "-"}</td>
-                  <td className="px-4 py-3">{a.action || "-"}</td>
-                  <td className="px-4 py-3">
-                    <div className="text-xs text-slate-600">{a.entity_type || "-"}</div>
-                    <div className="font-mono text-xs">{a.entity_id || "-"}</div>
-                  </td>
-                  <td className="px-4 py-3">{a.user || "-"}</td>
-                  <td className="px-4 py-3">
-                    <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
-                      {(a.new_value || "-").slice(0, 2000)}
-                    </pre>
+              {data.items.length ? (
+                data.items.map((a) => (
+                  <tr key={a.id} className="border-t border-slate-100 hover:bg-slate-50 align-top">
+                    <td className="px-4 py-3 font-mono text-xs">{formatNZT(a.timestamp)}</td>
+                    <td className="px-4 py-3">{a.action || "-"}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-xs text-slate-600">{a.entity_type || "-"}</div>
+                      <div className="font-mono text-xs">{a.entity_id || "-"}</div>
+                    </td>
+                    <td className="px-4 py-3">{a.user || "-"}</td>
+                    <td className="px-4 py-3">
+                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px] text-slate-900">
+                        {(a.new_value || "-").slice(0, 2000)}
+                      </pre>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="px-4 py-6 text-sm text-slate-600" colSpan={5}>
+                    No audits match this filter.
+                    <div className="mt-1 text-sm text-slate-600">Next action: run Pipeline operations, then use this page to understand what changed and why.</div>
+                    <div className="mt-2 flex gap-2">
+                      <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                        Open Pipeline
+                      </Link>
+                      <Link className={buttonClass({ variant: "outline" })} href="/ops/audits">
+                        Reset filters
+                      </Link>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

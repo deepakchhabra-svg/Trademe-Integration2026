@@ -183,6 +183,22 @@ export function LiveVaultClient({
                     totalCount={total}
                     currentPage={page}
                     pageSize={perPage}
+                    emptyState={
+                        <div className="text-center">
+                            <div className="text-sm font-semibold text-slate-900">No listings match this filter.</div>
+                            <div className="mt-1 text-sm text-slate-600">
+                                Next action: open Pipeline and run Draft (after Scrape/Images/Enrich), or reset filters.
+                            </div>
+                            <div className="mt-3 flex justify-center gap-2">
+                                <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                                    Open Pipeline
+                                </Link>
+                                <Link className={buttonClass({ variant: "outline" })} href="/vaults/live?status=DRY_RUN">
+                                    View drafts
+                                </Link>
+                            </div>
+                        </div>
+                    }
                 />
             </div>
         </div>

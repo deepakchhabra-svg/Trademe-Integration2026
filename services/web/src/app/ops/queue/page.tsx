@@ -163,24 +163,41 @@ export default async function QueuePage({
               </tr>
             </thead>
             <tbody>
-              {data.items.map((c) => (
-                <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50 align-top">
-                  <td className="px-4 py-3 font-mono text-xs">
-                    <Link className="underline" href={`/ops/commands/${c.id}`}>
-                      {c.id.slice(0, 12)}
-                    </Link>
+              {data.items.length ? (
+                data.items.map((c) => (
+                  <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50 align-top">
+                    <td className="px-4 py-3 font-mono text-xs">
+                      <Link className="underline" href={`/ops/commands/${c.id}`}>
+                        {c.id.slice(0, 12)}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">{typeLabel(c.type)}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={c.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {c.attempts}/{c.max_attempts}
+                    </td>
+                    <td className="px-4 py-3">{formatNZT(c.created_at)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{c.last_error || "-"}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="px-4 py-6 text-sm text-slate-600" colSpan={6}>
+                    No commands match this view/filter.
+                    <div className="mt-1 text-sm text-slate-600">Next action: run the supplier pipeline, then come back here to watch progress.</div>
+                    <div className="mt-2 flex gap-2">
+                      <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                        Open Pipeline
+                      </Link>
+                      <Link className={buttonClass({ variant: "outline" })} href={tab("active")}>
+                        Show running / queued
+                      </Link>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">{typeLabel(c.type)}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={c.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    {c.attempts}/{c.max_attempts}
-                  </td>
-                  <td className="px-4 py-3">{formatNZT(c.created_at)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{c.last_error || "-"}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

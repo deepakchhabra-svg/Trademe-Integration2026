@@ -1,9 +1,37 @@
 @import "tailwindcss";
 
 :root {
-  /* ERP-grade neutrals + single brand primary */
+  /* -------------------------------------------------
+   * RetailOS UI tokens (light mode)
+   * Keep these small + intentional; components compose Tailwind on top.
+   * ------------------------------------------------- */
   --background: #f8fafc; /* slate-50 */
   --foreground: #0f172a; /* slate-900 */
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-strong: #ffffff;
+  --border: rgba(15, 23, 42, 0.10);
+  --muted: rgba(15, 23, 42, 0.62);
+  --shadow: 0 1px 2px rgba(2, 6, 23, 0.06), 0 10px 30px rgba(2, 6, 23, 0.06);
+
+  /* Brand */
+  --primary: #4f46e5; /* indigo-600 */
+  --primary-foreground: #ffffff;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #070b14; /* deep navy */
+  --foreground: #e5e7eb; /* slate-200 */
+  --surface: rgba(15, 23, 42, 0.66); /* slate-900 w/ alpha */
+  --surface-strong: rgba(2, 6, 23, 0.72); /* slate-950 w/ alpha */
+  --border: rgba(226, 232, 240, 0.14);
+  --muted: rgba(226, 232, 240, 0.70);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 @theme inline {
@@ -11,13 +39,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
@@ -30,4 +51,54 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Subtle product-grade depth without “fancy” */
+  background-image:
+    radial-gradient(900px 420px at 10% -10%, rgba(79, 70, 229, 0.10), transparent 60%),
+    radial-gradient(900px 420px at 90% -10%, rgba(16, 185, 129, 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+
+html[data-theme="dark"] body {
+  background-image:
+    radial-gradient(900px 420px at 10% -10%, rgba(79, 70, 229, 0.16), transparent 60%),
+    radial-gradient(900px 420px at 90% -10%, rgba(16, 185, 129, 0.12), transparent 60%);
+}
+
+::selection {
+  background: rgba(79, 70, 229, 0.18);
+}
+
+/* -------------------------------------------------
+ * Small utility classes that follow theme variables
+ * (lets us support theme toggle without Tailwind darkMode config)
+ * ------------------------------------------------- */
+.ros-fg {
+  color: var(--foreground);
+}
+
+.ros-muted {
+  color: var(--muted);
+}
+
+.ros-surface {
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+}
+
+.ros-surface-strong {
+  background: var(--surface-strong);
+  backdrop-filter: blur(10px);
+}
+
+.ros-border {
+  border-color: var(--border);
+}
+
+.ros-shadow {
+  box-shadow: var(--shadow);
+}
+
+.ros-shadow-hover:hover {
+  box-shadow: var(--shadow);
 }

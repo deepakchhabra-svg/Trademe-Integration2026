@@ -9,6 +9,7 @@ import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { buttonClass } from "../../_components/ui";
 import { apiGetClient } from "../../_components/api_client";
+import { formatNZT } from "../../_components/time";
 
 type RawItem = {
     id: number;
@@ -28,21 +29,6 @@ type RawItem = {
     images: string[];
     last_scraped_at: string | null;
 };
-
-function formatNZT(iso: string | null): string {
-    if (!iso) return "-";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return String(iso);
-    const s = new Intl.DateTimeFormat("en-NZ", {
-        timeZone: "Pacific/Auckland",
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    }).format(d);
-    return `${s} NZT`;
-}
 
 function domainLabel(url: string): string {
     try {
@@ -347,6 +333,22 @@ export function RawVaultClient({
                     totalCount={liveTotal}
                     currentPage={page}
                     pageSize={perPage}
+                    emptyState={
+                        <div className="text-center">
+                            <div className="text-sm font-semibold text-slate-900">No supplier products match this filter.</div>
+                            <div className="mt-1 text-sm text-slate-600">
+                                Next action: open Pipeline and run a Scrape for the supplier, or reset filters.
+                            </div>
+                            <div className="mt-3 flex justify-center gap-2">
+                                <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                                    Open Pipeline
+                                </Link>
+                                <Link className={buttonClass({ variant: "outline" })} href="/vaults/raw">
+                                    Reset filters
+                                </Link>
+                            </div>
+                        </div>
+                    }
                 />
             </div>
         </div>

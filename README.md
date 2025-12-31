@@ -32,11 +32,13 @@ open http://localhost:3000
 │   └── /guides                  ← Feature guides
 │
 ├── /retail_os                   ← 🎯 Main application
-│   ├── /dashboard               ← Streamlit UI
 │   ├── /scrapers                ← Supplier scrapers
-│   ├── /ai                      ← AI enrichment
 │   ├── /quality                 ← Quality control
 │   └── /trademe                 ← Trade Me API
+│
+├── /services
+│   ├── /api                     ← FastAPI backend (HTTP API)
+│   └── /web                     ← Next.js operator console (UI)
 │
 ├── /scripts                     ← 🔧 Automation
 │   ├── /ops                     ← Operational scripts
@@ -71,6 +73,11 @@ open http://localhost:3000
 - **Web**: `cd services/web && npm install && npm run dev -- --port 3000`
 
 Windows convenience: `powershell -ExecutionPolicy Bypass -File scripts/run_local.ps1`
+
+## Operator UI (start here)
+
+- Open `http://localhost:3000`
+- Go to **Ops → Pipeline** for the single-screen supplier flow (Scrape → Images → Enrich → Draft → Validate → Publish).
 
 ## 🔐 Environment Variables
 
