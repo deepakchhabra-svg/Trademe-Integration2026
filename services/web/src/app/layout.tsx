@@ -13,12 +13,13 @@ export const metadata: Metadata = {
   description: "RetailOS operator console",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const c = cookies();
+  // Next.js 15/16: cookies() is async in App Router RSC.
+  const c = await cookies();
   const theme = (c.get("retailos_theme")?.value || "light").toLowerCase() === "dark" ? "dark" : "light";
   const density =
     (c.get("retailos_density")?.value || "compact").toLowerCase() === "comfortable" ? "comfortable" : "compact";
