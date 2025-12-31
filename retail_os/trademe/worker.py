@@ -200,11 +200,18 @@ class CommandWorker:
             # 3. Execute Logic (Simulated for Vertical Slice Phase 1)
             try:
                 self.execute_logic(command)
-                # Handlers may mark a command CANCELLED (operator-requested stop).
-                # Do not overwrite that with SUCCEEDED.
+                # Handlers may set a terminal status (HUMAN_REQUIRED/CANCELLED/etc).
+                # Only mark SUCCEEDED if the handler left the command in EXECUTING.
                 if command.status == CommandStatus.CANCELLED:
                     print(f"Command {command.id} CANCELLED")
                     logger.info(f"CMD_CANCELLED cmd_id={command.id} type={cmd_type}")
+                elif command.status == CommandStatus.HUMAN_REQUIRED:
+                    print(f"Command {command.id} HUMAN_REQUIRED")
+                    logger.warning(f"CMD_HUMAN_REQUIRED cmd_id={command.id} type={cmd_type}")
+                elif command.status != CommandStatus.EXECUTING:
+                    # Respect handler-set non-executing status.
+                    print(f"Command {command.id} DONE status={command.status}")
+                    logger.info(f"CMD_DONE cmd_id={command.id} type={cmd_type} status={command.status}")
                 else:
                     command.status = CommandStatus.SUCCEEDED
                     print(f"Command {command.id} SUCCEEDED")
@@ -939,26 +946,21 @@ class CommandWorker:
         if pages < 0:
             pages = 0
         
-        logger.info(f"SCRAPE_SUPPLIER_START cmd_id={command.id} supplier={supplier_name}")
+        # Resolve supplier name from DB (do not rely on caller to pass supplier_name).
+        try:
+            if supplier_id is not None:
+                with SessionLocal() as s0:
+                    from retail_os.core.database import Supplier as _Supplier
 
-        # Pilot scope: ONECHEQ only.
-        # Noel Leeming is blocked due to robots/image access (403) — do not pretend it works.
+                    sup = s0.query(_Supplier).filter(_Supplier.id == int(supplier_id)).first()
+                    if sup and sup.name:
+                        supplier_name = sup.name
+        except Exception:
+            pass
+
+        logger.info(f"SCRAPE_SUPPLIER_START cmd_id={command.id} supplier={supplier_name} supplier_id={supplier_id}")
+
         name_l = str(supplier_name).lower()
-        if "noel" in name_l or "leeming" in name_l:
-            command.status = CommandStatus.HUMAN_REQUIRED
-            command.error_code = "SUPPLIER_NOT_SUPPORTED"
-            command.error_message = "NOEL_LEEMING is not supported (robots/image access). Use ONECHEQ."
-            return
-        if "cash" in name_l or "converters" in name_l:
-            command.status = CommandStatus.HUMAN_REQUIRED
-            command.error_code = "SUPPLIER_NOT_SUPPORTED"
-            command.error_message = "CASH_CONVERTERS is out of scope."
-            return
-        if "onecheq" not in name_l:
-            command.status = CommandStatus.HUMAN_REQUIRED
-            command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
-            command.error_message = f"Pilot scope supports ONECHEQ only (got {supplier_name})."
-            return
 
         # Per-supplier policy gate (DB-backed)
         try:
@@ -985,7 +987,7 @@ class CommandWorker:
         
         session = SessionLocal()
         try:
-            if "onecheq" in supplier_name.lower():
+            if "onecheq" in name_l:
                 # Prefer Shopify JSON endpoint for full-catalog scrape (fast + authoritative).
                 try:
                     import os
@@ -1079,11 +1081,89 @@ class CommandWorker:
                 session.commit()
                 
                 logger.info(f"SCRAPE_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} status=SUCCEEDED")
+            elif "noel" in name_l or "leeming" in name_l:
+                # Noel Leeming scrape (Selenium). Supports category URL runs.
+                from retail_os.scrapers.noel_leeming.adapter import NoelLeemingAdapter
+
+                adapter = NoelLeemingAdapter()
+                category_url = source_category or payload.get("category_url") or payload.get("url") or None
+                deep_scrape = bool(payload.get("deep_scrape", False))
+                headless = bool(payload.get("headless", True))
+
+                def _is_cancelled() -> bool:
+                    try:
+                        with SessionLocal() as s0:
+                            row0 = s0.query(SystemCommand).filter(SystemCommand.id == str(command.id)).first()
+                            if not row0:
+                                return False
+                            return row0.status == CommandStatus.CANCELLED
+                    except Exception:
+                        return False
+
+                def _progress_hook(info: dict) -> None:
+                    try:
+                        with SessionLocal() as s2:
+                            row = s2.query(SystemCommand).filter(SystemCommand.id == str(command.id)).first()
+                            if not row:
+                                return
+                            p = row.payload or {}
+                            p["progress"] = {**(p.get("progress") or {}), **(info or {})}
+                            p["progress"]["updated_at"] = datetime.now(timezone.utc).isoformat()
+                            row.payload = p
+                            row.updated_at = datetime.now(timezone.utc)
+
+                            # DB-backed progress snapshot (survives restarts)
+                            try:
+                                from retail_os.core.database import CommandProgress
+
+                                pr = (
+                                    s2.query(CommandProgress)
+                                    .filter(CommandProgress.command_id == str(command.id))
+                                    .first()
+                                )
+                                if not pr:
+                                    pr = CommandProgress(command_id=str(command.id))
+                                    s2.add(pr)
+
+                                pr.phase = str((info or {}).get("phase") or pr.phase or "")
+                                pr.done = (info or {}).get("done") if (info or {}).get("done") is not None else pr.done
+                                pr.total = (info or {}).get("total") if (info or {}).get("total") is not None else pr.total
+                                pr.eta_seconds = (
+                                    (info or {}).get("eta_seconds")
+                                    if (info or {}).get("eta_seconds") is not None
+                                    else pr.eta_seconds
+                                )
+                                pr.message = str((info or {}).get("message") or pr.message or "")
+                                pr.updated_at = datetime.utcnow()
+                            except Exception:
+                                pass
+
+                            s2.commit()
+                    except Exception:
+                        return
+
+                adapter.run_sync(
+                    pages=pages,
+                    category_url=str(category_url) if category_url else None,
+                    deep_scrape=deep_scrape,
+                    headless=headless,
+                    cmd_id=str(command.id),
+                    progress_hook=_progress_hook,
+                    should_abort=_is_cancelled,
+                )
+
+                if _is_cancelled():
+                    command.status = CommandStatus.CANCELLED
+                    command.error_code = "CANCELLED_BY_OPERATOR"
+                    command.error_message = "Cancelled by operator during scrape."
+                    logger.info(f"SCRAPE_SUPPLIER_CANCELLED cmd_id={command.id} supplier={supplier_name}")
+                    return
+
+                logger.info(f"SCRAPE_SUPPLIER_END cmd_id={command.id} supplier={supplier_name} status=SUCCEEDED")
             else:
-                # Should be unreachable due to scope guard above.
                 command.status = CommandStatus.HUMAN_REQUIRED
-                command.error_code = "SUPPLIER_NOT_SUPPORTED_PILOT"
-                command.error_message = f"Pilot scope supports ONECHEQ only (got {supplier_name})."
+                command.error_code = "SUPPLIER_NOT_SUPPORTED"
+                command.error_message = f"Supplier not supported for scraping (got {supplier_name})."
                 return
         except Exception as e:
             logger.error(f"SCRAPE_SUPPLIER_FAILED cmd_id={command.id} error={e}")

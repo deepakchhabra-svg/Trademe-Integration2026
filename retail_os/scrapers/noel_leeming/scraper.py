@@ -304,7 +304,15 @@ def extract_products_from_html(html: str, page_num: int = 1, overall_rank_start:
             
     return products
 
-def scrape_category(headless: bool = True, max_pages: int = None, category_url: str = None, deep_scrape: bool = False):
+def scrape_category(
+    headless: bool = True,
+    max_pages: int = None,
+    category_url: str = None,
+    deep_scrape: bool = False,
+    cmd_id: str | None = None,
+    progress_hook=None,
+    should_abort=None,
+):
     """
     Scrape a category using Selenium.
     deep_scrape: If True, visits every product URL to get more images (SLOW).
@@ -362,8 +370,34 @@ def scrape_category(headless: bool = True, max_pages: int = None, category_url: 
         if max_pages:
             total_pages = min(total_pages, max_pages)
         
+        import logging
+        log = logging.getLogger(__name__)
+
         for page_num in range(1, total_pages + 1):
+            try:
+                if should_abort and bool(should_abort()):
+                    return all_products
+            except Exception:
+                pass
             print(f"--- Page {page_num}/{total_pages} ---")
+            try:
+                if cmd_id:
+                    log.info(f"NOEL_LEEMING_PAGE cmd_id={cmd_id} page={page_num} total_pages={total_pages}")
+            except Exception:
+                pass
+            try:
+                if progress_hook and cmd_id:
+                    progress_hook(
+                        {
+                            "phase": "scrape",
+                            "supplier": "NOEL_LEEMING",
+                            "done": int(page_num - 1),
+                            "total": int(total_pages),
+                            "message": f"Scraping NL pages: {page_num}/{total_pages}",
+                        }
+                    )
+            except Exception:
+                pass
             
             # Navigate if needed
             if page_num > 1:
@@ -405,6 +439,11 @@ def scrape_category(headless: bool = True, max_pages: int = None, category_url: 
             if deep_scrape:
                 print(f"  Deep scraping {len(page_products)} items for images...")
                 for p in page_products:
+                    try:
+                        if should_abort and bool(should_abort()):
+                            return all_products
+                    except Exception:
+                        pass
                     if p.get("url"):
                         # Use the SAME driver to visit detail page
                         details = scrape_product_detail(driver, p["url"])

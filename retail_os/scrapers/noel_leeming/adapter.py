@@ -39,6 +39,9 @@ class NoelLeemingAdapter:
         category_url: str = "https://www.noelleeming.co.nz/shop/computers-office-tech/computers",
         deep_scrape: bool = False,
         headless: bool = True,
+        cmd_id: str | None = None,
+        progress_hook=None,
+        should_abort=None,
     ) -> None:
         print(f"NL Adapter: Starting Sync for {self.supplier_name}...")
         sync_start_time = datetime.utcnow()
@@ -49,12 +52,20 @@ class NoelLeemingAdapter:
             max_pages=pages,
             category_url=category_url,
             deep_scrape=deep_scrape,
+            cmd_id=cmd_id,
+            progress_hook=progress_hook,
+            should_abort=should_abort,
         )
 
         print(f"NL Adapter: Scraped {len(raw_rows)} rows. Normalizing/upserting...")
 
         count_updated = 0
         for row in raw_rows:
+            try:
+                if should_abort and bool(should_abort()):
+                    return
+            except Exception:
+                pass
             try:
                 unified = normalize_noel_leeming_row(row)
 
@@ -67,7 +78,7 @@ class NoelLeemingAdapter:
                     "source_url": unified.get("source_url"),
                     "source_status": unified.get("source_status", "Active"),
                     "images": [p for p in [unified.get("photo1"), unified.get("photo2"), unified.get("photo3"), unified.get("photo4")] if p],
-                    "stock_level": 1,
+                    "stock_level": None,  # NL does not expose reliable quantity; keep null
                     "specs": row.get("specs", {}), 
                     # Category partitioning (prefer GTM category; fallback to configured category URL)
                     "source_category": unified.get("source_category") or category_url,
@@ -81,10 +92,25 @@ class NoelLeemingAdapter:
                     {"title": data["title"], "description": data["description"], "specs": data.get("specs", {})}
                 )
 
-                self._upsert_product(data)
+                self._upsert_product(data, should_abort=should_abort)
                 count_updated += 1
             except Exception as e:
                 print(f"NL Adapter: row failed: {e}")
+
+            # Best-effort progress
+            try:
+                if progress_hook and cmd_id and (count_updated % 25 == 0):
+                    progress_hook(
+                        {
+                            "phase": "scrape",
+                            "supplier": "NOEL_LEEMING",
+                            "done": int(count_updated),
+                            "total": int(len(raw_rows)),
+                            "message": f"Scrape: {count_updated}/{len(raw_rows)} upserted",
+                        }
+                    )
+            except Exception:
+                pass
 
         print(f"NL Adapter: Sync Complete. Processed {count_updated} items.")
 
@@ -100,7 +126,7 @@ class NoelLeemingAdapter:
 
         self.db.close()
         
-    def _upsert_product(self, data: dict) -> str:
+    def _upsert_product(self, data: dict, should_abort=None) -> str:
         """
         Upserts a product into the database.
         Returns: 'created', 'updated', or 'unchanged'
@@ -122,11 +148,40 @@ class NoelLeemingAdapter:
         
         # DOWNLOADING
         local_images = []
-        for idx, img_url in enumerate(imgs[:4], 1):
-            img_sku = f"{sku}_{idx}" if idx > 1 else sku
-            result = downloader.download_image(img_url, img_sku)
-            if result["success"]:
-                local_images.append(result["path"])
+        try:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            img_conc = int(os.getenv("RETAILOS_IMAGE_CONCURRENCY_PER_PRODUCT", "4") or "4")
+            img_conc = max(1, min(8, img_conc))
+            tasks: list[tuple[int, str, str]] = []
+            for idx, img_url in enumerate(imgs[:4], 1):
+                if not img_url:
+                    continue
+                img_sku = f"{sku}_{idx}" if idx > 1 else sku
+                tasks.append((idx, img_url, img_sku))
+
+            def _dl(t: tuple[int, str, str]):
+                i, u, s = t
+                return i, downloader.download_image(u, s, should_abort=should_abort)
+
+            if tasks:
+                with ThreadPoolExecutor(max_workers=min(img_conc, len(tasks))) as ex:
+                    futs = [ex.submit(_dl, t) for t in tasks]
+                    for fut in as_completed(futs):
+                        try:
+                            if should_abort and bool(should_abort()):
+                                break
+                        except Exception:
+                            pass
+                        _i, result = fut.result()
+                        if result.get("success"):
+                            local_images.append(result.get("path"))
+        except Exception:
+            # Fallback to sequential (best-effort)
+            for idx, img_url in enumerate(imgs[:4], 1):
+                img_sku = f"{sku}_{idx}" if idx > 1 else sku
+                result = downloader.download_image(img_url, img_sku, should_abort=should_abort)
+                if result.get("success"):
+                    local_images.append(result.get("path"))
         
         # Calculate Snapshot Hash
         content = f"{data['title']}|{cost}|{data['source_status']}|{local_images}"

@@ -187,7 +187,7 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Scrape", async () => {
-                    const out = await enqueue("SCRAPE_SUPPLIER", { supplier_id: supplierId }, 70);
+                    const out = await enqueue("SCRAPE_SUPPLIER", { supplier_id: supplierId, supplier_name: data.supplier.name }, 70);
                     return `Queued scrape command ${out.id.slice(0, 8)}…`;
                   })
                 }
@@ -212,7 +212,11 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Backfill images", async () => {
-                    const out = await enqueue("BACKFILL_IMAGES_ONECHEQ", { supplier_id: supplierId, batch: 5000, concurrency: 16, max_seconds: 600 }, 65);
+                    const out = await enqueue(
+                      "BACKFILL_IMAGES_ONECHEQ",
+                      { supplier_id: supplierId, supplier_name: data.supplier.name, batch: 5000, concurrency: 16, max_seconds: 600 },
+                      65,
+                    );
                     return `Queued image backfill ${out.id.slice(0, 8)}…`;
                   })
                 }
@@ -234,7 +238,11 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Enrich", async () => {
-                    const out = await enqueue("ENRICH_SUPPLIER", { supplier_id: supplierId, batch_size: 1000, delay_seconds: 0 }, 60);
+                    const out = await enqueue(
+                      "ENRICH_SUPPLIER",
+                      { supplier_id: supplierId, supplier_name: data.supplier.name, batch_size: 1000, delay_seconds: 0 },
+                      60,
+                    );
                     return `Queued enrich command ${out.id.slice(0, 8)}…`;
                   })
                 }
@@ -256,7 +264,7 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Build drafts", async () => {
-                    const out = await enqueue("DRYRUN_PUBLISH", { supplier_id: supplierId, limit: 100 }, 50);
+                    const out = await enqueue("DRYRUN_PUBLISH", { supplier_id: supplierId, supplier_name: data.supplier.name, limit: 100 }, 50);
                     return `Queued draft build ${out.id.slice(0, 8)}…`;
                   })
                 }
@@ -332,7 +340,7 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
               className="underline"
               onClick={() =>
                 runStep("Scrape", async () => {
-                  const out = await enqueue("SCRAPE_SUPPLIER", { supplier_id: supplierId }, 70);
+                  const out = await enqueue("SCRAPE_SUPPLIER", { supplier_id: supplierId, supplier_name: data.supplier.name }, 70);
                   return `Queued scrape command ${out.id.slice(0, 8)}…`;
                 })
               }
