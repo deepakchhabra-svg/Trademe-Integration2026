@@ -23,33 +23,14 @@ type OpsSummary = {
   orders: { total: number; pending_fulfillment: number };
 };
 
-type Supplier = { id: number; name: string };
 type TradeMeHealth = { configured?: boolean; auth_ok?: boolean; utc?: string; offline?: boolean; error?: string };
 
 export function WorkbenchClient({ initial }: { initial: OpsSummary }) {
   const [summary, setSummary] = useState<OpsSummary>(initial);
   const [refreshing, setRefreshing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [_suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [tmHealth, setTmHealth] = useState<TradeMeHealth | null>(null);
 
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSuppliers() {
-      try {
-        const s = await apiGetClient<Supplier[]>("/suppliers");
-        if (cancelled) return;
-        setSuppliers(s);
-      } catch {
-        // ignore; UI can still work with manual IDs
-      }
-    }
-    void loadSuppliers();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
