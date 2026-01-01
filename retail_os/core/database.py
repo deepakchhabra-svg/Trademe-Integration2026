@@ -344,8 +344,8 @@ class SystemSetting(Base):
 # We keep sqlite check_same_thread=False for Streamlit/scheduler/worker usage.
 #
 # Default to a repo-root anchored DB path so scripts work from any cwd.
-_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-_default_db_path = os.path.join(_repo_root, "data", "retail_os.db")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_default_db_path = os.path.join(REPO_ROOT, "data", "retail_os.db")
 os.makedirs(os.path.dirname(_default_db_path), exist_ok=True)
 
 # Windows-safe sqlite URL: ensure forward slashes (e.g. sqlite:///C:/path/to/db)

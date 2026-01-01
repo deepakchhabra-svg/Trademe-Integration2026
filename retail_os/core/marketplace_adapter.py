@@ -59,8 +59,9 @@ class MarketplaceAdapter:
 
         # 3. Map Category
         cat_id = CategoryMapper.map_category(
-            item.source_category if hasattr(item, 'source_category') else "", 
-            raw_title
+            item.source_category if hasattr(item, "source_category") else "",
+            raw_title,
+            (getattr(item, "enriched_description", None) or getattr(item, "description", None) or ""),
         )
         # No silent fallback: default category counts as unmapped and must block readiness.
         if getattr(CategoryMapper, "DEFAULT_CATEGORY", None) and cat_id == CategoryMapper.DEFAULT_CATEGORY:
@@ -76,10 +77,23 @@ class MarketplaceAdapter:
         # NOTE: ImageDownloader saves to data/media/<sku>.jpg (or <sku>_<n>.jpg).
         primary_img = None
         if getattr(item, "images", None):
+            from retail_os.core.database import REPO_ROOT
             for img in item.images:
-                if isinstance(img, str) and os.path.exists(img):
+                if not isinstance(img, str) or not img:
+                    continue
+                # 1. Try directly (absolute or relative to CWD)
+                if os.path.exists(img):
                     primary_img = img
                     break
+                # 2. Try relative to REPO_ROOT
+                norm = img.replace("\\", "/")
+                if "data/media/" in norm:
+                    idx = norm.index("data/media/")
+                    rel = norm[idx:]
+                    full = os.path.join(REPO_ROOT, rel)
+                    if os.path.exists(full):
+                        primary_img = full
+                        break
         if primary_img:
             audit = guard.check_image(primary_img)
             is_safe = audit["is_safe"]

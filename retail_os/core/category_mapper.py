@@ -3,69 +3,56 @@ Category Mapper Adapter.
 Maps source categories (Cash Converters, Noel Leeming) to Trade Me Category IDs.
 """
 
-from typing import Optional
+from retail_os.core.trademe_categories import TradeMeCategories
 
 class CategoryMapper:
-    # Trade Me Category IDs (simplified for Pilot)
-    # https://help.trademe.co.nz/hc/en-us/articles/360007263671-Category-IDs
-    
-    # Common Mappings
-    CATEGORY_MAP = {
-        # TECH
-        "laptop": "3399", # Computers > Laptops
-        "laptops": "3399",
-        "macbook": "3399",
-        "notebook": "3399",
-        "mobile phones": "0002-0356-0002-", # Mobile phones > Mobile phones
-        "phones": "0002-0356-0002-",
-        "tablets": "0002-0356-0003-", # Mobile phones > Tablets
-        "digital cameras": "0005-0044-", # Electronics & Photography > Digital cameras
-        "cameras": "0005-0044-",
-        "headphones": "0005-0676-4706-", # Electronics > Headphones
-        "audio": "0005-0676-",
-        "speakers": "0005-0676-0683-",
-        "gaming": "0005-0886-", # Gaming
-        "consoles": "0005-0886-2582-",
-        "games": "0005-0886-2581-",
-        
-        # TOOLS & DIY
-        "tools": "0022-0238-", # Building & renovation > Tools
-        "power tools": "0022-0238-0239-",
-        "drills": "0022-0238-0239-2993-",
-        
-        # MUSICAL
-        "musical instruments": "0386-",
-        "guitars": "0386-2516-",
-        "keyboards": "0386-2519-",
-        
-        # Brand/title heuristics (tech)
-        "samsung": "0002-0356-0002-",  # Mobile phones
-        # Apple needs context: default to phones, but laptop keywords above win.
-        "apple": "0002-0356-0002-",
-        "iphone": "0002-0356-0002-",
-        "huawei": "0002-0356-0002-",
-        "pixel": "0002-0356-0002-", # Fallback to mobile phones 
-        
-        # MISC
-        "jewellery": "0202-",
-        "phone": "0002-0356-0002-", # Mobile phones > Mobile phones (Leaf?) No, usually needs brand.
-        # But '0002-0356-0002-' is better than '0002-0356-'
-        "mobile": "0002-0356-0002-",
-        "tablet": "0002-0356-0003-",
-        "laptop": "3399", # Computers > Laptops
-        "laptops": "3399",
-        "computer": "3399", # Computers > Laptops (Safe leaf)
-        "baby": "0187-0192-",  # Antiques & Collectables > Other (safe default leaf)
-        "monitor": "0187-0192-",  
-        "puzzle": "0208-1610-", # Toys & Models > Puzzles
-        "puzzles": "0208-1610-",
-        "default": "0187-0192-"  # Use existing safe DEFAULT_CATEGORY
+    """
+    Operator-grade rule:
+    - Mapping must be deterministic and conservative (no "AI guessing" / no fuzzy free-text scoring).
+    - If we can't map confidently, return DEFAULT_CATEGORY (which downstream treats as BLOCKED).
+    """
+
+    # Safe generic catchment (still BLOCKED for publish if it remains the default).
+    DEFAULT_CATEGORY = "0187-0192-"  # Antiques-collectables > Other
+
+    # Deterministic keyword mappings using official Trade Me taxonomy IDs (4-digit padded segments).
+    CATEGORY_MAP: dict[str, str] = {
+        # Computers > Laptops > Other  (Full Code 2-356-807)
+        "laptop": "0002-0356-0807-",
+        "laptops": "0002-0356-0807-",
+        "notebook": "0002-0356-0807-",
+        "macbook": "0002-0356-0807-",
+        "chromebook": "0002-0356-0807-",
+        "gaming laptop": "0002-0356-0807-",
+        # Computers > Tablets-Ebook-readers > Tablets (Full Code 2-9844-4720)
+        "tablet": "0002-9844-4720-",
+        "tablets": "0002-9844-4720-",
+        "ipad": "0002-9844-4720-",
+        # Mobile-phones > Mobile-phones > Other (Full Code 344-422-510)
+        "phone": "0344-0422-0510-",
+        "phones": "0344-0422-0510-",
+        "mobile phone": "0344-0422-0510-",
+        "mobile phones": "0344-0422-0510-",
+        "iphone": "0344-0422-0430-0431-",  # iPhone > iPhone (Full Code 344-422-430-431)
+        # Building-renovation > Tools > Power-tools > Drills-screwdrivers (Full Code 5964-5999-6015-6016)
+        "drill": "5964-5999-6015-6016-",
+        "drills": "5964-5999-6015-6016-",
+        "drill driver": "5964-5999-6015-6016-",
+        "screwdriver": "5964-5999-6015-6016-",
+        # Toys-models > Games-puzzles-tricks > Puzzles > Other (Full Code 347-920-6792-6795)
+        "puzzle": "0347-0920-6792-6795-",
+        "puzzles": "0347-0920-6792-6795-",
+        "jigsaw": "0347-0920-6792-6795-",
+        "jigsaws": "0347-0920-6792-6795-",
+        # Health-beauty > Bath-shower > Body-wash (Full Code 4798-4808-4814)
+        "body wash": "4798-4808-4814-",
+        "bodywash": "4798-4808-4814-",
+        "shower gel": "4798-4808-4814-",
+        "cleanser": "4798-4808-4814-",
     }
-    
-    DEFAULT_CATEGORY = "0187-0192-" # Antiques & Collectables > Other (Safe generic catchment)
 
     @classmethod
-    def map_category(cls, source_category_name: str, item_title: str = "") -> str:
+    def map_category(cls, source_category_name: str, item_title: str = "", item_description: str = "") -> str:
         """
         Determines the best Trade Me Category ID.
         1. Checks Exact Match of source category.
@@ -76,13 +63,16 @@ class CategoryMapper:
         if not source_category_name:
             source_category_name = ""
             
-        term = source_category_name.lower().strip()
-        title_term = item_title.lower().strip()
+        term = (source_category_name or "").lower().strip()
+        title_term = (item_title or "").lower().strip()
+        desc_term = (item_description or "").lower().strip()
         
         # 0. Title Search (Priority!)
         # Check Title keywords first to correct miscategorized items (e.g. Phone in Laptops category)
+        # 0) Phrase-first match (title/description), then source category.
+        # Keep this deterministic and conservative.
         for key, cat_id in cls.CATEGORY_MAP.items():
-            if key in title_term:
+            if key in title_term or key in desc_term:
                 return cat_id
 
         # 1. Direct Map
@@ -94,24 +84,21 @@ class CategoryMapper:
             if key in term:
                 return cat_id
                 
-        # 5. Fallback: AI Classification (If configured)
-        # This prevents "Generic Other" dumping, keeping listings relevant.
+        # 5) Final fallback (blocked).
         return cls.classify_with_ai(title_term)
 
     @classmethod
     def classify_with_ai(cls, title: str) -> str:
         """
-        Uses heuristics or simple logic to prevent dumping everything in Antiques.
+        Legacy name: deterministic fallback.
         """
-        # Hardcoded fallback for now to stay safe
         return cls.DEFAULT_CATEGORY
 
     @classmethod
     def get_category_name(cls, cat_id: str) -> str:
-        # Reverse lookup for display (approximate)
-        for name, cid in cls.CATEGORY_MAP.items():
-            if cid == cat_id:
-                return name.title()
+        official = TradeMeCategories.name(cat_id)
+        if official:
+            return official
         if cat_id == cls.DEFAULT_CATEGORY:
             return "General / Other"
         return "Unknown Category"

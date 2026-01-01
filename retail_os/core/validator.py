@@ -64,7 +64,11 @@ class LaunchLock:
             raise ValueError("Missing images: no local product image downloaded (blocked)")
 
         # Require mappable category.
-        cat_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+        cat_id = CategoryMapper.map_category(
+            getattr(sp, "source_category", "") or "",
+            sp.title or "",
+            (getattr(sp, "enriched_description", None) or getattr(sp, "description", None) or ""),
+        )
         if not cat_id:
             raise ValueError("Missing category mapping (source_category is empty/unmappable)")
         # Do not treat the safe default category as "mapped" for Launch readiness.

@@ -18,11 +18,25 @@ def _has_local(images: Any) -> bool:
             images = [images]
     if not isinstance(images, list):
         return False
+        
+    from retail_os.core.database import REPO_ROOT
     for img in images:
-        if isinstance(img, str) and img and os.path.exists(img):
+        if not isinstance(img, str) or not img:
+            continue
+        # Case 1: Already absolute and exists
+        if os.path.isabs(img) and os.path.exists(img):
             return True
-        if isinstance(img, str) and img.startswith("data/media/") and os.path.exists(os.path.join(os.getcwd(), img)):
+        # Case 2: Relative to CWD
+        if os.path.exists(img):
             return True
+        # Case 3: Relative to REPO_ROOT (normpath handles slash differences)
+        norm = img.replace("\\", "/")
+        if "data/media/" in norm:
+            idx = norm.index("data/media/")
+            rel = norm[idx:]
+            full = os.path.join(REPO_ROOT, rel)
+            if os.path.exists(full):
+                return True
     return False
 
 

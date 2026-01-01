@@ -39,15 +39,15 @@ type PipelineResp = {
     created_at: string | null;
     updated_at: string | null;
     progress:
-      | {
-          phase: string | null;
-          done: number | null;
-          total: number | null;
-          eta_seconds: number | null;
-          message: string | null;
-          updated_at: string | null;
-        }
-      | null;
+    | {
+      phase: string | null;
+      done: number | null;
+      total: number | null;
+      eta_seconds: number | null;
+      message: string | null;
+      updated_at: string | null;
+    }
+    | null;
   }>;
 };
 
@@ -264,8 +264,17 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Build drafts", async () => {
-                    const out = await enqueue("DRYRUN_PUBLISH", { supplier_id: supplierId, supplier_name: data.supplier.name, limit: 100 }, 50);
-                    return `Queued draft build ${out.id.slice(0, 8)}…`;
+                    const res = await apiPostClient<{ enqueued: number; skipped_existing_cmd: number; skipped_already_listed: number; skipped_blocked?: number }>(
+                      "/ops/bulk/dryrun_publish",
+                      {
+                        supplier_id: supplierId,
+                        limit: 100,
+                        priority: 50,
+                        stop_on_failure: false,
+                      },
+                    );
+                    return `Drafts queued: enqueued=${res.enqueued}, skipped_existing=${res.skipped_existing_cmd}, skipped_listed=${res.skipped_already_listed}${res.skipped_blocked ? `, blocked=${res.skipped_blocked}` : ""
+                      }`;
                   })
                 }
               >
@@ -292,8 +301,8 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
               </Link>
             </div>
           </div>
-        </div>
-      </SectionCard>
+        </div >
+      </SectionCard >
 
       <SectionCard title={`Active work (${data.active_commands.length})`} subtitle="Live commands for this supplier (auto-refresh while active).">
         {data.active_commands.length ? (
@@ -354,7 +363,7 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
       </SectionCard>
 
       {Object.keys(activeByPhase).length ? null : null}
-    </div>
+    </div >
   );
 }
 

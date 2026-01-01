@@ -63,7 +63,7 @@ def _get_enrichment_policy(db) -> dict:
     return merged
 
 
-def _build_minimal_template(title: str, specs: dict) -> str:
+def _build_minimal_template(title: str, specs: dict, url: str | None = None) -> str:
     """
     Deterministic, premium-minimal template. No hallucinations: uses only known specs.
     """
@@ -88,6 +88,12 @@ def _build_minimal_template(title: str, specs: dict) -> str:
     condition = specs.get("Condition", specs.get("condition", "See listing details"))
     parts.append(f"Condition: {condition}")
     parts.append("")
+    
+    if url:
+        parts.append("**Source**")
+        parts.append(url)
+        parts.append("")
+
     parts.append("**Notes**")
     parts.append("Please review the specifications carefully before purchase.")
     return "\n".join(parts)
@@ -157,6 +163,7 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
                         title=cleaned_title,
                         raw_desc=item.description or "",
                         specs=_filter_public_specs(item.specs or {}),
+                        product_url=item.product_url
                     )
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None
@@ -169,7 +176,7 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
                     from retail_os.utils.cleaning import clean_title_for_trademe
                     title = clean_title_for_trademe((item.title or "").strip() or "Untitled")
                     item.enriched_title = title
-                    item.enriched_description = _build_minimal_template(title=title, specs=item.specs or {})
+                    item.enriched_description = _build_minimal_template(title=title, specs=item.specs or {}, url=item.product_url)
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None
                     print("    SUCCESS (TEMPLATE)")
@@ -186,15 +193,16 @@ def enrich_batch(batch_size: int = 10, delay_seconds: int = 5, supplier_id: Opti
                     title = clean_title_for_trademe(raw_title)
                     item.enriched_title = title
                     # Deterministic description from supplier truth + specs.
-                    item.enriched_description = Standardizer.polish(
-                        build_seo_description(
+                    desc_base = build_seo_description(
                             {
                                 "title": raw_title,
                                 "description": item.description or "",
                                 "specs": _filter_public_specs(item.specs or {}),
                             }
                         )
-                    )
+                    if item.product_url:
+                        desc_base += f"\n\n**Source**\n{item.product_url}"
+                    item.enriched_description = Standardizer.polish(desc_base)
                     item.enrichment_status = "SUCCESS"
                     item.enrichment_error = None
                     print("    SUCCESS (NONE)")

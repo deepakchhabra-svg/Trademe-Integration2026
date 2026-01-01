@@ -30,7 +30,7 @@ class LLMEnricher:
     def is_active(self) -> bool:
         return self.provider is not None
 
-    def enrich(self, title: str, raw_desc: str, specs: Dict) -> str:
+    def enrich(self, title: str, raw_desc: str, specs: Dict, product_url: str | None = None) -> str:
         """
         Sends text to LLM and returns professional retail copy.
         """
@@ -52,11 +52,13 @@ class LLMEnricher:
             -   Paragraph on features (Subjective/Salesy is okay here).
             -   **"Condition & Inclusions"** (Strictly factual from Raw Text).
             -   **"Specifications"** (Formatted list from Specs data).
+            -   **"Source"** (Include the Source URL as is: {product_url or 'N/A'})
         
         INPUT DATA:
         Item Title: {title}
         Raw Description: {raw_desc}
         Specs: {json.dumps(specs)}
+        Product URL: {product_url or 'N/A'}
         
         OUTPUT:
         Return ONLY the final description text.

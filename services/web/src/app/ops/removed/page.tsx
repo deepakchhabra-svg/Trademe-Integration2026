@@ -6,6 +6,7 @@ import { SectionCard } from "../../../components/ui/SectionCard";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { formatNZT } from "../../_components/time";
 import { buttonClass } from "../../_components/ui";
+import { WithdrawButton } from "./WithdrawButton";
 
 type RemovedRow = {
   supplier_product_id: number;
@@ -18,8 +19,8 @@ type RemovedRow = {
   internal_product_id: number | null;
   listing: { id: number; tm_listing_id: string | null; actual_state: string | null; last_synced_at: string | null } | null;
   withdraw_command:
-    | { id: string; status: string; updated_at: string | null; error_code: string | null; error_message: string | null }
-    | null;
+  | { id: string; status: string; updated_at: string | null; error_code: string | null; error_message: string | null }
+  | null;
 };
 
 type Resp = { utc: string; total: number; items: RemovedRow[]; page: number; per_page: number };
@@ -41,6 +42,7 @@ export default async function RemovedItemsPage({ searchParams }: { searchParams:
         subtitle="Confirmed removed from supplier (2 misses). Shows linked listings and withdraw status."
         actions={
           <div className="flex items-center gap-2">
+            <WithdrawButton supplierId={supplierId ? parseInt(supplierId) : null} />
             <Link className={buttonClass({ variant: "outline" })} href="/vaults/raw?sync_status=REMOVED">
               View in Vault 1
             </Link>
@@ -137,16 +139,16 @@ export default async function RemovedItemsPage({ searchParams }: { searchParams:
                 ))
               ) : (
                 <tr>
-                        <td className="p-4 text-slate-600" colSpan={6}>
-                          No removed items found. Next action: run a fresh Scrape in Pipeline, then come back here to confirm removals and withdraw status.
-                          <div className="mt-2 flex gap-2">
-                            <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
-                              Open Pipeline
-                            </Link>
-                            <Link className={buttonClass({ variant: "outline" })} href="/ops/removed">
-                              Reset filters
-                            </Link>
-                          </div>
+                  <td className="p-4 text-slate-600" colSpan={6}>
+                    No removed items found. Next action: run a fresh Scrape in Pipeline, then come back here to confirm removals and withdraw status.
+                    <div className="mt-2 flex gap-2">
+                      <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
+                        Open Pipeline
+                      </Link>
+                      <Link className={buttonClass({ variant: "outline" })} href="/ops/removed">
+                        Reset filters
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               )}

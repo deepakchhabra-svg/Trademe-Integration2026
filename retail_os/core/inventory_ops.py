@@ -62,18 +62,22 @@ class InventoryOperations:
             
         return len(commands)
 
-    def withdraw_unavailable_items(self):
+    def withdraw_unavailable_items(self, supplier_id: int | None = None):
         """
         Finds all items where SupplierProduct.sync_status == 'REMOVED'
         and queues withdrawal commands if they are currently Live.
         """
         # Find removed supplier products that map to LIVE internal listings
-        targets = self.session.query(TradeMeListing)\
+        query = self.session.query(TradeMeListing)\
             .join(InternalProduct)\
             .join(SupplierProduct)\
             .filter(SupplierProduct.sync_status == "REMOVED")\
-            .filter(TradeMeListing.actual_state == "Live")\
-            .all()
+            .filter(TradeMeListing.actual_state == "Live")
+            
+        if supplier_id:
+            query = query.filter(SupplierProduct.supplier_id == supplier_id)
+            
+        targets = query.all()
             
         commands = []
         for listing in targets:
