@@ -51,8 +51,9 @@ class MarketplaceAdapter:
         
         from retail_os.trademe.config import TradeMeConfig
         final_description = str(item.enriched_description)
-        if hasattr(TradeMeConfig, "LISTING_FOOTER"):
-            final_description += f"\n\n{TradeMeConfig.LISTING_FOOTER.strip()}"
+        footer = (getattr(TradeMeConfig, "LISTING_FOOTER", "") or "").strip()
+        if footer:
+            final_description += f"\n\n{footer}"
 
         # Optional AI path intentionally disabled for operator-grade pilot (no silent behavior changes).
         if use_ai:

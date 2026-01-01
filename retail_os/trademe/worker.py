@@ -839,9 +839,9 @@ class CommandWorker:
             }
 
             # Shipping logic
-            if TradeMeConfig.USE_SHIPPING_TEMPLATES:
+            if TradeMeConfig.USE_SHIPPING_TEMPLATES and getattr(TradeMeConfig, "SHIPPING_TEMPLATE_ID", None):
                 tm_payload["Shipping"] = 3 # Specified shipping
-                tm_payload["ShippingTemplateId"] = getattr(TradeMeConfig, "SHIPPING_TEMPLATE_ID", 137046)
+                tm_payload["ShippingTemplateId"] = int(TradeMeConfig.SHIPPING_TEMPLATE_ID)
             else:
                 tm_payload["ShippingOptions"] = TradeMeConfig.DEFAULT_SHIPPING
             

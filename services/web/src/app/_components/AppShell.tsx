@@ -108,7 +108,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
                 My Trade Me ↗
               </a>
               <a href="https://www.trademe.co.nz/MyTradeMe/Sell/Current.aspx" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
-                Items I'm selling ↗
+                Items I&apos;m selling ↗
               </a>
               <a href="https://www.trademe.co.nz/MyTradeMe/Sell/SalesSummary.aspx" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
                 Sales Summary ↗

@@ -27,7 +27,9 @@ class ImageGuard:
         return hashlib.md5(image_bytes).hexdigest()
 
     def _load_cache(self):
-        self.cache_file = "image_audit_cache.json"
+        # Cache must be runtime-only (never committed).
+        # Default under /data (already gitignored).
+        self.cache_file = (os.getenv("RETAIL_OS_IMAGE_AUDIT_CACHE_PATH") or "data/image_audit_cache.json").strip()
         if os.path.exists(self.cache_file):
             with open(self.cache_file, "r") as f:
                 self.cache = json.load(f)
@@ -35,6 +37,12 @@ class ImageGuard:
             self.cache = {}
 
     def _save_cache(self):
+        try:
+            parent = os.path.dirname(self.cache_file)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+        except Exception:
+            pass
         with open(self.cache_file, "w") as f:
             json.dump(self.cache, f)
 

@@ -74,10 +74,9 @@ def build_listing_payload(internal_product_id: int, overrides: Optional[Dict[str
         }
 
         # Shipping logic
-        if TradeMeConfig.USE_SHIPPING_TEMPLATES:
+        if TradeMeConfig.USE_SHIPPING_TEMPLATES and getattr(TradeMeConfig, "SHIPPING_TEMPLATE_ID", None):
             payload["Shipping"] = 3 # Specified shipping
-            # Default to Aramex Standard unless specifically overridden
-            payload["ShippingTemplateId"] = getattr(TradeMeConfig, "SHIPPING_TEMPLATE_ID", 137046) 
+            payload["ShippingTemplateId"] = int(TradeMeConfig.SHIPPING_TEMPLATE_ID)
         else:
             payload["ShippingOptions"] = TradeMeConfig.DEFAULT_SHIPPING
         

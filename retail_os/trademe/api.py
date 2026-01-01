@@ -338,19 +338,13 @@ class TradeMeAPI:
                     account_balance = data.get("Balance")
 
             pay_now_balance = data.get("PayNowBalance")
-            if pay_now_balance is None:
-                # Fallback: check Ping transactions for balance (Blueprint: "Matches My Balances screen")
-                try:
-                    ping_txs = self.get_ping_transactions(limit=1)
-                    if ping_txs:
-                        pay_now_balance = ping_txs[0].get("Balance")
-                except Exception:
-                    pass
+            # Operator-grade rule: do not guess balances from unrelated endpoints.
+            # If PayNowBalance isn't returned by Trade Me, keep it None and surface diagnostics.
 
             summary_has = {
                 "AccountBalance": "AccountBalance" in data and data.get("AccountBalance") is not None,
                 "Balance": "Balance" in data and data.get("Balance") is not None,
-                "PayNowBalance": ("PayNowBalance" in data and data.get("PayNowBalance") is not None) or (pay_now_balance is not None),
+                "PayNowBalance": "PayNowBalance" in data and data.get("PayNowBalance") is not None,
                 "UniquePositive": "UniquePositive" in data and data.get("UniquePositive") is not None,
                 "UniqueNegative": "UniqueNegative" in data and data.get("UniqueNegative") is not None,
                 "FeedbackCount": "FeedbackCount" in data and data.get("FeedbackCount") is not None,
@@ -378,7 +372,7 @@ class TradeMeAPI:
                     "balance_endpoint": "/Account/Balance.json",
                     "balance_status_code": bal_status,
                     "balance_keys": sorted(list(bal.keys())) if isinstance(bal, dict) else [],
-                    "ping_balance_fallback": pay_now_balance is not None and "PayNowBalance" not in data
+                    "ping_balance_fallback": False,
                 },
             }
         except Exception as e:

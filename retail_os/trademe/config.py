@@ -1,6 +1,28 @@
 
 # retail_os/trademe/config.py
 
+import os
+from typing import Optional
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    v = (os.getenv(name) or "").strip().lower()
+    if v in {"1", "true", "yes", "y", "on"}:
+        return True
+    if v in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def _env_int(name: str) -> Optional[int]:
+    v = (os.getenv(name) or "").strip()
+    if not v:
+        return None
+    try:
+        return int(v)
+    except Exception:
+        return None
+
 class TradeMeConfig:
     """
     Centralized Configuration for Trade Me Listing Defaults.
@@ -27,17 +49,15 @@ class TradeMeConfig:
     # We will explicitly set key fields if required. 
     
     # --- SHIPPING TEMPLATES ---
-    # Ideally, we pass "ShippingPresetId" if you have presets in TM.
-    # Otherwise, we define manual options.
-    USE_SHIPPING_TEMPLATES = True
-    SHIPPING_TEMPLATE_ID = 137046  # Default: Aramex Standard ($10/$16/$24)
-    
-    SHIPPING_TEMPLATES = {
-        "NZPOST_FREE": 159404,
-        "ARAMEX_ECONOMY_LARGE": 137049,
-        "ARAMEX_STANDARD": 137046,
-        "ARAMEX_FREE": 135044
-    }
+    # Operator-grade rule: no account-specific hardcoding.
+    #
+    # If you want to use a Trade Me "Shipping Template", set:
+    #   RETAIL_OS_TM_USE_SHIPPING_TEMPLATE=true
+    #   RETAIL_OS_TM_SHIPPING_TEMPLATE_ID=<your template id>
+    #
+    # If not configured, RetailOS uses the manual ShippingOptions fallback.
+    USE_SHIPPING_TEMPLATES = _env_bool("RETAIL_OS_TM_USE_SHIPPING_TEMPLATE", default=False)
+    SHIPPING_TEMPLATE_ID = _env_int("RETAIL_OS_TM_SHIPPING_TEMPLATE_ID")
 
     # Fallback Manual Options (Used if USE_SHIPPING_TEMPLATES is False)
     DEFAULT_SHIPPING = [
@@ -69,13 +89,9 @@ class TradeMeConfig:
     AUTO_RELIST = True # Automatically relist unsold items?
 
     # --- BRANDING ---
-    LISTING_FOOTER = """
-Welcome to SOULED Store
-
-Smart Savings: Big deals on popular brands.
-Quality You Can Trust: Pre-loved & new items, carefully selected.
-Discover Unique Finds: Curated collection, one-of-a-kind treasures.
-"""
+    # Optional operator-configured footer appended to buyer-visible description.
+    # Keep empty by default (no forced branding).
+    LISTING_FOOTER = (os.getenv("RETAIL_OS_LISTING_FOOTER") or "").strip()
     
     # --- INTELLIGENCE MODES ---
     # "STANDARD": Normal Margins

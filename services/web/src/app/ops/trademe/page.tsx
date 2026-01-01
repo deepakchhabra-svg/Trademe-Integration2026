@@ -186,50 +186,6 @@ export default async function TradeMeHealthPage() {
         </div>
       ) : null}
 
-      {summary && (
-        <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-tight">Promotions & Campaigns</h3>
-              <p className="mt-1 text-xs text-indigo-800 max-w-2xl">
-                Your active <strong>Sponsored Listings</strong> campaign (set to "All categories" on Trade Me) will automatically pick up any new listings created by this system.
-              </p>
-            </div>
-            <a
-              href="https://www.trademe.co.nz/MyTradeMe/SponsoredListings/Campaigns.aspx"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-md bg-white px-3 py-1.5 text-xs font-bold text-indigo-600 shadow-sm ring-1 ring-inset ring-indigo-200 hover:bg-slate-50"
-            >
-              Campaign Dashboard →
-            </a>
-          </div>
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded border border-indigo-100 bg-white p-2">
-              <div className="text-[10px] font-bold text-indigo-400 uppercase">Automation Status</div>
-              <div className="text-xs font-semibold text-indigo-900 mt-0.5">Participating (Auto)</div>
-            </div>
-            <div className="rounded border border-indigo-100 bg-white p-2">
-              <div className="text-[10px] font-bold text-indigo-400 uppercase">Daily Budget</div>
-              <div className="text-xs font-semibold text-indigo-900 mt-0.5">Managed on Trade Me</div>
-            </div>
-            <div className="rounded border border-indigo-100 bg-white p-2">
-              <div className="text-[10px] font-bold text-indigo-400 uppercase">Targeting</div>
-              <div className="text-xs font-semibold text-indigo-900 mt-0.5">Website Overrides</div>
-            </div>
-          </div>
-          <div className="mt-3 border-t border-indigo-100 pt-3">
-            <div className="text-[10px] font-bold text-indigo-400 uppercase">Active Shipping templates</div>
-            <div className="mt-1 flex flex-wrap gap-2 text-[10px]">
-              <span className="bg-indigo-100 text-indigo-900 px-1.5 py-0.5 rounded font-bold">Standard: 137046</span>
-              <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">Economy: 137049</span>
-              <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">Free (NZP): 159404</span>
-              <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">Free (AMX): 135044</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       <ValidateDraftsClient />
     </div>
   );
