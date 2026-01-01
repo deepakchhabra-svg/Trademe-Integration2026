@@ -57,6 +57,8 @@ class CategoryMapper:
         "computer": "3399", # Computers > Laptops (Safe leaf)
         "baby": "0187-0192-",  # Antiques & Collectables > Other (safe default leaf)
         "monitor": "0187-0192-",  
+        "puzzle": "0208-1610-", # Toys & Models > Puzzles
+        "puzzles": "0208-1610-",
         "default": "0187-0192-"  # Use existing safe DEFAULT_CATEGORY
     }
     

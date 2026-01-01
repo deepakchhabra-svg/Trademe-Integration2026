@@ -99,6 +99,45 @@ export default async function AppShell({ children }: { children: React.ReactNode
 
             <div className="space-y-1">
               <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                External
+              </div>
+              <a href="https://www.trademe.co.nz" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                Trade Me Marketplace ↗
+              </a>
+              <a href="https://www.trademe.co.nz/a/my-trade-me" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                My Trade Me ↗
+              </a>
+              <a href="https://www.trademe.co.nz/MyTradeMe/Sell/Current.aspx" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                Items I'm selling ↗
+              </a>
+              <a href="https://www.trademe.co.nz/MyTradeMe/Sell/SalesSummary.aspx" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                Sales Summary ↗
+              </a>
+              <a href="https://www.trademe.co.nz/MyTradeMe/Sell/Unsold.aspx" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                Unsold Items ↗
+              </a>
+              <a href="https://help.trademe.co.nz" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                Help & Support ↗
+              </a>
+            </div>
+
+            <div className="space-y-1">
+              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Satellite Sites
+              </div>
+              <a href="https://www.motorweb.co.nz/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                MotorWeb ↗
+              </a>
+              <a href="https://www.holidayhouses.co.nz/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                Holiday Houses ↗
+              </a>
+              <a href="https://www.trademe.co.nz/insurance" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">
+                Insurance ↗
+              </a>
+            </div>
+
+            <div className="space-y-1">
+              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Admin
               </div>
               <NavLink href="/access" label="Access & tokens" />

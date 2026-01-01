@@ -64,7 +64,6 @@ def build_listing_payload(internal_product_id: int, overrides: Optional[Dict[str
             "StartPrice": marketplace_data["price"],
             "BuyNowPrice": marketplace_data["price"],
             "PaymentOptions": TradeMeConfig.get_payment_methods(),
-            "ShippingOptions": TradeMeConfig.DEFAULT_SHIPPING,
             "PhotoUrls": photo_urls,
             "PhotoIds": [],
             "HasGallery": len(photo_urls) > 0,
@@ -73,6 +72,14 @@ def build_listing_payload(internal_product_id: int, overrides: Optional[Dict[str
             "_cost_price": float(sp.cost_price or 0),
             "_trust_signal": marketplace_data["trust_signal"]
         }
+
+        # Shipping logic
+        if TradeMeConfig.USE_SHIPPING_TEMPLATES:
+            payload["Shipping"] = 3 # Specified shipping
+            # Default to Aramex Standard unless specifically overridden
+            payload["ShippingTemplateId"] = getattr(TradeMeConfig, "SHIPPING_TEMPLATE_ID", 137046) 
+        else:
+            payload["ShippingOptions"] = TradeMeConfig.DEFAULT_SHIPPING
         
         # Apply overrides
         if overrides:

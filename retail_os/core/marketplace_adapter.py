@@ -48,7 +48,11 @@ class MarketplaceAdapter:
             raise ValueError("Missing enriched title (run enrichment)")
         if not (getattr(item, "enriched_description", None) or "").strip():
             raise ValueError("Missing enriched description (run enrichment)")
+        
+        from retail_os.trademe.config import TradeMeConfig
         final_description = str(item.enriched_description)
+        if hasattr(TradeMeConfig, "LISTING_FOOTER"):
+            final_description += f"\n\n{TradeMeConfig.LISTING_FOOTER.strip()}"
 
         # Optional AI path intentionally disabled for operator-grade pilot (no silent behavior changes).
         if use_ai:

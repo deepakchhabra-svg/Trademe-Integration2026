@@ -29,9 +29,17 @@ class TradeMeConfig:
     # --- SHIPPING TEMPLATES ---
     # Ideally, we pass "ShippingPresetId" if you have presets in TM.
     # Otherwise, we define manual options.
-    USE_SHIPPING_TEMPLATES = False
+    USE_SHIPPING_TEMPLATES = True
+    SHIPPING_TEMPLATE_ID = 137046  # Default: Aramex Standard ($10/$16/$24)
     
-    # Fallback Manual Options
+    SHIPPING_TEMPLATES = {
+        "NZPOST_FREE": 159404,
+        "ARAMEX_ECONOMY_LARGE": 137049,
+        "ARAMEX_STANDARD": 137046,
+        "ARAMEX_FREE": 135044
+    }
+
+    # Fallback Manual Options (Used if USE_SHIPPING_TEMPLATES is False)
     DEFAULT_SHIPPING = [
         {"Price": 7.00, "Method": "Standard Courier", "Type": 1}, # Nationwide
         {"Price": 12.00, "Method": "Rural Delivery", "Type": 1},   # Nationwide
@@ -59,6 +67,15 @@ class TradeMeConfig:
     
     # --- LIFECYCLE ---
     AUTO_RELIST = True # Automatically relist unsold items?
+
+    # --- BRANDING ---
+    LISTING_FOOTER = """
+Welcome to SOULED Store
+
+Smart Savings: Big deals on popular brands.
+Quality You Can Trust: Pre-loved & new items, carefully selected.
+Discover Unique Finds: Curated collection, one-of-a-kind treasures.
+"""
     
     # --- INTELLIGENCE MODES ---
     # "STANDARD": Normal Margins

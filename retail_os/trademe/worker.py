@@ -755,22 +755,9 @@ class CommandWorker:
                     with open(photo_path, "rb") as f:
                         img_bytes = f.read()
                     
-                    # Idempotency Check (Blueprint Req)
-                    img_hash = hashlib.xxhash64(img_bytes).hexdigest() if hasattr(hashlib, 'xxhash64') else hashlib.md5(img_bytes).hexdigest()
-                    existing_hash = session.query(PhotoHash).filter_by(hash=img_hash).first()
-                    
-                    if existing_hash:
-                         p_id = existing_hash.tm_photo_id
-                         print(f"      -> Photo HIT Cache: {p_id}")
-                    else:
-                        # Pass DB session for idempotency cache checks (Legacy check inside api? Doing it explicit here)
-                        p_id = self.api.upload_photo_idempotent(session, img_bytes, filename="product.jpg")
-                        
-                        # Save Hash
-                        new_hash = PhotoHash(hash=img_hash, tm_photo_id=p_id)
-                        session.add(new_hash)
-                        session.commit()
-                        print(f"      -> Photo ID: {p_id} (Cached)")
+                    # Idempotency Check (Blueprint Req) - Delegate to API
+                    p_id = self.api.upload_photo_idempotent(session, img_bytes, filename="product.jpg")
+                    print(f"      -> Photo ID: {p_id}")
                     
                     photo_ids.append(p_id)
                 except Exception as e:
@@ -848,9 +835,15 @@ class CommandWorker:
                 "Pickup": TradeMeConfig.PICKUP_OPTION,
                 "StartPrice": listing_price,  # Calculated with margins
                 "PaymentOptions": TradeMeConfig.get_payment_methods(),
-                "ShippingOptions": TradeMeConfig.DEFAULT_SHIPPING,
                 "PhotoIds": photo_ids
             }
+
+            # Shipping logic
+            if TradeMeConfig.USE_SHIPPING_TEMPLATES:
+                tm_payload["Shipping"] = 3 # Specified shipping
+                tm_payload["ShippingTemplateId"] = getattr(TradeMeConfig, "SHIPPING_TEMPLATE_ID", 137046)
+            else:
+                tm_payload["ShippingOptions"] = TradeMeConfig.DEFAULT_SHIPPING
             
             # Apply Promo Flags if enabled
             if TradeMeConfig.USE_PROMO_FEATURES:
