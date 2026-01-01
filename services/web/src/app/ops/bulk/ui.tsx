@@ -87,19 +87,19 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
     <div className="space-y-4">
       {msg ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900">{msg}</div> : null}
 
-      <Section title="Recommended flow (operator runbook)">
+      <Section title="Recommended flow (pipeline-first)">
         <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
           <li>
-            Pick supplier + scope below. Then run <span className="font-semibold">Scrape</span>.
+            Prefer <span className="font-semibold">Pipeline</span> for the standard flow. Use this page only for batch enqueue.
           </li>
           <li>
-            Run <span className="font-semibold">Enrich & standardise</span> to populate Vault 2 (copy + products).
+            If you use Bulk ops: enqueue <span className="font-semibold">Scrape</span> first.
           </li>
           <li>
-            Run <span className="font-semibold">Create drafts</span> and review in Vault 3 (status=Draft).
+            Then enqueue <span className="font-semibold">Images</span> (if needed) and <span className="font-semibold">Enrich</span>.
           </li>
           <li>
-            Run <span className="font-semibold">Publish approved</span> to publish real listings (drift-safe + policy-safe).
+            Then enqueue <span className="font-semibold">Draft</span>, validate readiness, and finally <span className="font-semibold">Publish</span>.
           </li>
         </ol>
         <div className="mt-3 text-[11px] text-slate-500">
@@ -134,9 +134,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                 </option>
               ))}
             </select>
-            <div className="mt-1 text-[11px] text-slate-500">
-              Supported supplier: ONECHEQ.
-            </div>
+            <div className="mt-1 text-[11px] text-slate-500">Supports any configured supplier (use Pipeline for the canonical flow).</div>
             <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">
               <div className="font-semibold">Category presets (from Supplier policy)</div>
               {presetsMsg ? <div className="mt-1 text-amber-800">{presetsMsg}</div> : null}

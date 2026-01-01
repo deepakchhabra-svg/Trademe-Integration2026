@@ -69,21 +69,20 @@ export default async function AppShell({ children }: { children: React.ReactNode
                 Ops
               </div>
               {canSee(who.role, "power") ? <NavLink href="/ops/inbox" label="Inbox" /> : null}
-              {canSee(who.role, "power") ? <NavLink href="/ops/queue" label="Queue" /> : null}
+              {canSee(who.role, "power") ? <NavLink href="/ops/commands" label="Command log" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/alerts" label="Alerts" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/trademe" label="Trade Me Health" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/llm" label="LLM Health" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/readiness" label="Publish Readiness" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/pipeline" label="Pipeline" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/removed" label="Removed items" /> : null}
-              {canSee(who.role, "power") ? <NavLink href="/ops/bulk" label="Runbook" /> : null}
+              {canSee(who.role, "power") ? <NavLink href="/ops/bulk" label="Bulk ops (advanced)" /> : null}
               {canSee(who.role, "power") ? <NavLink href="/ops/jobs" label="Jobs" /> : null}
             </div>
 
             {canSee(who.role, "root") ? (
               <div className="space-y-1">
                 <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Diagnostics</div>
-                <NavLink href="/ops/commands" label="Command log" />
                 <NavLink href="/ops/audits" label="Audit log" />
               </div>
             ) : null}
