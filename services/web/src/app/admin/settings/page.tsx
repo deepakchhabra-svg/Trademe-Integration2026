@@ -12,6 +12,10 @@ const DEFAULT_KEYS = [
   "store.mode",
   "publishing.policy",
   "competitor.policy",
+  // UI-managed Trade Me listing controls (DB-backed)
+  "trademe.shipping.use_template",
+  "trademe.shipping.template_id",
+  "trademe.listing.footer",
 ];
 
 export default async function SettingsPage() {

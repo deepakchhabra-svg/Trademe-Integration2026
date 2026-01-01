@@ -92,6 +92,58 @@ class TradeMeConfig:
     # Optional operator-configured footer appended to buyer-visible description.
     # Keep empty by default (no forced branding).
     LISTING_FOOTER = (os.getenv("RETAIL_OS_LISTING_FOOTER") or "").strip()
+
+    # --- UI-managed settings keys (DB) ---
+    # These can be set via Admin → Settings (root) using SystemSetting values.
+    KEY_USE_SHIPPING_TEMPLATE = "trademe.shipping.use_template"
+    KEY_SHIPPING_TEMPLATE_ID = "trademe.shipping.template_id"
+    KEY_LISTING_FOOTER = "trademe.listing.footer"
+
+    @staticmethod
+    def _db_get(session, key: str):
+        """
+        Best-effort fetch of SystemSetting.value for key.
+        Returns None if unset/unavailable.
+        """
+        if session is None:
+            return None
+        try:
+            from retail_os.core.database import SystemSetting  # local import to avoid early DB import costs
+
+            row = session.query(SystemSetting).filter(SystemSetting.key == key).first()
+            return row.value if row else None
+        except Exception:
+            return None
+
+    @classmethod
+    def use_shipping_template(cls, session=None) -> bool:
+        v = cls._db_get(session, cls.KEY_USE_SHIPPING_TEMPLATE)
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, (int, float)):
+            return bool(v)
+        if isinstance(v, str):
+            return v.strip().lower() in {"1", "true", "yes", "y", "on"}
+        return bool(cls.USE_SHIPPING_TEMPLATES)
+
+    @classmethod
+    def shipping_template_id(cls, session=None) -> Optional[int]:
+        v = cls._db_get(session, cls.KEY_SHIPPING_TEMPLATE_ID)
+        if isinstance(v, int):
+            return v
+        if isinstance(v, str):
+            try:
+                return int(v.strip())
+            except Exception:
+                return None
+        return cls.SHIPPING_TEMPLATE_ID
+
+    @classmethod
+    def listing_footer(cls, session=None) -> str:
+        v = cls._db_get(session, cls.KEY_LISTING_FOOTER)
+        if isinstance(v, str):
+            return v.strip()
+        return (cls.LISTING_FOOTER or "").strip()
     
     # --- INTELLIGENCE MODES ---
     # "STANDARD": Normal Margins

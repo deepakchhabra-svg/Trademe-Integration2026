@@ -54,10 +54,15 @@ def build_listing_payload(internal_product_id: int, overrides: Optional[Dict[str
         
         # Build payload (match worker defaults)
         # NOTE: Trade Me v1 expects ints for Duration and bitflags for PaymentOptions.
+        footer = (TradeMeConfig.listing_footer(session) or "").strip()
+        desc = marketplace_data["description"]
+        if footer:
+            desc = f"{desc}\n\n{footer}"
+
         payload = {
             "Category": marketplace_data["category_id"],
             "Title": marketplace_data["title"][:49],
-            "Description": [marketplace_data["description"]],
+            "Description": [desc],
             "Duration": TradeMeConfig.DEFAULT_DURATION,
             "Pickup": TradeMeConfig.PICKUP_OPTION,
             # Default selling mode: auction with optional BuyNow matching StartPrice.
@@ -74,9 +79,10 @@ def build_listing_payload(internal_product_id: int, overrides: Optional[Dict[str
         }
 
         # Shipping logic
-        if TradeMeConfig.USE_SHIPPING_TEMPLATES and getattr(TradeMeConfig, "SHIPPING_TEMPLATE_ID", None):
+        template_id = TradeMeConfig.shipping_template_id(session)
+        if TradeMeConfig.use_shipping_template(session) and template_id:
             payload["Shipping"] = 3 # Specified shipping
-            payload["ShippingTemplateId"] = int(TradeMeConfig.SHIPPING_TEMPLATE_ID)
+            payload["ShippingTemplateId"] = int(template_id)
         else:
             payload["ShippingOptions"] = TradeMeConfig.DEFAULT_SHIPPING
         

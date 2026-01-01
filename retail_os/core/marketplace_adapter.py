@@ -49,11 +49,9 @@ class MarketplaceAdapter:
         if not (getattr(item, "enriched_description", None) or "").strip():
             raise ValueError("Missing enriched description (run enrichment)")
         
-        from retail_os.trademe.config import TradeMeConfig
         final_description = str(item.enriched_description)
-        footer = (getattr(TradeMeConfig, "LISTING_FOOTER", "") or "").strip()
-        if footer:
-            final_description += f"\n\n{footer}"
+        # NOTE: buyer-visible footers/branding are applied at payload-build time
+        # (listing_builder / publish worker) so they can be managed via UI settings (DB).
 
         # Optional AI path intentionally disabled for operator-grade pilot (no silent behavior changes).
         if use_ai:

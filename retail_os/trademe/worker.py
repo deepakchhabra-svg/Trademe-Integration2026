@@ -827,10 +827,15 @@ class CommandWorker:
             print(f"   -> Category: {marketplace_data['category_name']} ({marketplace_data['category_id']})")
             # ---------------------------
             
+            footer = (TradeMeConfig.listing_footer(session) or "").strip()
+            desc = marketplace_data["description"]
+            if footer:
+                desc = f"{desc}\n\n{footer}"
+
             tm_payload = {
                 "Category": marketplace_data["category_id"],  # Intelligent mapping
                 "Title": marketplace_data["title"][:49],  # Cleaned title
-                "Description": [marketplace_data["description"]],  # Enriched description
+                "Description": [desc],  # Enriched description (+ optional footer)
                 "Duration": TradeMeConfig.DEFAULT_DURATION,
                 "Pickup": TradeMeConfig.PICKUP_OPTION,
                 "StartPrice": listing_price,  # Calculated with margins
@@ -839,9 +844,10 @@ class CommandWorker:
             }
 
             # Shipping logic
-            if TradeMeConfig.USE_SHIPPING_TEMPLATES and getattr(TradeMeConfig, "SHIPPING_TEMPLATE_ID", None):
+            template_id = TradeMeConfig.shipping_template_id(session)
+            if TradeMeConfig.use_shipping_template(session) and template_id:
                 tm_payload["Shipping"] = 3 # Specified shipping
-                tm_payload["ShippingTemplateId"] = int(TradeMeConfig.SHIPPING_TEMPLATE_ID)
+                tm_payload["ShippingTemplateId"] = int(template_id)
             else:
                 tm_payload["ShippingOptions"] = TradeMeConfig.DEFAULT_SHIPPING
             
