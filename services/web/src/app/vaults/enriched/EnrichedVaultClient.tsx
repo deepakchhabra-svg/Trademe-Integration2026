@@ -27,6 +27,7 @@ type EnrichedItem = {
     has_enriched_description?: boolean;
     images?: string[];
     source_category?: string | null;
+    final_category_id?: string | null;
     final_category_name?: string | null;
     final_category_is_default?: boolean;
     product_url?: string | null;
@@ -156,6 +157,26 @@ export function EnrichedVaultClient({
         },
         { key: "sync_status", label: "Source status", render: (val) => <StatusBadge status={val as string} /> },
         { key: "source_category", label: "Source category", className: "font-mono text-[11px] text-slate-700" },
+        {
+            key: "final_category_name",
+            label: "Target category",
+            render: (val, row) => {
+                const name = (val as string) || "-";
+                const id = row.final_category_id || null;
+                const isDefault = Boolean(row.final_category_is_default);
+                return (
+                    <div className="space-y-0.5">
+                        <div className={`${isDefault ? "text-amber-700" : "text-slate-900"}`}>
+                            {name}
+                        </div>
+                        <div className="font-mono text-[10px] text-slate-500">
+                            {id ? id : "—"}
+                            {isDefault ? " · unmapped (blocked)" : ""}
+                        </div>
+                    </div>
+                );
+            },
+        },
         {
             key: "enrichment_status",
             label: "Copy",

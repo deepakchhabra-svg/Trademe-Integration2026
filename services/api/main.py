@@ -608,7 +608,11 @@ def ops_pipeline_summary(
             if not has_local:
                 reasons["Missing images (local)"] += 1
                 continue
-            if not CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or ""):
+            if not CategoryMapper.map_category(
+                getattr(sp, "source_category", "") or "",
+                sp.title or "",
+                (getattr(sp, "enriched_description", None) or getattr(sp, "description", None) or ""),
+            ):
                 reasons["Missing category mapping"] += 1
                 continue
 
@@ -1050,7 +1054,11 @@ def bulk_dryrun_publish(req: BulkDryRunPublishRequest, _role: Role = Depends(req
             try:
                 from retail_os.core.category_mapper import CategoryMapper
 
-                cat = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+                cat = CategoryMapper.map_category(
+                    getattr(sp, "source_category", "") or "",
+                    sp.title or "",
+                    (getattr(sp, "enriched_description", None) or getattr(sp, "description", None) or ""),
+                )
                 if not cat:
                     return False, "Unmapped Trade Me category"
                 if getattr(CategoryMapper, "DEFAULT_CATEGORY", None) and cat == CategoryMapper.DEFAULT_CATEGORY:
@@ -1401,12 +1409,33 @@ def _serialize_supplier_product(sp: SupplierProduct) -> dict[str, Any]:
 
 def _serialize_internal_product(ip: InternalProduct) -> dict[str, Any]:
     sp = ip.supplier_product
+    final_category_id = None
+    final_category_name = None
+    final_category_is_default = None
+    if sp:
+        try:
+            from retail_os.core.category_mapper import CategoryMapper
+
+            final_category_id = CategoryMapper.map_category(
+                getattr(sp, "source_category", "") or "",
+                sp.title or "",
+                (getattr(sp, "enriched_description", None) or getattr(sp, "description", None) or ""),
+            )
+            final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
+            final_category_is_default = bool(final_category_id == getattr(CategoryMapper, "DEFAULT_CATEGORY", None))
+        except Exception:
+            final_category_id = None
+            final_category_name = None
+            final_category_is_default = None
     return {
         "id": ip.id,
         "sku": ip.sku,
         "title": ip.title,
         "primary_supplier_product_id": ip.primary_supplier_product_id,
         "supplier_product": _serialize_supplier_product(sp) if sp else None,
+        "final_category_id": final_category_id,
+        "final_category_name": final_category_name,
+        "final_category_is_default": final_category_is_default,
     }
 
 
@@ -1474,7 +1503,11 @@ def vault_raw(
 
         items = []
         for sp in rows:
-            final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+            final_category_id = CategoryMapper.map_category(
+                getattr(sp, "source_category", "") or "",
+                sp.title or "",
+                (getattr(sp, "enriched_description", None) or getattr(sp, "description", None) or ""),
+            )
             final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
             final_category_is_default = bool(final_category_id == getattr(CategoryMapper, "DEFAULT_CATEGORY", None))
             items.append(
@@ -1540,7 +1573,15 @@ def vault_enriched(
         items = []
         for ip in rows:
             sp = ip.supplier_product
-            final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "") if sp else None
+            final_category_id = (
+                CategoryMapper.map_category(
+                    getattr(sp, "source_category", "") or "",
+                    sp.title or "",
+                    (getattr(sp, "enriched_description", None) or getattr(sp, "description", None) or ""),
+                )
+                if sp
+                else None
+            )
             final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
             final_category_is_default = bool(final_category_id and final_category_id == getattr(CategoryMapper, "DEFAULT_CATEGORY", None))
             source_price = float(sp.cost_price) if sp and sp.cost_price is not None else None
@@ -1731,7 +1772,11 @@ def master_products(
                 if stage_norm == "blocked" and not blocked:
                     continue
 
-            final_category_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+            final_category_id = CategoryMapper.map_category(
+                getattr(sp, "source_category", "") or "",
+                sp.title or "",
+                (getattr(sp, "enriched_description", None) or getattr(sp, "description", None) or ""),
+            )
             final_category_name = CategoryMapper.get_category_name(final_category_id) if final_category_id else None
 
             items.append(
@@ -2492,7 +2537,11 @@ def ops_readiness(
                 totals["blocked"] += 1
                 reasons["Missing images (local)"] += 1
                 continue
-            cat_id = CategoryMapper.map_category(getattr(sp, "source_category", "") or "", sp.title or "")
+            cat_id = CategoryMapper.map_category(
+                getattr(sp, "source_category", "") or "",
+                sp.title or "",
+                (getattr(sp, "enriched_description", None) or getattr(sp, "description", None) or ""),
+            )
             if not cat_id:
                 totals["blocked"] += 1
                 reasons["Missing category mapping"] += 1

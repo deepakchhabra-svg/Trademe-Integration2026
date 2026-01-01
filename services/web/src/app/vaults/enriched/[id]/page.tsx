@@ -12,6 +12,9 @@ type InternalProductDetail = {
   id: number;
   sku: string;
   title: string | null;
+  final_category_id?: string | null;
+  final_category_name?: string | null;
+  final_category_is_default?: boolean;
   supplier_product: {
     id: number;
     supplier_id: number | null;
@@ -165,6 +168,19 @@ export default async function EnrichedDetailPage({
         <Field label="Supplier" value={sp?.supplier_name || sp?.supplier_id || "-"} testId="field-supplier" />
         <Field label="Supplier price" value={sp?.cost_price == null ? "-" : `$${sp.cost_price.toFixed(2)}`} testId="field-cost" />
         <Field label="Source category" value={<span className="font-mono text-xs">{sp?.source_category || "-"}</span>} testId="field-category" />
+        <Field
+          label="Target category (Trade Me)"
+          value={
+            <div className="space-y-0.5">
+              <div className={ip.final_category_is_default ? "text-amber-700" : ""}>{ip.final_category_name || "-"}</div>
+              <div className="font-mono text-[11px] text-slate-500">
+                {ip.final_category_id || "—"}
+                {ip.final_category_is_default ? " · unmapped (blocked)" : ""}
+              </div>
+            </div>
+          }
+          testId="field-final-category"
+        />
       </div>
 
       {tab === "compare" ? (

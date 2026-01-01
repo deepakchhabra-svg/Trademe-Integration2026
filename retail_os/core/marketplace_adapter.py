@@ -59,8 +59,9 @@ class MarketplaceAdapter:
 
         # 3. Map Category
         cat_id = CategoryMapper.map_category(
-            item.source_category if hasattr(item, 'source_category') else "", 
-            raw_title
+            item.source_category if hasattr(item, "source_category") else "",
+            raw_title,
+            (getattr(item, "enriched_description", None) or getattr(item, "description", None) or ""),
         )
         # No silent fallback: default category counts as unmapped and must block readiness.
         if getattr(CategoryMapper, "DEFAULT_CATEGORY", None) and cat_id == CategoryMapper.DEFAULT_CATEGORY:
