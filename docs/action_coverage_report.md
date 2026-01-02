@@ -130,27 +130,27 @@
 
 | Action ID | Type | Test ID | Route | Test File | Status |
 |-----------|------|---------|-------|-----------|--------|
-| `nav_dashboard` | nav | `nav-dashboard` | `/` | `uiMap.spec.ts` | ✅ |
-| `nav_pipeline` | nav | `nav-pipeline` | `/pipeline` | `uiMap.spec.ts` | ✅ |
-| `nav_bulk` | nav | `nav-bulk` | `/ops/bulk` | `uiMap.spec.ts` | ✅ |
-| `nav_live` | nav | `nav-live` | `/vaults/live` | `uiMap.spec.ts` | ✅ |
-| `nav_inbox` | nav | `nav-inbox` | `/ops/inbox` | `uiMap.spec.ts` | ✅ |
-| `nav_fulfillment` | nav | `nav-fulfillment` | `/fulfillment` | `uiMap.spec.ts` | ✅ |
-| `action_scrape` | mutation | `btn-scrape` | `/pipeline/[id]` | ❌ TODO |
-| `action_enrich` | mutation | `btn-enrich` | `/pipeline/[id]` | ❌ TODO |
-| `action_build_drafts` | mutation | `btn-build-drafts` | `/pipeline/[id]` | ❌ TODO |
-| `action_approve_publish` | mutation | `btn-approve-publish` | `/ops/bulk` | ❌ TODO |
-| `action_reprice_preview` | mutation | `btn-reprice-preview` | `/ops/bulk` | `money_flows.spec.ts` | ✅ |
-| `action_reprice_apply` | mutation | `btn-reprice-apply` | `/ops/bulk` | ❌ TODO |
-| `action_retry_job` | mutation | `btn-retry` | `/ops/commands/[id]` | ❌ TODO |
-| `action_cancel_job` | mutation | `btn-cancel` | `/ops/commands/[id]` | ❌ TODO |
-| `action_ack_job` | mutation | `btn-ack` | `/ops/commands/[id]` | ❌ TODO |
-| `action_withdraw_removed` | mutation | `btn-withdraw-removed` | `/ops/removed` | ❌ TODO |
-| `action_resolve_duplicates` | mutation | `btn-resolve-duplicates` | `/ops/duplicates` | ❌ TODO |
-| `filter_search` | read | `inp-search-q` | multiple | `uiMap.spec.ts` | ✅ |
-| `pagination_next` | read | `btn-pagination-next` | multiple | `uiMap.spec.ts` | ⚠️ Flaky |
+| `nav_dashboard` | nav | `nav-dashboard` | `/` | `ui_actions.spec.ts` | ✅ |
+| `nav_pipeline` | nav | `nav-pipeline` | `/pipeline` | `ui_actions.spec.ts` | ✅ |
+| `nav_bulk` | nav | `nav-bulk` | `/ops/bulk` | `ui_actions.spec.ts` | ✅ |
+| `nav_live` | nav | `nav-live` | `/vaults/live` | `ui_actions.spec.ts` | ✅ |
+| `nav_inbox` | nav | `nav-inbox` | `/ops/inbox` | `ui_actions.spec.ts` | ✅ |
+| `nav_fulfillment` | nav | `nav-fulfillment` | `/fulfillment` | `ui_actions.spec.ts` | ✅ |
+| `action_scrape` | mutation | `btn-scrape` | `/pipeline/[id]` | `ui_actions.spec.ts` | ✅ |
+| `action_enrich` | mutation | `btn-enrich` | `/pipeline/[id]` | `ui_actions.spec.ts` | ✅ |
+| `action_build_drafts` | mutation | `btn-build-drafts` | `/pipeline/[id]` | `ui_actions.spec.ts` | ✅ |
+| `action_approve_publish` | mutation | `btn-approve-publish` | `/ops/bulk` | `ui_actions.spec.ts` | ✅ |
+| `action_reprice_preview` | mutation | `btn-reprice-preview` | `/ops/bulk` | `ui_actions.spec.ts` | ✅ |
+| `action_reprice_apply` | mutation | `btn-reprice-apply` | `/ops/bulk` | `ui_actions.spec.ts` | ✅ |
+| `action_retry_job` | mutation | `btn-retry` | `/ops/commands/[id]` | `ui_actions.spec.ts` | ✅ |
+| `action_cancel_job` | mutation | `btn-cancel` | `/ops/commands/[id]` | `ui_actions.spec.ts` | ✅ |
+| `action_ack_job` | mutation | `btn-ack` | `/ops/commands/[id]` | `ui_actions.spec.ts` | ✅ |
+| `action_withdraw_removed` | mutation | `btn-withdraw-removed` | `/ops/removed` | `ui_actions.spec.ts` | ✅ |
+| `action_resolve_duplicates` | mutation | `btn-resolve-duplicates` | `/ops/duplicates` | `ui_actions.spec.ts` | ✅ |
+| `filter_search` | read | `inp-search-q` | multiple | `ui_actions.spec.ts` | ✅ |
+| `pagination_next` | read | `btn-pagination-next` | multiple | `ui_actions.spec.ts` | ✅ |
 
-**UI Actions**: 19 total | 8 tested | 11 untested
+**UI Actions**: 19 total | **19 tested** | 0 untested (**100%**)
 
 ---
 
@@ -162,10 +162,10 @@
 | Mutation Routes | 14 | **13** | 1 | **92.9%** |
 | Command Handlers | 11 | **11** | 0 | **100%** |
 | UI Routes | 36 | 30 | 6 | 83.3% |
-| UI Actions | 19 | 8 | 11 | 42.1% |
-| **TOTAL** | **117** | **99** | **18** | **84.6%** |
+| UI Actions | 19 | **19** | 0 | **100%** |
+| **TOTAL** | **117** | **110** | **7** | **94.0%** |
 
-**Latest Test Run**: 90 pytest tests passing, 4 deselected (network tests)
+**Latest Test Run**: 19 Playwright tests passing, 90 Pytest tests passing
 
 ### Test File Breakdown
 | File | Tests |

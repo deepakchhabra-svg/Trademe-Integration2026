@@ -42,6 +42,11 @@ jobs:
     defaults:
       run:
         working-directory: services/web
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      RETAILOS_E2E_DATABASE_URL: sqlite:///./e2e.sqlite
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+      NEXT_PUBLIC_DEFAULT_ROLE: power
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -85,14 +90,14 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
+      - name: Seed E2E Database
+        working-directory: ${{ github.workspace }}
+        run: python tests/seed_e2e.py
+
       - name: Build Next.js
         run: npm run build
 
       - name: Run Playwright
-        env:
-          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
-          PYTHONPATH: ${{ github.workspace }}
-          RETAILOS_E2E_DATABASE_URL: sqlite:///./dev_db.sqlite
         run: npx playwright test --project=chromium --shard=${{ matrix.shard }}/4
 
       - name: Upload Playwright report
