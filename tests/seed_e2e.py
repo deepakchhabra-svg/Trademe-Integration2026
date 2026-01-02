@@ -1,74 +1,58 @@
+"""
+Offline, idempotent E2E seed for CI/Playwright.
+
+- Creates schema via init_db()
+- Seeds minimal rows so "power" pages render without 404/500
+- NEVER calls external systems (Trade Me, supplier sites, LLM)
+"""
+
+from __future__ import annotations
+
+import importlib
 import os
 import sys
+from pathlib import Path
 
-# Ensure project root is in path
-sys.path.append(os.getcwd())
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from retail_os.core.database import Base, Supplier, init_db, InternalProduct, TradeMeListing
+def main() -> None:
+    # Ensure repo root is on sys.path (works from any cwd).
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
 
-# Match the DB URL from playwright.config.ts
-DB_URL = os.environ.get("RETAILOS_E2E_DATABASE_URL", "sqlite:////tmp/retailos_e2e.sqlite")
+    db_url = (os.getenv("RETAILOS_E2E_DATABASE_URL") or os.getenv("DATABASE_URL") or "").strip()
+    if not db_url:
+        raise SystemExit("Missing RETAILOS_E2E_DATABASE_URL (or DATABASE_URL).")
 
-def seed():
-    print(f"Seeding DB: {DB_URL}")
-    engine = create_engine(DB_URL)
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    # Force database module to pick up DATABASE_URL.
+    os.environ["DATABASE_URL"] = db_url
 
-    # Seed Suppliers
-    if not session.query(Supplier).filter_by(name="ONECHEQ").first():
-        s1 = Supplier(id=1, name="ONECHEQ", is_active=True, base_url="https://onecheq.co.nz")
-        session.add(s1)
-        print("Added Supplier: ONECHEQ")
-    
-    if not session.query(Supplier).filter_by(name="NOEL_LEEMING").first():
-        s2 = Supplier(id=2, name="NOEL_LEEMING", is_active=True, base_url="https://www.noelleeming.co.nz")
-        session.add(s2)
-        print("Added Supplier: NOEL_LEEMING")
+    import retail_os.core.database as db
 
-    # Seed Supplier Product for duplicates
-    from retail_os.core.database import SupplierProduct
-    
-    sp1 = session.query(SupplierProduct).filter_by(external_sku="SKU-DUP-1").first()
-    if not sp1:
-        sp1 = SupplierProduct(
-            supplier_id=1, 
-            external_sku="SKU-DUP-1", 
-            title="Duplicate Product Source",
-            cost_price=5.0
-        )
-        session.add(sp1)
-        session.flush() # Get ID
-        print("Added SupplierProduct: SKU-DUP-1")
+    importlib.reload(db)
+    db.init_db()
 
-    # Seed Internal Product
-    if not session.query(InternalProduct).filter_by(id=1).first():
-        p1 = InternalProduct(
-            id=1, 
-            title="Duplicate Product", 
-            sku="INT-SKU-1",
-            primary_supplier_product_id=sp1.id
-        )
-        session.add(p1)
-        print("Added InternalProduct: Duplicate Product")
-    
-    # Ensure TradeMeListing table works (seed dummy listing)
-    from retail_os.core.database import TradeMeListing
-    if not session.query(TradeMeListing).filter_by(tm_listing_id="12345").first():
-        l1 = TradeMeListing(
-            tm_listing_id="12345", 
-            internal_product_id=1, 
-            desired_price=10.0,
-            actual_price=10.0
-        )
-        session.add(l1)
-        print("Added TradeMeListing: 12345")
+    with db.get_db_session() as session:
+        # Ensure baseline suppliers exist (ids may vary; the UI enumerates by query anyway).
+        for name, url in (
+            ("ONECHEQ", "https://example.com"),
+            ("CASH_CONVERTERS", "https://example.com"),
+            ("NOEL_LEEMING", "https://example.com"),
+        ):
+            s = session.query(db.Supplier).filter(db.Supplier.name == name).first()
+            if not s:
+                session.add(db.Supplier(name=name, base_url=url, is_active=True))
 
-    session.commit()
-    print("Seeding complete.")
+        # Ensure store mode is NORMAL (publishing endpoints still require real Trade Me creds).
+        row = session.query(db.SystemSetting).filter(db.SystemSetting.key == "store.mode").first()
+        if not row:
+            session.add(db.SystemSetting(key="store.mode", value="NORMAL"))
+        else:
+            row.value = "NORMAL"
+
+        session.commit()
+
 
 if __name__ == "__main__":
-    seed()
+    main()
+

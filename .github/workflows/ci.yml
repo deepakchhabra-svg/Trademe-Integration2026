@@ -39,6 +39,14 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
+    env:
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+      PYTHONPATH: ${{ github.workspace }}
+      RETAILOS_E2E_DATABASE_URL: sqlite:////tmp/retailos_e2e.sqlite
+      # Deterministic token for E2E auth boundary (used by API + Playwright cookie).
+      RETAIL_OS_POWER_TOKEN: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      # Never allow header-role escalation in CI.
+      RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES: "false"
     defaults:
       run:
         working-directory: services/web
@@ -74,6 +82,12 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Seed E2E database (offline)
+        run: python3 ../../tests/seed_e2e.py
 
       - name: Cache Playwright Browsers
         id: playwright-cache

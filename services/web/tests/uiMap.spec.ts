@@ -30,10 +30,10 @@ test.describe("UI Map Click-Through", () => {
 
     test("Dashboard quick action buttons should be visible @smoke", async ({ page }) => {
         await page.goto("/");
-        await expect(page.getByTestId(UI.pages.dashboard.actions.scrape)).toBeVisible();
-        await expect(page.getByTestId(UI.pages.dashboard.actions.enrich)).toBeVisible();
-        await expect(page.getByTestId(UI.pages.dashboard.actions.dryRun)).toBeVisible();
-        await expect(page.getByTestId(UI.pages.dashboard.actions.publish)).toBeVisible();
+        // Dashboard actions are now "Next actions" links (canonical flow).
+        await expect(page.getByRole("link", { name: "Open Pipeline" }).first()).toBeVisible();
+        await expect(page.getByRole("link", { name: "Inbox" }).first()).toBeVisible();
+        await expect(page.getByRole("link", { name: "Needs attention" }).first()).toBeVisible();
     });
 
     test("Vault search and filters should be present @smoke", async ({ page }) => {
