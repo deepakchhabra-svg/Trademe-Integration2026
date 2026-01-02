@@ -69,6 +69,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000",
+        // Default role for E2E tests (no cookie set)
+        NEXT_PUBLIC_DEFAULT_ROLE: "power",
       },
     },
   ],

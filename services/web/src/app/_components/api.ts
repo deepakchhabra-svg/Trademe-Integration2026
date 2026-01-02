@@ -8,7 +8,9 @@ export function apiBaseUrl(): string {
 
 export async function apiHeaders(): Promise<Record<string, string>> {
   const store = await cookies();
-  const role = store.get("retailos_role")?.value || "listing";
+  // For E2E tests, allow setting default role via env var
+  const envDefaultRole = process.env.NEXT_PUBLIC_DEFAULT_ROLE || "listing";
+  const role = store.get("retailos_role")?.value || envDefaultRole;
   const token = store.get("retailos_token")?.value;
   const headers: Record<string, string> = {
     "X-RetailOS-Role": role,
