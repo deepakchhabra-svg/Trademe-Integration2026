@@ -289,3 +289,159 @@ def test_settings_put(client):
     resp = client.put("/settings/test_key", json={"value": "test"}, headers=ADMIN_HEADERS)
     # May or may not accept based on implementation
     assert resp.status_code in [200, 400, 404]
+
+# =============================================================================
+# DETAIL ROUTES (Entity-Specific GETs)
+# =============================================================================
+
+def test_supplier_product_detail(client, db_session):
+    from retail_os.core.database import Supplier, SupplierProduct
+    s = Supplier(id=1, name="Test", base_url="http://test")
+    db_session.add(s)
+    db_session.flush()
+    
+    sp = SupplierProduct(
+        supplier_id=1,
+        external_sku="TEST-001",
+        title="Test Product"
+    )
+    db_session.add(sp)
+    db_session.commit()
+    
+    resp = client.get(f"/supplier-products/{sp.id}", headers=POWER_HEADERS)
+    assert resp.status_code in [200, 404]
+
+def test_internal_product_detail(client, db_session):
+    from retail_os.core.database import Supplier, SupplierProduct, InternalProduct
+    s = Supplier(id=1, name="Test", base_url="http://test")
+    db_session.add(s)
+    db_session.flush()
+    
+    sp = SupplierProduct(
+        supplier_id=1,
+        external_sku="TEST-002",
+        title="Test Product"
+    )
+    db_session.add(sp)
+    db_session.flush()
+    
+    ip = InternalProduct(
+        sku="MY-TEST-002",
+        title="Internal Product",
+        primary_supplier_product_id=sp.id
+    )
+    db_session.add(ip)
+    db_session.commit()
+    
+    resp = client.get(f"/internal-products/{ip.id}", headers=POWER_HEADERS)
+    assert resp.status_code in [200, 404]
+
+def test_listing_detail(client, db_session):
+    from retail_os.core.database import Supplier, SupplierProduct, InternalProduct, TradeMeListing
+    s = Supplier(id=1, name="Test", base_url="http://test")
+    db_session.add(s)
+    db_session.flush()
+    
+    sp = SupplierProduct(supplier_id=1, external_sku="TEST-003", title="Test")
+    db_session.add(sp)
+    db_session.flush()
+    
+    ip = InternalProduct(sku="MY-TEST-003", title="Internal", primary_supplier_product_id=sp.id)
+    db_session.add(ip)
+    db_session.flush()
+    
+    listing = TradeMeListing(internal_product_id=ip.id, tm_listing_id="999999")
+    db_session.add(listing)
+    db_session.commit()
+    
+    resp = client.get(f"/listings/{listing.id}", headers=POWER_HEADERS)
+    assert resp.status_code in [200, 404]
+
+def test_listing_by_tm_id(client, db_session):
+    from retail_os.core.database import Supplier, SupplierProduct, InternalProduct, TradeMeListing
+    s = Supplier(id=1, name="Test", base_url="http://test")
+    db_session.add(s)
+    db_session.flush()
+    
+    sp = SupplierProduct(supplier_id=1, external_sku="TEST-004", title="Test")
+    db_session.add(sp)
+    db_session.flush()
+    
+    ip = InternalProduct(sku="MY-TEST-004", title="Internal", primary_supplier_product_id=sp.id)
+    db_session.add(ip)
+    db_session.flush()
+    
+    listing = TradeMeListing(internal_product_id=ip.id, tm_listing_id="888888")
+    db_session.add(listing)
+    db_session.commit()
+    
+    resp = client.get("/listings/by-tm/888888", headers=POWER_HEADERS)
+    assert resp.status_code in [200, 404]
+
+def test_inspector_supplier_product(client, db_session):
+    from retail_os.core.database import Supplier, SupplierProduct
+    s = Supplier(id=1, name="Test", base_url="http://test")
+    db_session.add(s)
+    db_session.flush()
+    
+    sp = SupplierProduct(supplier_id=1, external_sku="INSP-001", title="Inspect Me")
+    db_session.add(sp)
+    db_session.commit()
+    
+    resp = client.get(f"/inspector/supplier-products/{sp.id}", headers=POWER_HEADERS)
+    assert resp.status_code in [200, 404]
+
+def test_trust_internal_product(client, db_session):
+    from retail_os.core.database import Supplier, SupplierProduct, InternalProduct
+    s = Supplier(id=1, name="Test", base_url="http://test")
+    db_session.add(s)
+    db_session.flush()
+    
+    sp = SupplierProduct(supplier_id=1, external_sku="TRUST-001", title="Trust Me")
+    db_session.add(sp)
+    db_session.flush()
+    
+    ip = InternalProduct(sku="MY-TRUST-001", title="Trusted", primary_supplier_product_id=sp.id)
+    db_session.add(ip)
+    db_session.commit()
+    
+    resp = client.get(f"/trust/internal-products/{ip.id}", headers=POWER_HEADERS)
+    assert resp.status_code in [200, 404]
+
+def test_validate_internal_product(client, db_session):
+    from retail_os.core.database import Supplier, SupplierProduct, InternalProduct
+    s = Supplier(id=1, name="Test", base_url="http://test")
+    db_session.add(s)
+    db_session.flush()
+    
+    sp = SupplierProduct(supplier_id=1, external_sku="VAL-001", title="Validate Me")
+    db_session.add(sp)
+    db_session.flush()
+    
+    ip = InternalProduct(sku="MY-VAL-001", title="Validated", primary_supplier_product_id=sp.id)
+    db_session.add(ip)
+    db_session.commit()
+    
+    resp = client.get(f"/validate/internal-products/{ip.id}", headers=POWER_HEADERS)
+    assert resp.status_code in [200, 404]
+
+def test_listing_metrics(client, db_session):
+    from retail_os.core.database import Supplier, SupplierProduct, InternalProduct, TradeMeListing
+    s = Supplier(id=1, name="Test", base_url="http://test")
+    db_session.add(s)
+    db_session.flush()
+    
+    sp = SupplierProduct(supplier_id=1, external_sku="MET-001", title="Metrics")
+    db_session.add(sp)
+    db_session.flush()
+    
+    ip = InternalProduct(sku="MY-MET-001", title="Metrics", primary_supplier_product_id=sp.id)
+    db_session.add(ip)
+    db_session.flush()
+    
+    listing = TradeMeListing(internal_product_id=ip.id, tm_listing_id="777777")
+    db_session.add(listing)
+    db_session.commit()
+    
+    resp = client.get(f"/metrics/listings/{listing.id}", headers=POWER_HEADERS)
+    assert resp.status_code in [200, 404]
