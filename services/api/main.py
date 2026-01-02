@@ -31,6 +31,7 @@ from retail_os.core.database import (
 from retail_os.core.validator import LaunchLock
 from retail_os.trademe.api import TradeMeAPI
 from retail_os.core.llm_enricher import enricher as _llm_enricher
+from retail_os.core.category_mapper import CategoryMapper
 
 
 app = FastAPI(title="RetailOS API", version="0.1.0")
@@ -520,8 +521,6 @@ def ops_pipeline_summary(
     Scrape → Images → Enrich → Draft → Validate → Publish
     """
     from collections import Counter
-
-    from retail_os.core.category_mapper import CategoryMapper
 
     with get_db_session() as session:
         sup = session.query(Supplier).filter(Supplier.id == int(supplier_id)).first()
@@ -1052,8 +1051,6 @@ def bulk_dryrun_publish(req: BulkDryRunPublishRequest, _role: Role = Depends(req
 
             # Category must be mapped (not default fallback)
             try:
-                from retail_os.core.category_mapper import CategoryMapper
-
                 cat = CategoryMapper.map_category(
                     getattr(sp, "source_category", "") or "",
                     sp.title or "",
@@ -1432,8 +1429,6 @@ def _serialize_internal_product(ip: InternalProduct) -> dict[str, Any]:
     final_category_is_default = None
     if sp:
         try:
-            from retail_os.core.category_mapper import CategoryMapper
-
             final_category_id = CategoryMapper.map_category(
                 getattr(sp, "source_category", "") or "",
                 sp.title or "",
@@ -1495,7 +1490,6 @@ def vault_raw(
 
     with get_db_session() as session:
         # For operator clarity: show both supplier "source category" and the mapped Trade Me category.
-        from retail_os.core.category_mapper import CategoryMapper
         query = session.query(SupplierProduct)
 
         if q:
@@ -1566,7 +1560,6 @@ def vault_enriched(
         raise HTTPException(status_code=400, detail="Invalid pagination")
 
     with get_db_session() as session:
-        from retail_os.core.category_mapper import CategoryMapper
         from retail_os.strategy.pricing import PricingStrategy
         query = session.query(InternalProduct).join(SupplierProduct, InternalProduct.primary_supplier_product_id == SupplierProduct.id)
 
@@ -1723,8 +1716,6 @@ def master_products(
     """
     if page < 1 or per_page < 1 or per_page > 1000:
         raise HTTPException(status_code=400, detail="Invalid pagination")
-
-    from retail_os.core.category_mapper import CategoryMapper
 
     def _blocked_reasons(sp: SupplierProduct) -> list[str]:
         reasons: list[str] = []
@@ -2190,7 +2181,6 @@ def listing_detail(listing_id: int) -> dict[str, Any]:
         # Listing preview + hard gate evaluation (Vault 3 should be "what buyers will see" + blockers).
         try:
             import json as _json
-            from retail_os.core.category_mapper import CategoryMapper
 
             payload_obj: dict[str, Any] | None = None
             if l.payload_snapshot:
@@ -2485,8 +2475,6 @@ def ops_readiness(
     """
     import os
     from collections import Counter
-
-    from retail_os.core.category_mapper import CategoryMapper
 
     if limit < 1 or limit > 200000:
         raise HTTPException(status_code=400, detail="Invalid limit")
