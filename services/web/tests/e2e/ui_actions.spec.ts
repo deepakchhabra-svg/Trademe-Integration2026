@@ -350,7 +350,7 @@ test.describe('Cleanup Actions', () => {
 test.describe('Navigation Actions', () => {
     test('nav_dashboard: Navigate to Dashboard', async ({ page }) => {
         await page.goto('/');
-        await expect(page.locator('h1, text=Dashboard, text=Store').first()).toBeVisible();
+        await expect(page.getByRole('heading').or(page.getByText('Dashboard')).or(page.getByText('Store'))).toBeVisible();
     });
 
     test('nav_pipeline: Navigate to Pipeline', async ({ page }) => {
@@ -358,12 +358,12 @@ test.describe('Navigation Actions', () => {
             await route.fulfill({ json: [{ id: 1, name: 'ONECHEQ' }] });
         });
         await page.goto('/pipeline');
-        await expect(page.locator('h1, text=Pipeline').first()).toBeVisible();
+        await expect(page.getByRole('heading').or(page.getByText('Pipeline'))).toBeVisible();
     });
 
     test('nav_bulk: Navigate to Bulk Operations', async ({ page }) => {
         await page.goto('/ops/bulk');
-        await expect(page.locator('h1, text=Bulk').first()).toBeVisible();
+        await expect(page.getByRole('heading').or(page.getByText('Bulk'))).toBeVisible();
     });
 
     test('nav_live: Navigate to Live Listings', async ({ page }) => {
@@ -371,7 +371,7 @@ test.describe('Navigation Actions', () => {
             await route.fulfill({ json: { items: [], total: 0 } });
         });
         await page.goto('/vaults/live');
-        await expect(page.locator('h1, text=Live, text=Vault, text=Listings').first()).toBeVisible();
+        await expect(page.getByRole('heading').or(page.getByText('Vault')).or(page.getByText('Listings'))).toBeVisible();
     });
 
     test('nav_inbox: Navigate to Jobs Inbox', async ({ page }) => {
@@ -379,7 +379,7 @@ test.describe('Navigation Actions', () => {
             await route.fulfill({ json: { items: [], total: 0 } });
         });
         await page.goto('/ops/inbox');
-        await expect(page.locator('h1, text=Inbox, text=Attention').first()).toBeVisible();
+        await expect(page.getByRole('heading').or(page.getByText('Inbox')).or(page.getByText('Attention'))).toBeVisible();
     });
 
     test('nav_fulfillment: Navigate to Fulfillment', async ({ page }) => {
@@ -387,7 +387,7 @@ test.describe('Navigation Actions', () => {
             await route.fulfill({ json: { items: [], total: 0 } });
         });
         await page.goto('/fulfillment');
-        await expect(page.locator('h1, text=Fulfillment, text=Orders').first()).toBeVisible();
+        await expect(page.getByRole('heading').or(page.getByText('Fulfillment')).or(page.getByText('Orders'))).toBeVisible();
     });
 });
 
