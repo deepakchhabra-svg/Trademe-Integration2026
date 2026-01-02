@@ -160,12 +160,25 @@
 |----------|-------|--------|----------|----------|
 | GET Routes | 37 | 32 | 5 | 86.5% |
 | Mutation Routes | 14 | 10 | 4 | 71.4% |
-| Command Handlers | 11 | 3 | 8 | 27.3% |
+| Command Handlers | 11 | **11** | 0 | **100%** |
 | UI Routes | 36 | 30 | 6 | 83.3% |
 | UI Actions | 19 | 8 | 11 | 42.1% |
-| **TOTAL** | **117** | **83** | **34** | **70.9%** |
+| **TOTAL** | **117** | **91** | **26** | **77.8%** |
 
-**Latest Test Run**: 69 pytest tests passing, 4 deselected (network tests)
+**Latest Test Run**: 82 pytest tests passing, 4 deselected (network tests)
+
+### Test File Breakdown
+| File | Tests |
+|------|-------|
+| `test_selling_machine_api.py` | 30 |
+| `test_command_handlers.py` | 13 |
+| `test_schema_and_media.py` | 9 |
+| `test_property_pricing.py` | 6 |
+| `test_contract_routes.py` | 4 |
+| `test_integration_commands.py` | 3 |
+| `test_trademe_api_unit.py` | 3 |
+| Other (9 files) | 14 |
+| **Total** | **82** |
 
 ---
 
