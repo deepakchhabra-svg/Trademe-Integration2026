@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\lib\column_config_utils.py
+# hypothesis_version: 6.148.9
+
+['_index', '_pos:', 'boolean', 'bytes', 'checkbox', 'complex', 'date', 'datetime', 'datetime64', 'decimal', 'dict', 'empty', 'float', 'floating', 'hidden', 'integer', 'interval', 'link', 'list', 'mixed-integer-float', 'multiselect', 'number', 'object', 'period', 'selectbox', 'string', 'text', 'time', 'timedelta', 'timedelta64', 'unknown']

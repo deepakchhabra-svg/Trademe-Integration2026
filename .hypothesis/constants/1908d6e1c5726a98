@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\proto\Common_pb2.py
+# hypothesis_version: 6.148.9
+
+[b'\n\x1ccom.snowflake.apps.streamlitB\x0bCommonProto', 116, 118, 144, 146, 173, 175, 202, 204, 252, 254, 331, 333, 400, 402, 490, 492, 597, 599, 686, 689, 880, 'DESCRIPTOR', '_CHATINPUTVALUE', '_DOUBLEARRAY', '_FILEUPLOADERSTATE', '_FILEURLS', '_FILEURLSREQUEST', '_FILEURLSRESPONSE', '_INT32ARRAY', '_INT64ARRAY', '_SINT64ARRAY', '_STRINGARRAY', '_STRINGTRIGGERVALUE', '_UINT32ARRAY', '_UPLOADEDFILEINFO']

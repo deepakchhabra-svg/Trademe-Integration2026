@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { apiPostClient } from "../../_components/api_client";
-import { buttonClass } from "../../_components/ui";
+import { useEnqueue } from "../../_hooks/useEnqueue";
+import { Button } from "@/components/ui/button";
+import { Loader2, Trash2 } from "lucide-react";
 
 type Listing = {
     id: number;
     tm_id: string;
-    price: number | null;
-    last_synced?: string;
 };
 
 type DuplicateGroup = {
@@ -19,9 +18,8 @@ type DuplicateGroup = {
 export function ResolveButton({ group }: { group: DuplicateGroup }) {
     const [busy, setBusy] = useState(false);
     const [done, setDone] = useState(false);
+    const { enqueue } = useEnqueue();
 
-    // Default strategy: Keep the one with the lowest ID (oldest) or best price?
-    // Let's Keep Oldest (lowest ID) as it likely has the history/views.
     const sorted = [...group.listings].sort((a, b) => a.id - b.id);
     const keep = sorted[0];
     const remove = sorted.slice(1);
@@ -31,31 +29,25 @@ export function ResolveButton({ group }: { group: DuplicateGroup }) {
         setBusy(true);
         try {
             for (const l of remove) {
-                await apiPostClient("/ops/enqueue", {
+                await enqueue({
                     type: "WITHDRAW_LISTING",
-                    payload: { listing_id: l.id, reason: "Duplicate cleanup" },
+                    payload: { listing_id: l.id },
                     priority: 80,
                 });
             }
             setDone(true);
         } catch (e) {
-            alert(e instanceof Error ? e.message : "Failed");
-        } finally {
+            alert("Failed: " + e);
             setBusy(false);
         }
     }
 
-    if (done) {
-        return <span className="text-xs font-semibold text-emerald-600">Resolved (Enqueued)</span>;
-    }
+    if (done) return <span className="text-sm font-medium text-emerald-600">Resolved</span>;
 
     return (
-        <button
-            onClick={resolve}
-            disabled={busy}
-            className={buttonClass({ variant: "danger", size: "sm", disabled: busy })}
-        >
-            {busy ? "Resolving..." : `Withdraw ${remove.length} Extras`}
-        </button>
+        <Button variant="destructive" size="sm" onClick={resolve} disabled={busy}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Resolve ({remove.length})
+        </Button>
     );
 }

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta property="og:title" content="Fixture Product">
+    <meta property="og:image" content="https://onecheq.co.nz/images/fixture.jpg">
+</head>
+
+<body>
+    <h1 class="product__title">Fixture Product Title</h1>
+    <div class="product__price">
+        <span class="price-item--regular">$199.99</span>
+    </div>
+    <div class="product__description">
+        <p>This is a fixture description for unit testing.</p>
+        <p>Condition: Refurbished</p>
+    </div>
+    <!-- Added class for scraper to find condition reliably -->
+    <div class="product__condition">Refurbished</div>
+
+    <div class="product-sku">SKU: TEST-SKU-001</div>
+    <div class="product-specs">
+        <table>
+            <tr>
+                <td>Brand:</td>
+                <td>FixtureBrand</td>
+            </tr>
+            <tr>
+                <td>Model:</td>
+                <td>X1000</td>
+            </tr>
+        </table>
+    </div>
+    <script type="application/ld+json">
+    {
+        "@context": "http://schema.org/",
+        "@type": "Product",
+        "name": "Fixture Product Title",
+        "description": "This is a fixture description for unit testing.",
+        "brand": {
+            "@type": "Thing",
+            "name": "FixtureBrand"
+        },
+        "sku": "TEST-SKU-001",
+        "offers": {
+            "@type": "Offer",
+            "priceCurrency": "NZD",
+            "price": "199.99",
+            "availability": "http://schema.org/InStock",
+            "sku": "TEST-SKU-001"
+        }
+    }
+    </script>
+</body>
+
+</html>

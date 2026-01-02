@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\string_util.py
+# hypothesis_version: 6.148.9
+
+[1000.0, 127, 256, 1000, '(.)([A-Z][a-z]+)', '([a-z0-9])([A-Z])', '.', '0', ':material', '\\1_\\2', '^\\s*:(.+)\\/(.+):\\s*$', 'b', 'item', 'k', 'm', 'material', 'np.floating[Any]', 'np.integer[Any]', 'spinner', 't', '{}{}', '\u200b', '️']

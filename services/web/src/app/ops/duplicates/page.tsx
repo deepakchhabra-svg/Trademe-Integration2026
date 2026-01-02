@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { apiGet } from "../../_components/api";
 import { ResolveButton } from "./Actions";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Link2, ExternalLink } from "lucide-react";
 
 type Listing = {
     id: number;
@@ -23,64 +26,58 @@ export default async function DuplicatesPage() {
     const data = await apiGet<DuplicatesResponse>("/ops/duplicates");
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-lg font-semibold tracking-tight">Duplicate Listings</h1>
-                    <p className="mt-1 text-sm text-slate-600">
-                        Internal products mapped to multiple Live listings on Trade Me.
-                    </p>
-                </div>
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Duplicate Listings</h1>
+                <p className="text-muted-foreground">Internal products mapped to multiple Live listings on Trade Me.</p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 p-4">
-                    <div className="text-sm font-semibold">
-                        {data.count} Duplicate Groups Found
-                    </div>
-                </div>
-                <div className="divide-y divide-slate-100">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Link2 className="h-5 w-5" />
+                        {data.count} Groups Found
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="divide-y">
                     {!data.duplicates.length ? (
-                        <div className="p-8 text-center text-sm text-slate-500">
-                            No duplicates found. All clean!
-                        </div>
+                        <div className="py-8 text-center text-muted-foreground">No duplicates found. All clean!</div>
                     ) : (
-                        data.duplicates.map((group) => (
-                            <div key={group.internal_product_id} className="p-4">
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <div className="text-sm font-medium">
-                                            Internal Product ID:{" "}
-                                            <Link
-                                                href={`/vaults/enriched/${group.internal_product_id}`}
-                                                className="font-mono text-indigo-600 hover:underline"
-                                            >
-                                                {group.internal_product_id}
-                                            </Link>
-                                        </div>
-                                        <div className="mt-2 space-y-1">
-                                            {group.listings.map((l) => (
-                                                <div
-                                                    key={l.id}
-                                                    className="flex items-center gap-2 text-xs text-slate-700"
-                                                >
-                                                    <span className="font-mono text-slate-500">#{l.id}</span>
-                                                    <span className="font-semibold">{l.tm_id}</span>
-                                                    <span>${l.price?.toFixed(2)}</span>
-                                                    <span className="text-slate-400">
-                                                        Synced: {l.last_synced || "?"}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
+                        data.duplicates.map(group => (
+                            <div key={group.internal_product_id} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row items-start justify-between gap-4">
+                                <div className="w-full">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Badge variant="outline">IP #{group.internal_product_id}</Badge>
+                                        <Link
+                                            href={`/vaults/enriched/${group.internal_product_id}`}
+                                            className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+                                        >
+                                            View Product <ExternalLink className="h-3 w-3" />
+                                        </Link>
                                     </div>
+                                    <div className="bg-muted/50 rounded-md p-3 space-y-2">
+                                        {group.listings.map(l => (
+                                            <div key={l.id} className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-mono text-xs text-muted-foreground">#{l.id}</span>
+                                                    <span className="font-semibold">{l.tm_id}</span>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <span>${l.price?.toFixed(2)}</span>
+                                                    <span className="text-xs text-muted-foreground hidden sm:inline">Synced {l.last_synced}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="shrink-0">
                                     <ResolveButton group={group} />
                                 </div>
                             </div>
                         ))
                     )}
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

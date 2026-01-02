@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\core\unified_schema.py
+# hypothesis_version: 6.148.9
+
+[0.0, 'Active', 'Available', 'New', 'New Zealand', 'No', 'Noel Leeming', 'OneCheq', 'Used', 'Yes', 'allow_buy_now', 'brand', 'buy_now_only', 'buy_now_price', 'category', 'collection_page', 'collection_rank', 'condition', 'description', 'ean', 'image_url', 'noel_leeming', 'noel_leeming_rank', 'onecheq', 'page_number', 'photo1', 'photo2', 'photo3', 'photo4', 'price', 'price_match_verified', 'reserve_price', 'scraped_at', 'source', 'source_category', 'source_current_price', 'source_id', 'source_listing_id', 'source_status', 'source_url', 'specs', 'store_location', 'store_name', 'title', 'url', 'warranty']

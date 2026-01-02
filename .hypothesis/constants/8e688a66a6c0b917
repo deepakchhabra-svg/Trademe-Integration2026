@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\watcher\local_sources_watcher.py
+# hypothesis_version: 6.148.9
+
+['**/*', 'Path changed: %s', '_NamespacePath', '__file__', '__path__', '__spec__', '_path', 'script_path']

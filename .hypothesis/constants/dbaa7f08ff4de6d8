@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\quality\rebuilder.py
+# hypothesis_version: 6.148.9
+
+['\nSpecifications:', '\nTerms:', '(?i)^title:\\s*', '(?i)stock\\s*wanted', '(?i)visit\\s*us', '(?i)we\\s*buy\\s*gold', '(?i)webshop', '<[^>]+>', 'Product Details:', 'SOURCE_METADATA', 'SOURCE_PRODUCT', 'SYSTEM_GENERATED', 'Used', '\\W+', '\\bcall\\s+me\\b', '\\bcall\\s+us\\b', '\\bcontact\\s+me\\b', '\\bcontact\\s+us\\b', '\\bemail\\s+us\\b', '\\bvisit\\s+us\\b', '^-\\s*', 'buy.*sell.*loan', 'cash converters', 'click.*collect', 'finance', 'layby', 'stock wanted', 'store.*policy']

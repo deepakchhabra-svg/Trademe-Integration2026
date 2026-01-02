@@ -1,9 +1,9 @@
 import Link from "next/link";
-
 import { apiGet } from "../_components/api";
-import { PageHeader } from "../../components/ui/PageHeader";
-import { SectionCard } from "../../components/ui/SectionCard";
-import { buttonClass } from "../_components/ui";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ExternalLink, Play } from "lucide-react";
 
 type Supplier = { id: number; name: string; base_url: string | null; is_active: boolean | null };
 
@@ -12,43 +12,51 @@ export default async function PipelineIndexPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Pipeline"
-        subtitle="Choose a supplier to run the end-to-end pipeline on a single screen."
-        actions={
-          <Link className={buttonClass({ variant: "outline" })} href="/ops/trademe">
-            Trade Me health →
-          </Link>
-        }
-      />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Pipeline</h1>
+          <p className="text-muted-foreground">Manage end-to-end operations by supplier.</p>
+        </div>
+        <Link href="/ops/trademe">
+          <Button variant="outline">Trade Me Health</Button>
+        </Link>
+      </div>
 
-      <SectionCard title="Suppliers">
-        {suppliers.length ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {suppliers.map((s) => (
-              <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="text-sm font-semibold text-slate-900">{s.name}</div>
-                <div className="mt-1 text-xs text-slate-500">Supplier id: {s.id}</div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Link className={buttonClass({ variant: "primary" })} href={`/pipeline/${s.id}`}>
-                    Open pipeline
-                  </Link>
-                  {s.base_url ? (
-                    <a className={buttonClass({ variant: "outline" })} href={s.base_url} target="_blank" rel="noreferrer">
-                      Site →
-                    </a>
-                  ) : null}
-                </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {suppliers.map(s => (
+          <Card key={s.id} className="flex flex-col hover:shadow-md transition-shadow">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold">{s.name}</CardTitle>
+                {s.is_active === false ? <Badge variant="secondary">Inactive</Badge> : <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200">Active</Badge>}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-700">
-            No suppliers configured yet. Next action: start the API once to seed defaults, then refresh this page.
+              <CardDescription>Supplier ID: {s.id}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 min-h-[40px]">
+              {/* Placeholder for future stats */}
+            </CardContent>
+            <CardFooter className="gap-2">
+              <Link href={`/pipeline/${s.id}`} className="flex-1">
+                <Button className="w-full">
+                  <Play className="mr-2 h-4 w-4" /> Open Pipeline
+                </Button>
+              </Link>
+              {s.base_url && (
+                <a href={s.base_url} target="_blank" rel="noreferrer" title="Visit Site">
+                  <Button variant="outline" size="icon">
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </a>
+              )}
+            </CardFooter>
+          </Card>
+        ))}
+        {!suppliers.length && (
+          <div className="col-span-full py-12 text-center text-muted-foreground border-2 border-dashed rounded-lg bg-muted/50">
+            No suppliers found. Check API configuration.
           </div>
         )}
-      </SectionCard>
+      </div>
     </div>
-  );
+  )
 }
-

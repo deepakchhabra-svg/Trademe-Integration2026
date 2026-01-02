@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\media.py
+# hypothesis_version: 6.148.9
+
+[32767, 'DeltaGenerator', 'NONE', 'audio', 'audio/wav', 'data', 'default', 'end_time', 'http', 'https', 'npt.NDArray[Any]', 'numpy.ndarray', 'start_time', 'stretch', 'video', 'video/mp4', 'video_id_1', 'video_id_2', 'video_id_3', 'wb']

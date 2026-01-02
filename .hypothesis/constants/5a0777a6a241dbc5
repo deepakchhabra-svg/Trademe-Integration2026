@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\proto\Block_pb2.py
+# hypothesis_version: 6.148.9
+
+[b'\n\x1ccom.snowflake.apps.streamlitB\nBlockProto', b'\x18\x01', 134, 699, 745, 747, 772, 775, 1020, 1086, 1088, 1195, 1197, 1288, 1291, 1463, 1515, 1530, 1532, 1609, 1612, 1734, 1781, 1793, 1795, 1884, 1886, 1927, 1929, 1949, 1951, 2068, 2071, 2168, 2212, 2262, 'DESCRIPTOR', '_BLOCK', '_BLOCK_CHATMESSAGE', '_BLOCK_COLUMN', '_BLOCK_DIALOG', '_BLOCK_EXPANDABLE', '_BLOCK_FLEXCONTAINER', '_BLOCK_FORM', '_BLOCK_HORIZONTAL', '_BLOCK_POPOVER', '_BLOCK_TAB', '_BLOCK_TABCONTAINER', '_BLOCK_VERTICAL', 'gap', 'height', 'use_container_width']

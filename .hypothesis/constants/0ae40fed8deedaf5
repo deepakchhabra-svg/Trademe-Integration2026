@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\plotly\graph_objs\_table.py
+# hypothesis_version: 6.148.9
+
+['_parent', '_validate', 'cells', 'columnorder', 'columnordersrc', 'columnwidth', 'columnwidthsrc', 'customdata', 'customdatasrc', 'domain', 'header', 'hoverinfo', 'hoverinfosrc', 'hoverlabel', 'ids', 'idssrc', 'legend', 'legendgrouptitle', 'legendrank', 'legendwidth', 'meta', 'metasrc', 'name', 'skip_invalid', 'stream', 'table', 'type', 'uid', 'uirevision', 'visible']

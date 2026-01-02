@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\plotly\graph_objs\_candlestick.py
+# hypothesis_version: 6.148.9
+
+['_parent', '_validate', 'candlestick', 'close', 'closesrc', 'customdata', 'customdatasrc', 'decreasing', 'high', 'highsrc', 'hoverinfo', 'hoverinfosrc', 'hoverlabel', 'hovertemplate', 'hovertemplatesrc', 'hovertext', 'hovertextsrc', 'ids', 'idssrc', 'increasing', 'legend', 'legendgroup', 'legendgrouptitle', 'legendrank', 'legendwidth', 'line', 'low', 'lowsrc', 'meta', 'metasrc', 'name', 'opacity', 'open', 'opensrc', 'selectedpoints', 'showlegend', 'skip_invalid', 'stream', 'text', 'textsrc', 'type', 'uid', 'uirevision', 'visible', 'whiskerwidth', 'x', 'xaxis', 'xcalendar', 'xhoverformat', 'xperiod', 'xperiod0', 'xperiodalignment', 'xsrc', 'yaxis', 'yhoverformat', 'zorder']

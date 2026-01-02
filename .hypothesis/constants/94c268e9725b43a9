@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\services\api\routers\vaults.py
+# hypothesis_version: 6.148.9
+
+[400, 1000, '/enriched', '/live', '/raw', '/vaults', 'All', 'DEFAULT_CATEGORY', 'Enriched', 'Invalid pagination', 'Not Enriched', 'actual_price', 'actual_state', 'category_id', 'cost_price', 'description', 'enriched_description', 'enriched_title', 'enrichment_status', 'external_sku', 'final_category_id', 'final_category_name', 'has_raw_description', 'id', 'images', 'internal_product_id', 'last_scraped_at', 'last_synced_at', 'lifecycle_state', 'margin_amount', 'margin_percent', 'product_url', 'raw_title', 'sell_price', 'sku', 'source_category', 'source_price', 'specs', 'stock_level', 'supplier', 'supplier_id', 'supplier_product_id', 'sync_status', 'thumb', 'title', 'tm_listing_id', 'vaults', 'view_count', 'watch_count']

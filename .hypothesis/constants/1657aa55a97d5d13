@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\scrapers\universal\adapter.py
+# hypothesis_version: 6.148.9
+
+[0.0, '-A', '-L', '.', 'Analysis Failed', 'Unknown Product', '__main__', 'content', 'curl', 'description', 'html.parser', 'ignore', 'image_url', 'meta', 'og:description', 'og:image', 'og:title', 'price', 'product:price:amount', 'title', 'url', 'utf-8', 'www.']

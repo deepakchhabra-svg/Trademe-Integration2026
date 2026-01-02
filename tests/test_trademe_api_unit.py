@@ -42,6 +42,9 @@ def test_trademe_api_init_requires_creds(monkeypatch):
 
     for k in ["CONSUMER_KEY", "CONSUMER_SECRET", "ACCESS_TOKEN", "ACCESS_TOKEN_SECRET"]:
         monkeypatch.delenv(k, raising=False)
+    
+    # Preventing TradeMeAPI from re-reading .env
+    monkeypatch.setattr("retail_os.trademe.api.load_dotenv", lambda *args, **kwargs: None)
 
     with pytest.raises(ValueError):
         TradeMeAPI()

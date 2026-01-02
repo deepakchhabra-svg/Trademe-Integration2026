@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\widgets\button.py
+# hypothesis_version: 6.148.9
+
+['DeltaGenerator', 'WidgetCallback', 'button', 'content', 'download_button', 'form_submit_button', 'ignore', 'link_button', 'page_link', 'page_name', 'page_script_hash', 'primary', 'rerun', 'script_path', 'secondary', 'stretch', 'tertiary', 'trigger_value', 'url_pathname']

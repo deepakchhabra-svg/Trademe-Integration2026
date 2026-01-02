@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\plotly\graph_objs\table\cells\_font.py
+# hypothesis_version: 6.148.9
+
+['_parent', '_validate', 'color', 'colorsrc', 'family', 'familysrc', 'font', 'lineposition', 'linepositionsrc', 'shadow', 'shadowsrc', 'size', 'sizesrc', 'skip_invalid', 'style', 'stylesrc', 'table.cells', 'table.cells.font', 'textcase', 'textcasesrc', 'variant', 'variantsrc', 'weight', 'weightsrc']

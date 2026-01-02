@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\oauthlib\openid\connect\core\endpoints\userinfo.py
+# hypothesis_version: 6.148.9
+
+[200, 500, 'Content-Type', 'GET', 'application/json', 'application/jwt', 'openid', 'sub']

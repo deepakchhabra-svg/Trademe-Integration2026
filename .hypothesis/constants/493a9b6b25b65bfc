@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\plotly\graph_objs\_icicle.py
+# hypothesis_version: 6.148.9
+
+['_parent', '_validate', 'branchvalues', 'count', 'customdata', 'customdatasrc', 'domain', 'hoverinfo', 'hoverinfosrc', 'hoverlabel', 'hovertemplate', 'hovertemplatesrc', 'hovertext', 'hovertextsrc', 'icicle', 'ids', 'idssrc', 'insidetextfont', 'labels', 'labelssrc', 'leaf', 'legend', 'legendgrouptitle', 'legendrank', 'legendwidth', 'level', 'marker', 'maxdepth', 'meta', 'metasrc', 'name', 'opacity', 'outsidetextfont', 'parents', 'parentssrc', 'pathbar', 'root', 'skip_invalid', 'sort', 'stream', 'text', 'textfont', 'textinfo', 'textposition', 'textsrc', 'texttemplate', 'texttemplatefallback', 'texttemplatesrc', 'tiling', 'type', 'uid', 'uirevision', 'values', 'valuessrc', 'visible']

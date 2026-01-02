@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\oauthlib\oauth1\rfc5849\errors.py
+# hypothesis_version: 6.148.9
+
+[400, '({}) {}', 'error', 'error_description', 'error_uri', 'invalid_client', 'invalid_request']

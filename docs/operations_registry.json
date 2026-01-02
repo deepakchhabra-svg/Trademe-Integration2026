@@ -122,21 +122,21 @@
       "description": "Withdraw items that have been removed by the supplier."
     },
     "retry_command": {
-      "uri": "/commands/{id}/retry",
+      "uri": "/commands/{command_id}/retry",
       "method": "POST",
       "payload": {},
       "auth": "power",
       "description": "Retry a failed command."
     },
     "ack_command": {
-      "uri": "/commands/{id}/ack",
+      "uri": "/commands/{command_id}/ack",
       "method": "POST",
       "payload": {},
       "auth": "power",
       "description": "Acknowledge a failed command (mark resolved)."
     },
     "cancel_command": {
-      "uri": "/commands/{id}/cancel",
+      "uri": "/commands/{command_id}/cancel",
       "method": "POST",
       "payload": {},
       "auth": "power",
@@ -210,13 +210,13 @@
       "description": "Get list of all suppliers."
     },
     "get_supplier_policy": {
-      "uri": "/suppliers/{id}/policy",
+      "uri": "/suppliers/{supplier_id}/policy",
       "method": "GET",
       "auth": "reader",
       "description": "Get policy for a supplier."
     },
     "update_supplier_policy": {
-      "uri": "/suppliers/{id}/policy",
+      "uri": "/suppliers/{supplier_id}/policy",
       "method": "PUT",
       "auth": "admin",
       "description": "Update supplier policy."
@@ -264,7 +264,7 @@
       "description": "Get orders list."
     },
     "get_supplier_pipeline": {
-      "uri": "/ops/suppliers/{id}/pipeline",
+      "uri": "/ops/suppliers/{supplier_id}/pipeline",
       "method": "GET",
       "auth": "reader",
       "description": "Get pipeline stats for supplier."
@@ -276,7 +276,7 @@
       "description": "Get master product list."
     },
     "get_product_inspector": {
-      "uri": "/inspector/supplier-products/{id}",
+      "uri": "/inspector/supplier-products/{supplier_product_id}",
       "method": "GET",
       "auth": "reader",
       "description": "Get deep inspection data."

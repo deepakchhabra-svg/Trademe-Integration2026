@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\layouts.py
+# hypothesis_version: 6.148.9
+
+['DeltaGenerator', 'bottom', 'center', 'columns', 'complete', 'container', 'content', 'error', 'expander', 'ignore', 'large', 'left', 'medium', 'popover', 'primary', 'rerun', 'running', 'secondary', 'small', 'st.columns', 'st.container', 'status', 'stretch', 'tabs', 'tertiary', 'top']

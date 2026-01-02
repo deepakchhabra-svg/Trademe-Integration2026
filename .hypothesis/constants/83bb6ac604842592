@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\plotly\graph_objs\sankey\__init__.py
+# hypothesis_version: 6.148.9
+
+['._domain.Domain', '._link.Link', '._node.Node', '._stream.Stream', '._textfont.Textfont', '.hoverlabel', '.legendgrouptitle', '.link', '.node']

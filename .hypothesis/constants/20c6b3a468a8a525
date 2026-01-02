@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\html.py
+# hypothesis_version: 6.148.9
+
+['.css', '<!--.*?-->', 'DeltaGenerator', 'SupportsReprHtml', 'SupportsStr', '_repr_html_', 'html', 'stretch', 'utf-8']

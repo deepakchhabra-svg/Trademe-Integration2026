@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\oauthlib\openid\connect\core\tokens.py
+# hypothesis_version: 6.148.9
+
+[3600, '.', 'expires_in', 'ey', 'request_validator', 'token_generator']

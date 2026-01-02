@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\proto\ForwardMsg_pb2.py
+# hypothesis_version: 6.148.9
+
+[b'\n\x1ccom.snowflake.apps.streamlitB\x0fForwardMsgProto', b'\x18\x01', 575, 1431, 1583, 1603, 1605, 1676, 1679, 1821, 1823, 1876, 1878, 1925, 'DESCRIPTOR', '_FORWARDMSG', '_FORWARDMSGLIST', '_FORWARDMSGMETADATA', 'pages_changed']

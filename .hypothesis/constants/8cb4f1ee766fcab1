@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\connections\sql_connection.py
+# hypothesis_version: 6.148.9
+
+['.', 'AUTOCOMMIT', 'DataFrame', 'Engine', '_', 'create_engine_kwargs', 'database', 'dialect', 'driver', 'host', 'password', 'port', 'query', 'str', 'url', 'username']

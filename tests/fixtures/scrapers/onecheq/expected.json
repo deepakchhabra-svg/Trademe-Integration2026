@@ -1,0 +1,15 @@
+{
+    "title": "Fixture Product Title",
+    "description": "This is a fixture description for unit testing.",
+    "brand": "FixtureBrand",
+    "condition": "Refurbished",
+    "buy_now_price": 199.99,
+    "photo1": "https://onecheq.co.nz/images/fixture.jpg",
+    "source_status": "Available",
+    "specs": {
+        "Brand": "FixtureBrand",
+        "Model": "X1000",
+        "Condition": "Refurbished"
+    },
+    "sku": "TEST-SKU-001"
+}

@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\core\inventory_ops.py
+# hypothesis_version: 6.148.9
+
+[0.01, 100, 'All Suppliers', 'DEMOTE', 'KILL', 'Live', 'NONE', 'PROMOTE', 'Percentage', 'REMOVED', 'Shipped', 'UPDATE_PRICE', 'UPDATE_SHIPPING', 'Unknown', 'WITHDRAWN', 'WITHDRAW_LISTING', 'action', 'carrier', 'current', 'details', 'id', 'listing_id', 'new_price', 'order_id', 'reason', 'title', 'tracking']

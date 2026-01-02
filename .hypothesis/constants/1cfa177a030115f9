@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\components\v2\component_file_watcher.py
+# hypothesis_version: 6.148.9
+
+['**/*', '.cache', '.git', '.hg', '.mypy_cache', '.pytest_cache', '.ruff_cache', '.svn', '.swc', '.yarn', '_HasClose', '__pycache__', 'coverage', 'node_modules', 'venv']

@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\proto\DataFrame_pb2.py
+# hypothesis_version: 6.148.9
+
+[b'\n\x1ccom.snowflake.apps.streamlitB\x0eDataFrameProto', 174, 177, 464, 466, 503, 505, 546, 548, 613, 615, 658, 660, 703, 705, 744, 746, 788, 790, 833, 835, 920, 922, 966, 969, 1154, 1156, 1188, 1190, 1233, 'DESCRIPTOR', '_ANYARRAY', '_CELLSTYLE', '_CELLSTYLEARRAY', '_CSSSTYLE', '_DATAFRAME', '_DATETIMEINDEX', '_FLOAT64INDEX', '_INDEX', '_INT64INDEX', '_MULTIINDEX', '_PLAININDEX', '_RANGEINDEX', '_TABLE', '_TABLESTYLE', '_TIMEDELTAINDEX']

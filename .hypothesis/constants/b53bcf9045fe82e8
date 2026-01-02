@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\widgets\data_editor.py
+# hypothesis_version: 6.148.9
+
+['2025-12-31', 'Any', 'DeltaGenerator', 'EditableData', 'EditingState', 'Styler', '_', 'added_rows', 'arrow_data_frame', 'auto', 'content', 'data_editor', 'deleted_rows', 'disabled', 'dynamic', 'edited_rows', 'fixed', 'hidden', 'int', 'integer', 'other', 'pa.Table', 'pd.DataFrame', 'pd.Index[Any]', 'pd.Series[Any]', 'range', 'required', 'stretch', 'string', 'string_value', 'type', 'type_config', 'use_container_width', 'width']

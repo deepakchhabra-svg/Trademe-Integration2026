@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\dataframe_util.py
+# hypothesis_version: 6.148.9
+
+[0.01, 0.05, 1000000.0, 10000, '1.5.0', 'Any', 'DataFrame', 'Index[Any]', 'Mapping[Any, Any]', 'Series[Any]', 'Styler', 'V_co', '^pandas.*$', '__dataframe__', 'as_dict', 'bytes', 'c', 'complex', 'dict', 'geometry', 'iloc', 'index', 'list', 'list[V_co]', 'mixed', 'mixed-integer', 'object', 'pa.Array', 'pa.Table', 'pd.DataFrame', 'period[B]', 'period[N]', 'period[U]', 'period[ns]', 'period[us]', 'records', 'series', 'string', 'toPandas', 'to_pandas', 'unknown-array', 'value']

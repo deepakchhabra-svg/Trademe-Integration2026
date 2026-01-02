@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\proto\NewSession_pb2.py
+# hypothesis_version: 6.148.9
+
+[b'\n\x1ccom.snowflake.apps.streamlitB\x0fNewSessionProto', b'\x18\x01', 105, 398, 401, 587, 590, 800, 863, 869, 872, 2739, 2771, 2773, 2827, 3626, 3628, 3747, 3749, 3802, 3804, 3864, 3866, 3950, 3952, 4049, 4051, 4159, 'DESCRIPTOR', '_CONFIG', '_CONFIG_TOOLBARMODE', '_CUSTOMTHEMECONFIG', '_ENVIRONMENTINFO', '_FONTFACE', '_FONTSIZES', '_FONTSOURCE', '_INITIALIZE', '_NEWSESSION', '_RADII', '_USERINFO', 'weight']

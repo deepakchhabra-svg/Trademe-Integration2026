@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\widgets\chat.py
+# hypothesis_version: 6.148.9
+
+[16000, '.wav', ':material', 'DeltaGenerator', 'RGB', 'Your message', '_include_audio', '_include_files', '_included_keys', 'accept_file', 'ai', 'assistant', 'audio', 'audio/wav', 'audio/wave', 'audio/x-wav', 'audio_file_info', 'auto', 'bottom', 'chat_input', 'chat_input_value', 'chat_message', 'content', 'data', 'directory', 'file_type', 'files', 'human', 'inline', 'max_chars', 'multiple', 'server.maxUploadSize', 'stretch', 'text', 'user']

@@ -43,7 +43,7 @@ def test_e2e_flow():
         
         print(f"[OK] Trust Score: {report.score}%")
         print(f"     Blockers: {report.blockers}")
-        print(f"     Warnings: {report.warnings}")
+
         
         # Step 3: Check Pricing
         print("\n[Step 3] Calculating Price...")
@@ -65,7 +65,7 @@ def test_e2e_flow():
         
         # Step 4: Attempt to publish via validation gateway
         print("\n[Step 4] Testing Validation Gateway...")
-        success, message = submit_publish_command(session, product.id)
+        success, message, command_id = submit_publish_command(session, product.id)
         
         if success:
             print(f"[OK] {message}")

@@ -2,39 +2,34 @@
 
 import { useEffect, useState } from "react";
 import { apiGetClient, apiPostClient } from "../../_components/api_client";
-import { buttonClass } from "../../_components/ui";
 import { RepriceSection } from "./RepriceSection";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Play, RefreshCw, UploadCloud, CheckCircle, ShieldAlert, Sparkles, AlertCircle } from "lucide-react";
 
 type Resp = { id: string; status: string };
 type Supplier = { id: number; name: string };
 
 function Spinner() {
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white"
-    />
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-sm font-semibold">{title}</div>
-      <div className="mt-3">{children}</div>
-    </div>
-  );
+  return <Loader2 className="h-4 w-4 animate-spin" />;
 }
 
 export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
   const [supplierId, setSupplierId] = useState<string>("");
   const [supplierName, setSupplierName] = useState<string>("");
   const [sourceCategory, setSourceCategory] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("sourcing");
+
+  // Limits
   const [pages, setPages] = useState<string>("1");
   const [batchSize, setBatchSize] = useState<string>("25");
   const [dryRunLimit, setDryRunLimit] = useState<string>("50");
   const [approveLimit, setApproveLimit] = useState<string>("50");
   const [resetEnrichLimit, setResetEnrichLimit] = useState<string>("200");
+
   const [msg, setMsg] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [categoryPresets, setCategoryPresets] = useState<string[]>([]);
@@ -85,531 +80,254 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
   }, [supplierId]);
 
   return (
-    <div className="space-y-4">
-      {msg ? <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900">{msg}</div> : null}
-
-      <Section title="Recommended flow (pipeline-first)">
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
-          <li>
-            Prefer <span className="font-semibold">Pipeline</span> for the standard flow. Use this page only for batch enqueue.
-          </li>
-          <li>
-            If you use Bulk ops: enqueue <span className="font-semibold">Scrape</span> first.
-          </li>
-          <li>
-            Then enqueue <span className="font-semibold">Images</span> (if needed) and <span className="font-semibold">Enrich</span>.
-          </li>
-          <li>
-            Then enqueue <span className="font-semibold">Draft</span>, validate readiness, and finally <span className="font-semibold">Publish</span>.
-          </li>
-        </ol>
-        <div className="mt-3 text-[11px] text-slate-500">
-          Tip: if you’re unsure, start with pages=1 and limits=10 to validate end-to-end without flooding the queue.
+    <div className="space-y-6">
+      {msg && (
+        <div className={`p-4 rounded-md border text-sm ${msg.includes("Queued") ? "bg-emerald-50 text-emerald-900 border-emerald-200" : "bg-muted text-foreground"}`}>
+          {msg}
         </div>
-      </Section>
+      )}
 
-      <Section title="Scope">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <label className="text-xs text-slate-600 md:col-span-2">
-            <div className="mb-1 font-semibold uppercase tracking-wide">Supplier picker</div>
-            <select
-              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              data-testid="sel-bulk-supplier"
-              value={supplierId && supplierName ? `${supplierId}:${supplierName}` : ""}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v) {
-                  setSupplierId("");
-                  setSupplierName("");
-                  return;
-                }
-                const [id, name] = v.split(":");
-                setSupplierId(id);
-                setSupplierName(name);
-              }}
-            >
-              <option value="">Select supplier…</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={`${s.id}:${s.name}`}>
-                  {s.name} (id {s.id})
-                </option>
-              ))}
-            </select>
-            <div className="mt-1 text-[11px] text-slate-500">Supports any configured supplier (use Pipeline for the canonical flow).</div>
-            <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">
-              <div className="font-semibold">Category presets (from Supplier policy)</div>
-              {presetsMsg ? <div className="mt-1 text-amber-800">{presetsMsg}</div> : null}
-              <div className="mt-1">
-                {categoryPresets.length ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {categoryPresets.slice(0, 12).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-900 hover:bg-slate-50"
-                        onClick={() => setSourceCategory(p)}
-                        disabled={!!busyKey}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                    {categoryPresets.length > 12 ? (
-                      <span className="text-[11px] text-slate-500">+{categoryPresets.length - 12} more</span>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="text-slate-600">No presets set yet. Add them in Suppliers → (supplier) → Supplier policy.</div>
-                )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Scope</CardTitle>
+          <CardDescription>Target specific suppliers and categories for bulk operations.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Supplier</label>
+              <select
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={supplierId && supplierName ? `${supplierId}:${supplierName}` : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) { setSupplierId(""); setSupplierName(""); return; }
+                  const [id, name] = v.split(":");
+                  setSupplierId(id);
+                  setSupplierName(name);
+                }}
+              >
+                <option value="">Select supplier…</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={`${s.id}:${s.name}`}>{s.name} (ID {s.id})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Category</label>
+              <Input
+                placeholder="e.g. smartphones-and-mobilephones"
+                value={sourceCategory}
+                onChange={(e) => setSourceCategory(e.target.value)}
+              />
+              <div className="text-xs text-muted-foreground">Optional filter. Supports collection handle or partial URL.</div>
+            </div>
+          </div>
+
+          {presetsMsg && <div className="text-sm text-destructive">{presetsMsg}</div>}
+
+          {categoryPresets.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Presets</span>
+              <div className="flex flex-wrap gap-2">
+                {categoryPresets.slice(0, 10).map(p => (
+                  <Badge key={p} variant="secondary" className="cursor-pointer hover:bg-secondary/80" onClick={() => setSourceCategory(p)}>
+                    {p}
+                  </Badge>
+                ))}
+                {categoryPresets.length > 10 && <span className="text-xs text-muted-foreground">+{categoryPresets.length - 10} more</span>}
               </div>
             </div>
-          </label>
-          <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">Supplier ID</div>
-            <input
-              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              value={supplierId}
-              onChange={(e) => setSupplierId(e.target.value)}
-              placeholder="e.g. 1"
-            />
-          </label>
-          <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">Supplier name</div>
-            <input
-              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              value={supplierName}
-              onChange={(e) => setSupplierName(e.target.value)}
-              placeholder="e.g. CASH_CONVERTERS"
-            />
-          </label>
-          <label className="text-xs text-slate-600 md:col-span-2">
-            <div className="mb-1 font-semibold uppercase tracking-wide">Source category</div>
-            <input
-              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              data-testid="inp-bulk-category"
-              value={sourceCategory}
-              onChange={(e) => setSourceCategory(e.target.value)}
-              placeholder="CC browse_url / NL category_url / OC collection handle"
-            />
-            <div className="mt-1 text-[11px] text-slate-500">
-              ONECHEQ: collection handle (e.g. smartphones-and-mobilephones)
-            </div>
-          </label>
-        </div>
-      </Section>
-
-      <Section title="Batch-first (no manual clicking)">
-        <div className="text-xs text-slate-600">
-          Uses supplier <span className="font-semibold">category presets</span> (recommended for scale). This enqueues a batch of commands
-          so you don’t have to click per category.
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={!!busyKey || !categoryPresets.length}
-            className={`rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white ${busyKey || !categoryPresets.length ? "cursor-not-allowed opacity-60" : "hover:bg-slate-800"
-              }`}
-            onClick={() =>
-              run("SCRAPE_ALL_PRESETS", async () => {
-                const sid = supplierId ? Number(supplierId) : undefined;
-                const sname = supplierName || undefined;
-                const pgs = Number(pages || "1");
-                const presets = categoryPresets.slice(0, 50);
-                let ok = 0;
-                for (const cat of presets) {
-                  await enqueue(
-                    "SCRAPE_SUPPLIER",
-                    { supplier_id: sid, supplier_name: sname, source_category: cat, pages: pgs },
-                    70,
-                  );
-                  ok += 1;
-                  setMsg(`Working: SCRAPE_ALL_PRESETS… ${ok}/${presets.length}`);
-                }
-                return `Queued scrape for ${ok} categories`;
-              })
-            }
-          >
-            {busyKey === "SCRAPE_ALL_PRESETS" ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner /> Enqueuing batch…
-              </span>
-            ) : (
-              "Scrape all presets"
-            )}
-          </button>
-
-          <button
-            type="button"
-            disabled={!!busyKey || !categoryPresets.length}
-            className={`rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white ${busyKey || !categoryPresets.length ? "cursor-not-allowed opacity-60" : "hover:bg-emerald-700"
-              }`}
-            onClick={() =>
-              run("ENRICH_ALL_PRESETS", async () => {
-                const sid = supplierId ? Number(supplierId) : undefined;
-                const sname = supplierName || undefined;
-                const bs = Number(batchSize || "25");
-                const presets = categoryPresets.slice(0, 50);
-                let ok = 0;
-                for (const cat of presets) {
-                  await enqueue(
-                    "ENRICH_SUPPLIER",
-                    { supplier_id: sid, supplier_name: sname, source_category: cat, batch_size: bs, delay_seconds: 0 },
-                    60,
-                  );
-                  ok += 1;
-                  setMsg(`Working: ENRICH_ALL_PRESETS… ${ok}/${presets.length}`);
-                }
-                return `Queued enrichment for ${ok} categories`;
-              })
-            }
-          >
-            {busyKey === "ENRICH_ALL_PRESETS" ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner /> Enqueuing batch…
-              </span>
-            ) : (
-              "Enrich all presets"
-            )}
-          </button>
-
-          {!categoryPresets.length ? (
-            <span className="text-[11px] text-slate-500">Disabled until presets exist.</span>
-          ) : (
-            <span className="text-[11px] text-slate-500">Will enqueue up to 50 categories per click.</span>
           )}
-        </div>
-      </Section>
+        </CardContent>
+      </Card>
 
-      <Section title="Scrape supplier (category-scoped)">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">pages</div>
-            <input
-              className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              data-testid="inp-bulk-pages"
-              value={pages}
-              onChange={(e) => setPages(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!!busyKey}
-            aria-busy={busyKey === "SCRAPE_SUPPLIER"}
-            data-testid="btn-bulk-scrape"
-            className={buttonClass({ variant: "primary", disabled: !!busyKey })}
-            onClick={() =>
-              run("SCRAPE_SUPPLIER", () =>
-                enqueue(
-                  "SCRAPE_SUPPLIER",
-                  {
-                    supplier_id: supplierId ? Number(supplierId) : undefined,
-                    supplier_name: supplierName || undefined,
-                    source_category: sourceCategory || undefined,
-                    pages: Number(pages || "1"),
-                  },
-                  70,
-                ),
-              )
-            }
-          >
-            {busyKey === "SCRAPE_SUPPLIER" ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner /> Enqueuing…
-              </span>
-            ) : (
-              "Start scrape"
-            )}
-          </button>
-        </div>
-      </Section>
+      <Tabs defaultValue="sourcing" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+          <TabsTrigger value="sourcing">Sourcing</TabsTrigger>
+          <TabsTrigger value="listing">Listing</TabsTrigger>
+          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          <TabsTrigger value="reprice">Reprice</TabsTrigger>
+        </TabsList>
 
-      <Section title="OneCheq full backfill (one-click)">
-        <div className="text-xs text-slate-600">
-          Runs: <span className="font-semibold">full scrape</span> (all products) → <span className="font-semibold">download images</span> →
-          <span className="font-semibold">enrich all</span> → <span className="font-semibold">LaunchLock validate</span>. Watch progress in{" "}
-          <span className="font-semibold">Ops → Commands</span> and summary in <span className="font-semibold">Ops → Jobs</span>.
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={!!busyKey || supplierName.toUpperCase() !== "ONECHEQ"}
-            className={`rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ${busyKey || supplierName.toUpperCase() !== "ONECHEQ" ? "cursor-not-allowed opacity-60" : "hover:bg-indigo-700"
-              }`}
-            onClick={() =>
-              run("ONECHEQ_FULL_BACKFILL", async () => {
-                const sid = supplierId ? Number(supplierId) : undefined;
-                const sname = supplierName || undefined;
-                const res = await apiPostClient<Resp>("/ops/enqueue", {
-                  type: "ONECHEQ_FULL_BACKFILL",
-                  payload: {
-                    supplier_id: sid,
-                    supplier_name: sname,
-                    onecheq_source: "json",
-                    image_batch: 5000,
-                    image_concurrency: 24,
-                    image_loop_seconds: 600,
-                    validate_n: 1000,
-                  },
-                  priority: 90,
-                });
-                return `Enqueued ONECHEQ_FULL_BACKFILL (${res.id.slice(0, 12)})`;
-              })
-            }
-          >
-            {busyKey === "ONECHEQ_FULL_BACKFILL" ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner /> Enqueuing…
-              </span>
-            ) : (
-              "Enqueue OneCheq FULL backfill"
-            )}
-          </button>
-          {supplierName.toUpperCase() !== "ONECHEQ" ? (
-            <span className="text-[11px] text-slate-500">Select supplier ONECHEQ to enable.</span>
-          ) : null}
-        </div>
-      </Section>
+        <TabsContent value="sourcing" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <UploadCloud className="h-4 w-4" /> Import & Enrich
+                  </CardTitle>
+                  <CardDescription>Bring data in from suppliers.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase">Pages</label>
+                  <Input className="w-20" value={pages} onChange={e => setPages(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase">&nbsp;</label>
+                  <Button
+                    onClick={() => run("SCRAPE", () => enqueue("SCRAPE_SUPPLIER", { supplier_id: Number(supplierId), supplier_name: supplierName, source_category: sourceCategory, pages: Number(pages) }, 70))}
+                    disabled={!!busyKey}
+                  >
+                    {busyKey === "SCRAPE" && <Spinner />} Scrape
+                  </Button>
+                </div>
+              </div>
 
-      <Section title="Enrich & standardise (run now)">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">Batch size</div>
-            <input
-              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              value={batchSize}
-              onChange={(e) => setBatchSize(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!!busyKey}
-            aria-busy={busyKey === "ENRICH_SUPPLIER"}
-            data-testid="btn-bulk-enrich"
-            className={buttonClass({ variant: "success", disabled: !!busyKey })}
-            onClick={() =>
-              run("ENRICH_SUPPLIER", () =>
-                enqueue(
-                  "ENRICH_SUPPLIER",
-                  {
-                    supplier_id: supplierId ? Number(supplierId) : undefined,
-                    supplier_name: supplierName || undefined,
-                    source_category: sourceCategory || undefined,
-                    batch_size: Number(batchSize || "25"),
-                    delay_seconds: 0,
-                  },
-                  60,
-                ),
-              )
-            }
-          >
-            {busyKey === "ENRICH_SUPPLIER" ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner /> Enqueuing…
-              </span>
-            ) : (
-              "Enrich now"
-            )}
-          </button>
-        </div>
-      </Section>
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-2">Backfill Options (OneCheq)</h4>
+                <Button
+                  variant="default"
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                  disabled={!!busyKey || supplierName.toUpperCase() !== "ONECHEQ"}
+                  onClick={() => run("ONECHEQ_FULL", async () => {
+                    const res = await apiPostClient<Resp>("/ops/enqueue", {
+                      type: "ONECHEQ_FULL_BACKFILL",
+                      payload: {
+                        supplier_id: Number(supplierId),
+                        supplier_name: supplierName,
+                        onecheq_source: "json",
+                        image_batch: 5000,
+                        image_concurrency: 24
+                      },
+                      priority: 90
+                    });
+                    return `Queued OneCheq Backfill (${res.id})`;
+                  })}
+                >
+                  {busyKey === "ONECHEQ_FULL" && <Spinner />} Full Backfill
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Section title="Marketplace sync">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={!!busyKey}
-            aria-busy={busyKey === "SYNC_SOLD_ITEMS"}
-            className={buttonClass({ variant: "outline", disabled: !!busyKey })}
-            onClick={() => run("SYNC_SOLD_ITEMS", () => enqueue("SYNC_SOLD_ITEMS", {}, 80))}
-          >
-            {busyKey === "SYNC_SOLD_ITEMS" ? (
-              <span className="inline-flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"
-                />
-                Enqueuing…
-              </span>
-            ) : (
-              "Sync sold items"
-            )}
-          </button>
-          <button
-            type="button"
-            disabled={!!busyKey}
-            aria-busy={busyKey === "SYNC_SELLING_ITEMS"}
-            className={buttonClass({ variant: "outline", disabled: !!busyKey })}
-            onClick={() => run("SYNC_SELLING_ITEMS", () => enqueue("SYNC_SELLING_ITEMS", { limit: 50 }, 70))}
-          >
-            {busyKey === "SYNC_SELLING_ITEMS" ? (
-              <span className="inline-flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"
-                />
-                Enqueuing…
-              </span>
-            ) : (
-              "Sync selling items"
-            )}
-          </button>
-        </div>
-      </Section>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4 text-emerald-600" /> Enrichment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase">Batch Size</label>
+                  <Input className="w-24" value={batchSize} onChange={e => setBatchSize(e.target.value)} />
+                </div>
+                <Button
+                  variant="secondary"
+                  className="bg-emerald-100 text-emerald-900 hover:bg-emerald-200"
+                  onClick={() => run("ENRICH", () => enqueue("ENRICH_SUPPLIER", { supplier_id: Number(supplierId), supplier_name: supplierName, source_category: sourceCategory, batch_size: Number(batchSize), delay_seconds: 0 }, 60))}
+                  disabled={!!busyKey}
+                >
+                  {busyKey === "ENRICH" && <Spinner />} Enrich Now
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <Section title="Create drafts (safe review queue)">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">Limit</div>
-            <input
-              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              value={dryRunLimit}
-              onChange={(e) => setDryRunLimit(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!!busyKey}
-            aria-busy={busyKey === "BULK_DRY_RUN_PUBLISH"}
-            data-testid="btn-bulk-dryrun"
-            className={buttonClass({ variant: "primary", disabled: !!busyKey })}
-            onClick={() =>
-              run("BULK_DRY_RUN_PUBLISH", async () => {
-                const res = await apiPostClient<{
-                  enqueued: number;
-                  skipped_existing_cmd: number;
-                  skipped_already_listed: number;
-                  skipped_blocked?: number;
-                  top_blockers?: Array<[string, number]>;
-                }>(
-                  "/ops/bulk/dryrun_publish",
-                  {
-                    supplier_id: supplierId ? Number(supplierId) : undefined,
-                    source_category: sourceCategory || undefined,
-                    limit: Number(dryRunLimit || "50"),
-                    priority: 60,
-                    stop_on_failure: true,
-                  },
-                );
-                const blocked = (res.skipped_blocked ?? 0) ? `, blocked=${res.skipped_blocked}` : "";
-                return `Drafts queued: enqueued=${res.enqueued}, skipped_existing=${res.skipped_existing_cmd}, skipped_listed=${res.skipped_already_listed}${blocked}`;
-              })
-            }
-          >
-            {busyKey === "BULK_DRY_RUN_PUBLISH" ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner /> Enqueuing…
-              </span>
-            ) : (
-              "Create drafts"
-            )}
-          </button>
-        </div>
-        <div className="mt-2 text-[11px] text-slate-500">
-          Creates Draft listing jobs for review (skips Live/Draft and duplicates).
-        </div>
-      </Section>
+        <TabsContent value="listing" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-600" /> Safe Review Pipeline</CardTitle>
+              <CardDescription>Two-stage publishing: Create drafts → Review → Approve.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-end gap-3 justify-between border-b pb-4">
+                <div className="space-y-1">
+                  <div className="font-medium text-sm">Step 1: Create Drafts</div>
+                  <div className="text-xs text-muted-foreground">Generates listing payloads for validation.</div>
+                </div>
+                <div className="flex gap-2">
+                  <Input className="w-20" placeholder="Limit" value={dryRunLimit} onChange={e => setDryRunLimit(e.target.value)} />
+                  <Button
+                    variant="outline"
+                    onClick={() => run("DRY_RUN", async () => {
+                      const res = await apiPostClient<any>("/ops/bulk/dryrun_publish", {
+                        supplier_id: Number(supplierId),
+                        source_category: sourceCategory,
+                        limit: Number(dryRunLimit),
+                        priority: 60,
+                        stop_on_failure: true
+                      });
+                      return `Drafts queued: ${res.enqueued}`;
+                    })}
+                    disabled={!!busyKey}
+                  >
+                    {busyKey === "DRY_RUN" && <Spinner />} Create Drafts
+                  </Button>
+                </div>
+              </div>
 
-      <Section title="Publish approved (Draft → Live)">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">Limit</div>
-            <input
-              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              value={approveLimit}
-              onChange={(e) => setApproveLimit(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!!busyKey}
-            aria-busy={busyKey === "BULK_APPROVE_PUBLISH"}
-            data-testid="btn-bulk-approve"
-            className={buttonClass({ variant: "success", disabled: !!busyKey })}
-            onClick={() =>
-              run("BULK_APPROVE_PUBLISH", async () => {
-                const res = await apiPostClient<{
-                  enqueued: number;
-                  skipped_existing_cmd: number;
-                  skipped_drift: number;
-                  skipped_missing_metadata: number;
-                  skipped_bad_dryrun_id: number;
-                  skipped_not_ready?: number;
-                  top_not_ready?: Array<[string, number]>;
-                  store_mode: string;
-                }>("/ops/bulk/approve_publish", {
-                  supplier_id: supplierId ? Number(supplierId) : undefined,
-                  source_category: sourceCategory || undefined,
-                  limit: Number(approveLimit || "50"),
-                  priority: 60,
-                  stop_on_failure: true,
-                });
-                const nr = (res.skipped_not_ready ?? 0) ? `, not_ready=${res.skipped_not_ready}` : "";
-                return `Publish queued: enqueued=${res.enqueued}, skipped_drift=${res.skipped_drift}, skipped_existing=${res.skipped_existing_cmd}${nr} (store_mode=${res.store_mode})`;
-              })
-            }
-          >
-            {busyKey === "BULK_APPROVE_PUBLISH" ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner /> Enqueuing…
-              </span>
-            ) : (
-              "Publish approved drafts"
-            )}
-          </button>
-        </div>
-        <div className="mt-2 text-[11px] text-slate-500">
-          Only publishes if supplier snapshot hash matches the Draft snapshot (drift-safe). Disabled in
-          store modes HOLIDAY/PAUSED.
-        </div>
-      </Section>
+              <div className="flex items-end gap-3 justify-between">
+                <div className="space-y-1">
+                  <div className="font-medium text-sm">Step 2: Publish Approved</div>
+                  <div className="text-xs text-muted-foreground">Only publishes items that passed validation.</div>
+                </div>
+                <div className="flex gap-2">
+                  <Input className="w-20" placeholder="Limit" value={approveLimit} onChange={e => setApproveLimit(e.target.value)} />
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => run("APPROVE", async () => {
+                      const res = await apiPostClient<any>("/ops/bulk/approve_publish", {
+                        supplier_id: Number(supplierId),
+                        source_category: sourceCategory,
+                        limit: Number(approveLimit),
+                        priority: 60,
+                        stop_on_failure: true
+                      });
+                      return `Published: ${res.enqueued}`;
+                    })}
+                    disabled={!!busyKey}
+                  >
+                    {busyKey === "APPROVE" && <Spinner />} Publish Live
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <Section title="Reset enrichment (re-run copy generation)">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-slate-600">
-            <div className="mb-1 font-semibold uppercase tracking-wide">Limit</div>
-            <input
-              className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              value={resetEnrichLimit}
-              onChange={(e) => setResetEnrichLimit(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!!busyKey}
-            aria-busy={busyKey === "BULK_RESET_ENRICHMENT"}
-            className={buttonClass({ variant: "outline", disabled: !!busyKey })}
-            onClick={() =>
-              run("BULK_RESET_ENRICHMENT", async () => {
-                const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/reset_enrichment", {
-                  supplier_id: supplierId ? Number(supplierId) : undefined,
-                  source_category: sourceCategory || undefined,
-                  limit: Number(resetEnrichLimit || "200"),
-                  priority: 60,
-                });
-                return `Reset enrichment queued: enqueued=${res.enqueued}`;
-              })
-            }
-          >
-            {busyKey === "BULK_RESET_ENRICHMENT" ? (
-              <span className="inline-flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"
-                />
-                Enqueuing…
-              </span>
-            ) : (
-              "Reset enrichment"
-            )}
-          </button>
-        </div>
-      </Section>
+        <TabsContent value="maintenance" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Sync & Reset</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => run("SYNC_SOLD", () => enqueue("SYNC_SOLD_ITEMS", {}, 80))} disabled={!!busyKey}>
+                  Sync Sold Items
+                </Button>
+                <Button variant="outline" onClick={() => run("SYNC_SELLING", () => enqueue("SYNC_SELLING_ITEMS", { limit: 50 }, 70))} disabled={!!busyKey}>
+                  Sync Selling Attributes
+                </Button>
+              </div>
+              <div className="border-t pt-4">
+                <div className="font-medium text-sm mb-2 text-destructive">Destructive Zone</div>
+                <div className="flex gap-3 items-center">
+                  <Input className="w-24" placeholder="Limit" value={resetEnrichLimit} onChange={e => setResetEnrichLimit(e.target.value)} />
+                  <Button variant="destructive" onClick={() => run("RESET", async () => {
+                    if (!confirm("Reset enrichment for these items?")) return "Cancelled";
+                    const res = await apiPostClient<any>("/ops/bulk/reset_enrichment", {
+                      supplier_id: Number(supplierId),
+                      source_category: sourceCategory,
+                      limit: Number(resetEnrichLimit)
+                    });
+                    return `Enqueued reset: ${res.enqueued}`;
+                  })} disabled={!!busyKey}>
+                    Reset Enrichment
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <RepriceSection
-        supplierId={supplierId}
-        supplierName={supplierName}
-        sourceCategory={sourceCategory}
-      />
+        <TabsContent value="reprice" className="pt-4">
+          <RepriceSection supplierId={supplierId} supplierName={supplierName} sourceCategory={sourceCategory} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-

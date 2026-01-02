@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\plotly\graph_objs\scatter\_marker.py
+# hypothesis_version: 6.148.9
+
+['_parent', '_validate', 'angle', 'angleref', 'anglesrc', 'autocolorscale', 'cauto', 'cmax', 'cmid', 'cmin', 'color', 'coloraxis', 'colorbar', 'colorscale', 'colorsrc', 'gradient', 'line', 'marker', 'maxdisplayed', 'opacity', 'opacitysrc', 'reversescale', 'scatter', 'scatter.marker', 'showscale', 'size', 'sizemin', 'sizemode', 'sizeref', 'sizesrc', 'skip_invalid', 'standoff', 'standoffsrc', 'symbol', 'symbolsrc']

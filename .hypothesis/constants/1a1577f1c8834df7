@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\logger.py
+# hypothesis_version: 6.148.9
+
+['%s.%03d', 'CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'WARNING', 'access', 'application', 'general', 'logger.messageFormat', 'logging.Handler', 'root', 'streamlit']

@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { PageHeader } from "../../../components/ui/PageHeader";
-import { FilterChips } from "../../../components/ui/FilterChips";
 import { DataTable, ColumnDef } from "../../../components/tables/DataTable";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
-import { buttonClass } from "../../_components/ui";
 import { formatNZT } from "../../_components/time";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Filter, Search, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type LiveItem = {
     id: number;
@@ -54,19 +56,14 @@ export function LiveVaultClient({
     if (status) base.set("status", status);
     if (supplierId) base.set("supplier_id", supplierId);
     if (sourceCategory) base.set("source_category", sourceCategory);
-    const clear = (key: string) => {
-        const p = new URLSearchParams(base.toString());
-        p.delete(key);
-        p.set("page", "1");
-        if (!p.get("status")) p.set("status", "Live");
-        return `/vaults/live?${p.toString()}`;
-    };
+
+    // Columns definition
     const columns: ColumnDef<LiveItem>[] = [
         {
             key: "id",
             label: "ID",
             render: (val) => (
-                <Link className="text-slate-900 underline" href={`/vaults/live/${val}`} data-testid={`lnk-id-${val}`}>
+                <Link className="text-primary hover:underline font-mono" href={`/vaults/live/${val}`} data-testid={`lnk-id-${val}`}>
                     {val as number}
                 </Link>
             )
@@ -75,26 +72,34 @@ export function LiveVaultClient({
             key: "thumb",
             label: "Img",
             render: (val, row) => (val as string) ? (
-                <Link href={`/vaults/live/${row.id}`} className="block w-12" data-testid={`lnk-img-${row.id}`}>
+                <Link href={`/vaults/live/${row.id}`} className="block w-10 h-10 relative" data-testid={`lnk-img-${row.id}`}>
                     <Image
                         alt=""
                         src={imgSrc(val as string)}
-                        width={48}
-                        height={40}
+                        fill
                         unoptimized
-                        className="h-10 w-12 rounded-md border border-slate-200 object-cover"
+                        className="rounded-sm border object-cover"
                     />
                 </Link>
             ) : (
-                <div className="h-10 w-12 rounded-md border border-dashed border-slate-200 bg-slate-50" />
+                <div className="w-10 h-10 rounded-sm border border-dashed bg-muted" />
             )
         },
-        { key: "tm_listing_id", label: "TM ID", className: "font-mono text-xs" },
+        {
+            key: "tm_listing_id",
+            label: "TM ID",
+            className: "font-mono text-xs",
+            render: (val, row) => val ? (
+                <a href={`https://www.trademe.co.nz/Browse/Listing.aspx?id=${val}`} target="_blank" className="hover:underline text-blue-600">
+                    {val as string}
+                </a>
+            ) : "-"
+        },
         {
             key: "title",
             label: "Title",
             render: (val, row) => (
-                <Link className="text-slate-900 hover:underline" href={`/vaults/live/${row.id}`} data-testid={`lnk-title-${row.id}`}>
+                <Link className="text-foreground hover:underline font-medium line-clamp-1 max-w-[200px]" href={`/vaults/live/${row.id}`} title={val as string}>
                     {val as string || "-"}
                 </Link>
             )
@@ -104,42 +109,44 @@ export function LiveVaultClient({
         { key: "actual_price", label: "Price", render: (val) => val == null ? "-" : `$${(val as number).toFixed(2)}` },
         { key: "view_count", label: "Views" },
         { key: "watch_count", label: "Watch" },
-        { key: "last_synced_at", label: "Synced", render: (val) => formatNZT(val as string | null) },
+        { key: "last_synced_at", label: "Synced", render: (val) => <span className="text-xs text-muted-foreground whitespace-nowrap">{formatNZT(val as string | null)}</span> },
     ];
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Vault 3 · Listings"
-                subtitle="Click to inspect trust, profitability, payload drift, lifecycle."
-            />
-            <FilterChips chips={[
-                { label: "Status", value: status || null, href: clear("status") },
-                { label: "Supplier ID", value: supplierId || null, href: clear("supplier_id") },
-                { label: "Search", value: q || null, href: clear("q") },
-            ]} />
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Vault Listings</h1>
+                    <p className="text-muted-foreground">Live inventory management and audit.</p>
+                </div>
+                <div className="flex gap-2 text-sm">
+                    {status && <Badge variant="secondary" className="flex gap-1">Status: {status} <Link href="?status=" className="ml-1 hover:text-destructive">×</Link></Badge>}
+                    {supplierId && <Badge variant="secondary" className="flex gap-1">Supplier: {supplierId} <Link href="?supplier_id=" className="ml-1 hover:text-destructive">×</Link></Badge>}
+                </div>
+            </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <form className="flex flex-wrap items-center gap-4" method="get" data-testid="search-form">
+            <Card>
+                <div className="flex flex-col gap-3 border-b p-4 bg-muted/20">
+                    <form className="flex flex-wrap items-end gap-3" method="get" data-testid="search-form">
                         <input type="hidden" name="page" value="1" />
-                        <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-                            <span>Search Title/TM ID</span>
-                            <input
-                                name="q"
-                                defaultValue={q}
-                                data-testid="inp-search-q"
-                                className="w-52 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none"
-                                placeholder="search..."
-                            />
-                        </label>
-                        <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-                            <span>Status</span>
+                        <div className="space-y-1">
+                            <label className="text-xs font-semibold uppercase text-muted-foreground">Search</label>
+                            <div className="relative">
+                                <Search className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+                                <Input
+                                    name="q"
+                                    defaultValue={q}
+                                    className="h-8 w-52 pl-8"
+                                    placeholder="Title or TM ID"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-semibold uppercase text-muted-foreground">Status</label>
                             <select
                                 name="status"
                                 defaultValue={status}
-                                data-testid="sel-search-status"
-                                className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none"
+                                className="h-8 w-32 rounded-md border border-input bg-background px-2 text-xs"
                             >
                                 <option value="Live">Live</option>
                                 <option value="DRY_RUN">Draft</option>
@@ -147,33 +154,21 @@ export function LiveVaultClient({
                                 <option value="Withdrawn">Withdrawn</option>
                                 <option value="All">All</option>
                             </select>
-                        </label>
-                        <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-                            <span>Supplier ID</span>
-                            <input
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-semibold uppercase text-muted-foreground">Supplier ID</label>
+                            <Input
                                 name="supplier_id"
                                 defaultValue={supplierId}
-                                data-testid="inp-search-supplier"
-                                className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none"
-                                placeholder="id"
+                                className="h-8 w-20"
+                                placeholder="ID"
                             />
-                        </label>
-                        <div className="flex items-end gap-2">
-                            <button
-                                type="submit"
-                                className={buttonClass({ variant: "primary" })}
-                                data-testid="btn-search-apply"
-                            >
-                                Apply
-                            </button>
-                            <Link
-                                className="flex h-8 items-center text-xs text-slate-500 hover:text-slate-800"
-                                href="/vaults/live?status=Live"
-                                data-testid="lnk-search-reset"
-                            >
-                                Reset
-                            </Link>
                         </div>
+
+                        <Button type="submit" size="sm" className="h-8">Apply</Button>
+                        <Button asChild variant="ghost" size="sm" className="h-8">
+                            <Link href="/vaults/live?status=Live">Reset</Link>
+                        </Button>
                     </form>
                 </div>
 
@@ -184,23 +179,23 @@ export function LiveVaultClient({
                     currentPage={page}
                     pageSize={perPage}
                     emptyState={
-                        <div className="text-center">
-                            <div className="text-sm font-semibold text-slate-900">No listings match this filter.</div>
-                            <div className="mt-1 text-sm text-slate-600">
-                                Next action: open Pipeline and run Draft (after Scrape/Images/Enrich), or reset filters.
+                        <div className="text-center py-8">
+                            <div className="text-lg font-semibold">No listings match this filter.</div>
+                            <div className="mt-2 text-sm text-muted-foreground">
+                                Try adjusting your search or filters.
                             </div>
-                            <div className="mt-3 flex justify-center gap-2">
-                                <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
-                                    Open Pipeline
-                                </Link>
-                                <Link className={buttonClass({ variant: "outline" })} href="/vaults/live?status=DRY_RUN">
-                                    View drafts
-                                </Link>
+                            <div className="mt-4 flex justify-center gap-2">
+                                <Button asChild variant="default">
+                                    <Link href="/pipeline">Open Pipeline</Link>
+                                </Button>
+                                <Button asChild variant="outline">
+                                    <Link href="/vaults/live?status=DRY_RUN">View Drafts</Link>
+                                </Button>
                             </div>
                         </div>
                     }
                 />
-            </div>
+            </Card>
         </div>
     );
 }

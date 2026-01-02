@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\core\product_upserter.py
+# hypothesis_version: 6.148.9
+
+[0.0, '4', 'PRICE_CHANGE', 'SupplierProduct', 'System', 'TITLE_CHANGE', 'Used', 'brand', 'buy_now_price', 'collection_page', 'collection_rank', 'condition', 'cost', 'created', 'description', 'images', 'path', 'photo1', 'photo2', 'photo3', 'photo4', 'source_categories', 'source_category', 'source_status', 'source_url', 'specs', 'status', 'stock_level', 'success', 'title', 'unchanged', 'updated', 'utf-8']

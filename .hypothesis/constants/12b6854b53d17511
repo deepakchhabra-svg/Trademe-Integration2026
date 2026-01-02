@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\lib\mutable_status_container.py
+# hypothesis_version: 6.148.9
+
+[0.05, ':material/check:', ':material/error:', 'StatusContainer', 'complete', 'error', 'expanded', 'running', 'spinner', 'stretch']

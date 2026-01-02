@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\plotly\graph_objs\table\_cells.py
+# hypothesis_version: 6.148.9
+
+['_parent', '_validate', 'align', 'alignsrc', 'cells', 'fill', 'font', 'format', 'formatsrc', 'height', 'line', 'prefix', 'prefixsrc', 'skip_invalid', 'suffix', 'suffixsrc', 'table', 'table.cells', 'values', 'valuessrc']

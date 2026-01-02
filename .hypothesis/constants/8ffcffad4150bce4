@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\watcher\folder_black_list.py
+# hypothesis_version: 6.148.9
+
+['**/.*', '**/anaconda', '**/anaconda2', '**/anaconda3', '**/dist-packages', '**/htmlcov', '**/miniconda', '**/miniconda2', '**/miniconda3', '**/node_modules', '**/pyenv', '**/site-packages', '**/venv', '**/virtualenv']

@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\doc_string.py
+# hypothesis_version: 6.148.9
+
+[300, '(', '(...)', '(element, ', ',', '...', 'DeltaGenerator', '[\\n\\r]+', '_', '__class__', '__module__', '__name__', '__qualname__', 'ast.expr', 'attr', 'class', 'doc_string', 'end_col_offset', 'help', 'id', 'module', 'property', 'str', 'str | None', 'stretch', 'write']

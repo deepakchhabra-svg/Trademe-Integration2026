@@ -3,6 +3,9 @@
 import { type ReactNode } from "react";
 import Link from "next/link";
 import { useUISettings } from "../../app/_components/UISettingsProvider";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 export interface ColumnDef<T> {
     key: string;
@@ -47,23 +50,21 @@ export function DataTable<T extends Record<string, unknown>>({
 }: DataTableProps<T>) {
     const { density: uiDensity } = useUISettings();
     const effectiveDensity = density ?? uiDensity ?? "compact";
+
     if (loading) {
         return (
-            <div className="animate-pulse space-y-2" data-testid="table-loading">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="h-12 rounded bg-slate-100" />
-                ))}
+            <div className="space-y-2 animate-pulse">
+                <div className="h-10 bg-muted rounded w-full" />
+                <div className="h-10 bg-muted/50 rounded w-full" />
+                <div className="h-10 bg-muted/50 rounded w-full" />
             </div>
         );
     }
 
     if (data.length === 0) {
         return (
-            <div
-                className="flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-12"
-                data-testid="table-empty"
-            >
-                {emptyState ? <div className="px-6">{emptyState}</div> : <p className="text-sm text-slate-600">{emptyMessage}</p>}
+            <div className="flex items-center justify-center rounded-md border border-dashed border-muted bg-muted/10 py-12 text-center text-sm text-muted-foreground">
+                {emptyState || emptyMessage}
             </div>
         );
     }
@@ -72,130 +73,108 @@ export function DataTable<T extends Record<string, unknown>>({
     const startRow = (currentPage - 1) * pageSize + 1;
     const endRow = Math.min(currentPage * pageSize, totalCount);
 
-    const thPad = effectiveDensity === "comfortable" ? "px-4 py-3" : "px-3 py-2";
-    const tdPad = effectiveDensity === "comfortable" ? "px-4 py-3" : "px-3 py-2";
-
     return (
-        <div className="space-y-4" data-testid="data-table">
-            <div className="text-sm text-slate-600" data-testid="table-pagination-info">
+        <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
                 Showing {startRow}-{endRow} of {totalCount}
             </div>
 
-            <div className="overflow-x-auto rounded-xl border ros-border ros-surface ros-shadow">
-                <table className="w-full border-collapse text-left text-sm tabular-nums">
-                    <thead
-                        className={`ros-surface-strong text-[11px] uppercase tracking-wide ros-muted ${stickyHeader ? "sticky top-0 z-10 shadow-sm" : ""
-                            }`}
-                    >
-                        <tr>
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader className={stickyHeader ? "sticky top-0 bg-background z-10" : ""}>
+                        <TableRow>
                             {columns.map((column) => (
-                                <th key={column.key} className={`${thPad} border-b ros-border ${column.className || ""}`}>
+                                <TableHead key={column.key} className={column.className}>
                                     {column.sortable && onSort ? (
                                         <button
                                             type="button"
                                             onClick={() => onSort(column.key)}
-                                            className="flex items-center gap-1 hover:text-slate-700"
-                                            data-testid={`col-sort-${column.key}`}
+                                            className="flex items-center gap-1 hover:text-foreground font-medium"
                                         >
                                             {column.label}
                                             {sortColumn === column.key && (
-                                                <span className="text-slate-400">
+                                                <span className="text-muted-foreground">
                                                     {sortDirection === "asc" ? "↑" : "↓"}
                                                 </span>
                                             )}
                                         </button>
                                     ) : (
-                                        <span data-testid={`col-label-${column.key}`}>{column.label}</span>
+                                        column.label
                                     )}
-                                </th>
+                                </TableHead>
                             ))}
-                        </tr>
-                    </thead>
-                    <tbody>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
                         {data.map((row, rowIndex) => {
-                            const rowId = row[rowIdKey] || rowIndex;
+                            const rowId = String(row[rowIdKey] || rowIndex);
                             return (
-                                <tr
-                                    key={rowIndex}
-                                    className="align-top odd:bg-white even:bg-slate-50/40 hover:bg-indigo-50/40"
-                                    data-testid={`row-${rowId}`}
-                                >
-                                    {columns.map((column) => {
-                                        const value = row[column.key];
-                                        return (
-                                            <td
-                                                key={column.key}
-                                                className={`${tdPad} border-t ros-border ${column.className || ""}`}
-                                                data-testid={`cell-${rowId}-${column.key}`}
-                                            >
-                                                {column.render ? column.render(value, row) : String(value ?? "-")}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
+                                <TableRow key={rowId}>
+                                    {columns.map((column) => (
+                                        <TableCell key={column.key} className={column.className}>
+                                            {column.render ? column.render(row[column.key], row) : String(row[column.key] ?? "-")}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
                             );
                         })}
-                    </tbody>
-                </table>
+                    </TableBody>
+                </Table>
             </div>
 
-            {totalPages > 1 ? (
-                <div className="flex items-center justify-between text-sm" data-testid="table-pagination-controls">
-                    <div className="flex gap-2">
-                        <Link
-                            href="?page=1"
-                            data-testid="pagination-first"
-                            className={`rounded-md border px-3 py-1.5 ${currentPage === 1
-                                ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                                }`}
-                            aria-disabled={currentPage === 1}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            asChild
+                            disabled={currentPage <= 1}
                         >
-                            First
-                        </Link>
-                        <Link
-                            href={`?page=${Math.max(1, currentPage - 1)}`}
-                            data-testid="pagination-prev"
-                            className={`rounded-md border px-3 py-1.5 ${currentPage === 1
-                                ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                                }`}
-                            aria-disabled={currentPage === 1}
+                            <Link href={`?page=1`}>
+                                <ChevronsLeft className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            asChild
+                            disabled={currentPage <= 1}
                         >
-                            Prev
-                        </Link>
+                            <Link href={`?page=${Math.max(1, currentPage - 1)}`}>
+                                <ChevronLeft className="h-4 w-4" />
+                            </Link>
+                        </Button>
                     </div>
 
-                    <div className="text-xs text-slate-600" data-testid="pagination-current">
+                    <div className="text-sm font-medium">
                         Page {currentPage} of {totalPages}
                     </div>
 
-                    <div className="flex gap-2">
-                        <Link
-                            href={`?page=${Math.min(totalPages, currentPage + 1)}`}
-                            data-testid="pagination-next"
-                            className={`rounded-md border px-3 py-1.5 ${currentPage === totalPages
-                                ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                                }`}
-                            aria-disabled={currentPage === totalPages}
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            asChild
+                            disabled={currentPage >= totalPages}
                         >
-                            Next
-                        </Link>
-                        <Link
-                            href={`?page=${totalPages}`}
-                            data-testid="pagination-last"
-                            className={`rounded-md border px-3 py-1.5 ${currentPage === totalPages
-                                ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                                }`}
-                            aria-disabled={currentPage === totalPages}
+                            <Link href={`?page=${Math.min(totalPages, currentPage + 1)}`}>
+                                <ChevronRight className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            asChild
+                            disabled={currentPage >= totalPages}
                         >
-                            Last
-                        </Link>
+                            <Link href={`?page=${totalPages}`}>
+                                <ChevronsRight className="h-4 w-4" />
+                            </Link>
+                        </Button>
                     </div>
                 </div>
-            ) : null}
+            )}
         </div>
     );
 }

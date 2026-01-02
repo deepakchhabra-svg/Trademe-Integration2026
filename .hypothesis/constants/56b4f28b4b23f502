@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\runtime\app_session.py
+# hypothesis_version: 6.148.9
+
+[600, ', ', '.', '.git', 'APP_IS_RUNNING', 'APP_NOT_RUNNING', 'DISPLAY', 'No handler for "%s"', 'SHUTDOWN_REQUESTED', 'WAYLAND_DISPLAY', '_', 'app_heartbeat', 'base', 'clear_cache', 'client.toolbarMode', 'codeFont', 'context_info', 'dark', 'file_urls_request', 'font', 'fontFaces', 'headingFont', 'headingFontSizes', 'headingFontWeights', 'icon', 'light', 'load_git_info', 'none', 'page_name', 'px', 'rem', 'rerun_script', 'runner.fastReruns', 'script_path', 'server.runOnSave', 'set_run_on_save', 'stop_script', 'theme', 'type', 'ui.hideTopBar', 'weight', 'weight_range']

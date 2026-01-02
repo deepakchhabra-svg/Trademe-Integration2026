@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\utils\cleaning.py
+# hypothesis_version: 6.148.9
+
+['AirPods', 'Cash Converters', 'MacBook', 'Noel Leeming', '[-–\\s]+$', '\\bAirpods\\b', '\\bIphone\\b', '\\bMacbook\\b', '^[-–\\s]+', 'iPhone']

@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\core\validator.py
+# hypothesis_version: 6.148.9
+
+[0.0, 1.0, 100, 'DEFAULT_CATEGORY', 'Policy check failed', 'REMOVED', '__main__', 'blockers', 'description', 'enriched_description', 'fail_reason', 'matches', 'mismatches', 'passed', 'price', 'safe', 'score', 'sku', 'source_category', 'timestamp', 'title', 'total_checked']

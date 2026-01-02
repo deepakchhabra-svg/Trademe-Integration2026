@@ -1,6 +1,8 @@
 import { apiGet } from "../../_components/api";
-import { Badge } from "../../_components/Badge";
 import { formatNZT } from "../../_components/time";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Activity, AlertTriangle, DollarSign, Package, Layers, ShoppingCart, CheckCircle, Clock } from "lucide-react";
 
 export default async function SummaryPage() {
     const [summary, kpis] = await Promise.all([
@@ -12,76 +14,159 @@ export default async function SummaryPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-bold tracking-tight">Store Health Dashboard</h1>
-                    <p className="text-sm text-slate-600">Daily performance and system vitals.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+                    <p className="text-muted-foreground">Store health and system vitals.</p>
                 </div>
-                <div className="text-xs text-slate-500">Updated: {formatNZT(summary.utc)}</div>
+                <Badge variant="outline" className="text-muted-foreground">
+                    Last updated: {formatNZT(summary.utc)}
+                </Badge>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <KPI title="Sales Today" value={kpis.sales_today} tone="emerald" />
-                <KPI title="Listed Today" value={kpis.listed_today} tone="indigo" />
-                <KPI title="Queue Backlog" value={summary.commands.pending} tone="blue" />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <KPI
+                    title="Sales Today"
+                    value={kpis.sales_today}
+                    icon={DollarSign}
+                    trend="Daily sales count"
+                />
+                <KPI
+                    title="Listed Today"
+                    value={kpis.listed_today}
+                    icon={Package}
+                    trend="New live listings"
+                />
+                <KPI
+                    title="Queue Backlog"
+                    value={summary.commands.pending}
+                    icon={Layers}
+                    trend="Commands pending"
+                />
                 <KPI
                     title="Failures Today"
                     value={kpis.failures_today}
-                    tone={kpis.failures_today > 0 ? "red" : "slate"}
+                    icon={AlertTriangle}
+                    status={kpis.failures_today > 0 ? "destructive" : "default"}
+                    trend="Failed commands"
                 />
             </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Inventory Pipeline</h3>
-                    <div className="space-y-4">
-                        <Row label="Raw Items" value={summary.vaults.raw_total} sub={`(${summary.vaults.raw_present} present)`} />
-                        <Row label="Enriched" value={summary.vaults.enriched_total} sub={`(${summary.vaults.enriched_ready} ready)`} />
-                        <Row label="Listings (Live)" value={summary.vaults.listings_live} tone="emerald" />
-                        <Row label="Listings (Draft)" value={summary.vaults.listings_dry} tone="amber" />
-                    </div>
-                </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="col-span-4">
+                    <CardHeader>
+                        <CardTitle>Inventory Pipeline</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <PipelineRow
+                            label="Raw Items"
+                            value={summary.vaults.raw_total}
+                            sub={`(${summary.vaults.raw_present} present)`}
+                            icon={Package}
+                        />
+                        <PipelineRow
+                            label="Enriched"
+                            value={summary.vaults.enriched_total}
+                            sub={`(${summary.vaults.enriched_ready} ready)`}
+                            icon={CheckCircle}
+                        />
+                        <PipelineRow
+                            label="Live Listings"
+                            value={summary.vaults.listings_live}
+                            tone="success"
+                            icon={Activity}
+                            highlight
+                        />
+                        <PipelineRow
+                            label="Draft Listings"
+                            value={summary.vaults.listings_dry}
+                            tone="warning"
+                            icon={Clock}
+                        />
+                    </CardContent>
+                </Card>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">System Health</h3>
-                    <div className="space-y-4">
-                        <Row label="Pending Orders" value={summary.orders.pending} tone={summary.orders.pending > 0 ? "amber" : "slate"} />
-                        <Row label="Human Required" value={summary.commands.human_required} tone={summary.commands.human_required > 0 ? "red" : "slate"} />
-                        <Row label="Executing" value={summary.commands.executing} />
-                        <Row label="Failed (Total)" value={summary.commands.failed} />
-                    </div>
-                </div>
+                <Card className="col-span-3">
+                    <CardHeader>
+                        <CardTitle>System Health</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                            <div className="flex items-center gap-4">
+                                <div className="rounded-full bg-amber-100 p-2">
+                                    <ShoppingCart className="h-5 w-5 text-amber-600" />
+                                </div>
+                                <div>
+                                    <div className="text-sm font-medium">Pending Orders</div>
+                                    <div className="text-xs text-muted-foreground">Needs fulfillment</div>
+                                </div>
+                            </div>
+                            <div className="text-2xl font-bold">{summary.orders.pending}</div>
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                            <div className="flex items-center gap-4">
+                                <div className="rounded-full bg-red-100 p-2">
+                                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                                </div>
+                                <div>
+                                    <div className="text-sm font-medium">Human Attention</div>
+                                    <div className="text-xs text-muted-foreground">Blocked commands</div>
+                                </div>
+                            </div>
+                            <div className="text-2xl font-bold">{summary.commands.human_required}</div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                            <div className="rounded-lg bg-muted p-3 text-center">
+                                <div className="text-xs text-muted-foreground uppercase">Executing</div>
+                                <div className="text-lg font-bold">{summary.commands.executing}</div>
+                            </div>
+                            <div className="rounded-lg bg-muted p-3 text-center">
+                                <div className="text-xs text-muted-foreground uppercase">Failed (Total)</div>
+                                <div className="text-lg font-bold">{summary.commands.failed}</div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );
 }
 
-function KPI({ title, value, tone = "slate" }: { title: string; value: number; tone?: "emerald" | "indigo" | "blue" | "red" | "amber" | "slate" }) {
-    const colors = {
-        emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
-        indigo: "bg-indigo-50 text-indigo-700 border-indigo-100",
-        blue: "bg-blue-50 text-blue-700 border-blue-100",
-        red: "bg-red-50 text-red-700 border-red-100",
-        amber: "bg-amber-50 text-amber-700 border-amber-100",
-        slate: "bg-slate-50 text-slate-700 border-slate-100",
-    };
-
+function KPI({ title, value, icon: Icon, trend, status }: any) {
     return (
-        <div className={`rounded-xl border p-4 ${colors[tone]}`}>
-            <div className="text-xs font-medium uppercase tracking-wide opacity-80">{title}</div>
-            <div className="mt-1 text-2xl font-bold">{value}</div>
-        </div>
-    );
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                    {title}
+                </CardTitle>
+                <Icon className={`h-4 w-4 text-muted-foreground ${status === 'destructive' ? 'text-red-500' : ''}`} />
+            </CardHeader>
+            <CardContent>
+                <div className={`text-2xl font-bold ${status === 'destructive' ? 'text-red-500' : ''}`}>{value}</div>
+                <p className="text-xs text-muted-foreground">
+                    {trend}
+                </p>
+            </CardContent>
+        </Card>
+    )
 }
 
-function Row({ label, value, sub, tone }: { label: string; value: number; sub?: string; tone?: string }) {
+function PipelineRow({ label, value, sub, icon: Icon, tone, highlight }: any) {
+    let colorClass = "text-muted-foreground";
+    if (tone === "success") colorClass = "text-emerald-600";
+    if (tone === "warning") colorClass = "text-amber-600";
+    if (tone === "destructive") colorClass = "text-red-600";
+
     return (
-        <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-slate-700">{label}</div>
+        <div className={`flex items-center justify-between ${highlight ? 'bg-muted/40 p-2 rounded-md -mx-2' : ''}`}>
             <div className="flex items-center gap-2">
-                {sub && <span className="text-xs text-slate-400">{sub}</span>}
-                <span className={`text-sm font-bold ${tone === "red" ? "text-red-600" : tone === "emerald" ? "text-emerald-600" : tone === "amber" ? "text-amber-600" : "text-slate-900"}`}>
-                    {value}
-                </span>
+                {Icon && <Icon className={`h-4 w-4 ${colorClass}`} />}
+                <span className="text-sm font-medium">{label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+                {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
+                <span className={`font-bold ${tone === 'success' ? 'text-emerald-600' : ''}`}>{value}</span>
             </div>
         </div>
-    );
+    )
 }

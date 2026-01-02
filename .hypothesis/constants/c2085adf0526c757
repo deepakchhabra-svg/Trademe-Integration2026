@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\components\v2\component_path_utils.py
+# hypothesis_version: 6.148.9
+
+['*', ', ', '..', './', '.cjs', '.css', '.js', '.mjs', '/', ':', '?', '[', '\\', '\\\\', ']', 'component paths', 'glob patterns']

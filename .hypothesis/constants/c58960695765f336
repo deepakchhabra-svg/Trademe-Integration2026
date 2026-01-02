@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\widgets\time_widgets.py
+# hypothesis_version: 6.148.9
+
+['%H:%M', '%Y-%m-%d %H:%M', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d', '%Y/%m/%d %H:%M', '%Y/%m/%d %H:%M:%S', '%Y/%m/%d, %H:%M', 'DateWidgetReturn', 'DeltaGenerator', 'YYYY/MM/DD', 'date_input', 'date_time_input', 'datetime_input', 'format', 'list[date]', 'max_value', 'min_value', 'now', 'step', 'stretch', 'string_array_value', 'string_value', 'time_input', 'today', 'visible']

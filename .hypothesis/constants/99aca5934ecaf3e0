@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\proto\Arrow_pb2.py
+# hypothesis_version: 6.148.9
+
+[b'\n\x1ccom.snowflake.apps.streamlitB\nArrowProto', b'\x18\x01', 417, 469, 471, 587, 589, 636, 667, 669, 748, 'DESCRIPTOR', '_ARROW', '_ARROW_BORDERMODE', '_ARROW_EDITINGMODE', '_ARROW_SELECTIONMODE', '_STYLER', 'height', 'use_container_width', 'width']

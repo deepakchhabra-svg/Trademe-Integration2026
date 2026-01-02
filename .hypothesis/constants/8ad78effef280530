@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\widgets\number_input.py
+# hypothesis_version: 6.148.9
+
+[0.0, 0.01, '%0.2f', '%d', '%i', '%u', 'DeltaGenerator', 'FloatOrNone', 'IntOrNone', '`max_value`', '`min_value`', '`step`', '`value`', 'double_value', 'f', 'max_value', 'min', 'min_value', 'number_input', 'step', 'stretch', 'visible']

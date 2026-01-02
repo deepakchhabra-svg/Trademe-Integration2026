@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\analysis\profitability.py
+# hypothesis_version: 6.148.9
+
+[0.0, 0.0195, 0.079, 0.5, 249.0, 100, 'cost_price', 'est_ping_fee', 'is_profitable', 'net_profit', 'promo_fees', 'roi_percent', 'shipping_delta', 'sold_price', 'tm_success_fee', 'total_fees']

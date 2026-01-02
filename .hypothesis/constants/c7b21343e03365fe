@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\services\api\utils.py
+# hypothesis_version: 6.148.9
+
+['/', '/data/media/', 'DEFAULT_CATEGORY', '\\', 'actual_price', 'actual_state', 'brand', 'category_id', 'collection_page', 'collection_rank', 'condition', 'cost_price', 'data', 'data/media/', 'description', 'desired_price', 'desired_state', 'enriched_description', 'enriched_title', 'enrichment_error', 'enrichment_status', 'external_sku', 'final_category_id', 'final_category_name', 'http://', 'https://', 'id', 'images', 'internal_product', 'internal_product_id', 'is_locked', 'last_scraped_at', 'last_synced_at', 'lifecycle_state', 'media', 'payload_hash', 'payload_snapshot', 'product_url', 'sku', 'snapshot_hash', 'source_categories', 'source_category', 'specs', 'stock_level', 'supplier', 'supplier_id', 'supplier_name', 'supplier_product', 'sync_status', 'title', 'tm_listing_id', 'view_count', 'watch_count']

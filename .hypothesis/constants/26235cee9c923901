@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\streamlit\elements\widgets\slider.py
+# hypothesis_version: 6.148.9
+
+[0.0, 0.01, 1.0, 100, 1000, 1970, 2000, '%0.2f', '%d', 'DeltaGenerator', 'HH:mm', 'Sequence[date]', 'Sequence[datetime]', 'Sequence[time]', 'SliderDatelikeT', 'SliderNumericT', 'SliderReturn', 'SliderValueT', 'YYYY-MM-DD', '`max_value`', '`min_value`', 'date', 'datetime', 'double_array_value', 'float', 'format', 'list[float]', 'max_value', 'min_value', 'slider', 'step', 'str', 'stretch', 'time', 'timedelta', 'visible']

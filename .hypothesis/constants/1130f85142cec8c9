@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\oauthlib\openid\connect\core\grant_types\dispatchers.py
+# hypothesis_version: 6.148.9
+
+['client_id', 'code', 'id_token', 'openid', 'redirect_uri']

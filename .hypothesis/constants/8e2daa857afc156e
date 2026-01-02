@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\core\llm_enricher.py
+# hypothesis_version: 6.148.9
+
+[0.2, 400, 429, 'AI_COST', 'Authorization', 'Content-Type', 'Enricher', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'Gemini', 'OPENAI_API_KEY', 'OpenAI', 'active', 'application/json', 'candidates', 'choices', 'configured', 'content', 'contents', 'error', 'flash', 'gemini', 'gpt-4o', 'message', 'messages', 'model', 'models', 'models/', 'models_sample', 'name', 'openai', 'parts', 'provider', 'role', 'temperature', 'text', 'usage', 'usageMetadata', 'user']

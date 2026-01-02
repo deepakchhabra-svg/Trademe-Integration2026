@@ -13,13 +13,15 @@ type Cmd = {
 
 import Link from "next/link";
 import { apiGet } from "../../_components/api";
-import { Badge } from "../../_components/Badge";
 import { buildQueryString } from "../../_components/pagination";
 import { AutoRefresh } from "./AutoRefresh";
-import { PageHeader } from "../../../components/ui/PageHeader";
-import { StatusBadge } from "../../../components/ui/StatusBadge";
-import { buttonClass } from "../../_components/ui";
 import { formatNZT } from "../../_components/time";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Filter, Search } from "lucide-react";
 
 function typeLabel(t: string): string {
   const key = (t || "").toUpperCase();
@@ -33,10 +35,23 @@ function typeLabel(t: string): string {
     SYNC_SELLING_ITEMS: "Sync selling items",
     RESET_ENRICHMENT: "Reset enrichment",
     ONECHEQ_FULL_BACKFILL: "OneCheq full backfill",
-    BACKFILL_IMAGES_ONECHEQ: "Backfill images (OneCheq)",
+    BACKFILL_IMAGES_ONECHEQ: "Backfill images",
     VALIDATE_LAUNCHLOCK: "Validate LaunchLock",
   };
   return map[key] || t;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  let variant: "default" | "secondary" | "destructive" | "outline" | "emerald" | "amber" | "slate" = "outline";
+  const s = status.toUpperCase();
+  if (s === "SUCCEEDED") variant = "emerald";
+  if (s === "FAILED_FATAL") variant = "destructive";
+  if (s === "FAILED_RETRYABLE") variant = "amber";
+  if (s === "EXECUTING") variant = "secondary";
+  if (s === "PENDING") variant = "outline";
+  if (s === "HUMAN_REQUIRED") variant = "destructive";
+
+  return <Badge variant={variant}>{status.replace("_", " ")}</Badge>;
 }
 
 export default async function CommandsPage({
@@ -62,170 +77,114 @@ export default async function CommandsPage({
   const nextHref = `/ops/commands?${buildQueryString(baseParams, { page: page + 1 })}`;
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Command log"
-        subtitle="Queued work ledger. Use this to diagnose failures and see what is running/blocked."
-        actions={
-          <Badge tone="indigo">
-            Page {page} · {perPage}/page
-          </Badge>
-        }
-      />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <AutoRefresh enabledByDefault={false} />
-        <Link className={buttonClass({ variant: "outline" })} href="/ops/inbox">
-          Go to Inbox (recommended)
-        </Link>
-        <Link
-          className={buttonClass({ variant: status === "NEEDS_ATTENTION" ? "primary" : "outline" })}
-          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NEEDS_ATTENTION" }, { page: 1 })}`}
-        >
-          Needs attention
-        </Link>
-        <Link
-          className={buttonClass({ variant: status === "ACTIVE" ? "primary" : "outline" })}
-          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "ACTIVE" }, { page: 1 })}`}
-        >
-          Active (queued/running)
-        </Link>
-        <Link
-          className={buttonClass({ variant: status === "NOT_SUCCEEDED" ? "primary" : "outline" })}
-          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NOT_SUCCEEDED" }, { page: 1 })}`}
-        >
-          Not succeeded
-        </Link>
-        <Link
-          className={buttonClass({ variant: status === "SUCCEEDED" ? "primary" : "outline" })}
-          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "SUCCEEDED" }, { page: 1 })}`}
-        >
-          Succeeded
-        </Link>
-        <Link
-          className={buttonClass({ variant: status === "" ? "primary" : "outline" })}
-          href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "" }, { page: 1 })}`}
-        >
-          All
-        </Link>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Command Log</h1>
+          <p className="text-muted-foreground">Queued work ledger and diagnostics.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <AutoRefresh enabledByDefault={false} />
+          <Badge variant="outline">Total: {data.total}</Badge>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-slate-700">
-            Showing {data.items.length} of {data.total}
-          </div>
-          <form className="flex flex-wrap items-center gap-2" method="get">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="outline" size="sm"><Link href="/ops/inbox">Inbox (Recommended)</Link></Button>
+        <Button asChild variant={status === "NEEDS_ATTENTION" ? "default" : "secondary"} size="sm">
+          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NEEDS_ATTENTION" }, { page: 1 })}`}>Needs attention</Link>
+        </Button>
+        <Button asChild variant={status === "ACTIVE" ? "default" : "secondary"} size="sm">
+          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "ACTIVE" }, { page: 1 })}`}>Active</Link>
+        </Button>
+        <Button asChild variant={status === "NOT_SUCCEEDED" ? "default" : "secondary"} size="sm">
+          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NOT_SUCCEEDED" }, { page: 1 })}`}>Not Succeeded</Link>
+        </Button>
+        <Button asChild variant={status === "SUCCEEDED" ? "default" : "secondary"} size="sm">
+          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "SUCCEEDED" }, { page: 1 })}`}>Succeeded</Link>
+        </Button>
+        <Button asChild variant={status === "" ? "default" : "secondary"} size="sm">
+          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "" }, { page: 1 })}`}>All</Link>
+        </Button>
+      </div>
+
+      <Card>
+        <div className="p-4 border-b bg-muted/20">
+          <form className="flex flex-wrap items-end gap-2" method="get">
             <input type="hidden" name="page" value="1" />
-            <label className="text-xs text-slate-600">
-              <span className="mr-1">Type</span>
-              <input
-                name="type"
-                defaultValue={type}
-                className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-                placeholder="e.g. PUBLISH_LISTING"
-              />
-            </label>
-            <label className="text-xs text-slate-600">
-              <span className="mr-1">Status</span>
-              <input
-                name="status"
-                defaultValue={status}
-                className="w-40 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-                placeholder="Queued / Running / Needs attention"
-              />
-            </label>
-            <label className="text-xs text-slate-600">
-              <span className="mr-1">Per</span>
-              <select
-                name="per_page"
-                defaultValue={String(perPage)}
-                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900"
-              >
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Type</label>
+              <Input name="type" defaultValue={type} placeholder="e.g. Scrape" className="h-8 w-40" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Status</label>
+              <Input name="status" defaultValue={status} placeholder="Filter status..." className="h-8 w-40" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Per Page</label>
+              <select name="per_page" defaultValue={String(perPage)} className="h-8 rounded-md border text-xs w-20 px-2">
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
                 <option value="200">200</option>
               </select>
-            </label>
-            <button
-              type="submit"
-              className={buttonClass({ variant: "primary" })}
-            >
-              Apply
-            </button>
-            <Link className={buttonClass({ variant: "link" })} href="/ops/commands">
-              Reset
-            </Link>
+            </div>
+            <Button type="submit" size="sm" className="h-8"><Filter className="mr-2 h-3 w-3" /> Filter</Button>
+            <Button asChild variant="ghost" size="sm" className="h-8"><Link href="/ops/commands">Reset</Link></Button>
           </form>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Attempts</th>
-                <th className="px-4 py-3">Priority</th>
-                <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3">Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.length ? (
-                data.items.map((c) => (
-                  <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50 align-top">
-                    <td className="px-4 py-3 font-mono text-xs">
-                      <Link className="underline" href={`/ops/commands/${c.id}`}>
-                        {c.id.slice(0, 12)}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">{typeLabel(c.type)}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={c.status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      {c.attempts}/{c.max_attempts}
-                    </td>
-                    <td className="px-4 py-3">{c.priority}</td>
-                    <td className="px-4 py-3">{formatNZT(c.created_at)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{c.last_error || "-"}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="px-4 py-6 text-sm text-slate-600" colSpan={7}>
-                    No commands match this filter.
-                    <div className="mt-1 text-sm text-slate-600">Next action: use Pipeline to run supplier steps; then use this page for full command history.</div>
-                    <div className="mt-2 flex gap-2">
-                      <Link className={buttonClass({ variant: "primary" })} href="/pipeline">
-                        Open Pipeline
-                      </Link>
-                      <Link className={buttonClass({ variant: "outline" })} href="/ops/commands">
-                        Reset filters
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">ID</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Attempts</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="w-[30%]">Last Error</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.items.length ? (
+              data.items.map(c => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-mono text-xs">
+                    <Link href={`/ops/commands/${c.id}`} className="hover:underline text-primary">
+                      {c.id.slice(0, 8)}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-xs font-medium">{typeLabel(c.type)}</TableCell>
+                  <TableCell><StatusBadge status={c.status} /></TableCell>
+                  <TableCell className="text-xs">{c.attempts}/{c.max_attempts}</TableCell>
+                  <TableCell className="text-xs">{c.priority}</TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">{formatNZT(c.created_at)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]" title={c.last_error || ""}>
+                    {c.last_error || "-"}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                  No commands found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+
+        <div className="flex items-center justify-between p-4 border-t">
+          <Button asChild variant="outline" size="sm" disabled={page <= 1}>
+            <Link href={prevHref}>Previous</Link>
+          </Button>
+          <span className="text-xs text-muted-foreground">Page {page}</span>
+          <Button asChild variant="outline" size="sm">
+            <Link href={nextHref}>Next</Link>
+          </Button>
         </div>
-        <div className="flex items-center justify-between border-t border-slate-200 p-4 text-sm">
-          <Link
-            className={`text-slate-700 underline ${page <= 1 ? "pointer-events-none opacity-40" : ""}`}
-            href={prevHref}
-          >
-            Prev
-          </Link>
-          <div className="text-xs text-slate-600">Page {page}</div>
-          <Link className="text-slate-700 underline" href={nextHref}>
-            Next
-          </Link>
-        </div>
-      </div>
+      </Card>
     </div>
   );
 }
-

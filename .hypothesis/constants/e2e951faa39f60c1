@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\AppData\Roaming\Python\Python312\site-packages\narwhals\schema.py
+# hypothesis_version: 6.148.9
+
+['DType', 'IntoArrowSchema', 'IntoPandasSchema', 'IntoPolarsSchema', 'Schema', 'pl.Schema']
