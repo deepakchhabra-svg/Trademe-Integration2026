@@ -41,6 +41,9 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3, time
 
 export async function apiGet<T>(path: string): Promise<T> {
   const url = `${apiBaseUrl()}${path}`;
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[API Server] GET ${path}`);
+  }
   let res: Response;
   try {
     res = await fetchWithRetry(url, { cache: "no-store", headers: await apiHeaders() }, 3, 15_000);

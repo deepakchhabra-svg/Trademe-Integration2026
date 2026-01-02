@@ -32,6 +32,9 @@ async function extractDetail(res: Response): Promise<string | undefined> {
 }
 
 export async function apiGetClient<T>(path: string): Promise<T> {
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[API Client] GET ${path}`);
+  }
   const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "GET", headers: authHeaders() });
   if (!res.ok) {
     const detail = await extractDetail(res);
@@ -41,6 +44,9 @@ export async function apiGetClient<T>(path: string): Promise<T> {
 }
 
 export async function apiPostClient<T>(path: string, body: unknown): Promise<T> {
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[API Client] POST ${path}`, body);
+  }
   const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "POST", headers: authHeaders(), body: JSON.stringify(body) });
   if (!res.ok) {
     const detail = await extractDetail(res);
@@ -50,6 +56,9 @@ export async function apiPostClient<T>(path: string, body: unknown): Promise<T> 
 }
 
 export async function apiPutClient<T>(path: string, body: unknown): Promise<T> {
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[API Client] PUT ${path}`, body);
+  }
   const res = await fetch(`${apiBaseUrlClient()}${path}`, { method: "PUT", headers: authHeaders(), body: JSON.stringify(body) });
   if (!res.ok) {
     const detail = await extractDetail(res);
