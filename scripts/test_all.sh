@@ -1,22 +1,28 @@
 #!/bin/bash
 set -e
 
-echo "============================"
-echo "Running Contract Tests..."
-echo "============================"
-python -m pytest tests/test_contract_*.py
+echo "============================="
+echo "1. Running ALL pytest Tests"
+echo "============================="
+python -m pytest tests/ -v --tb=short
 
 echo ""
-echo "============================"
-echo "Running Property Tests..."
-echo "============================"
-python -m pytest tests/test_property_*.py
+echo "============================="
+echo "2. Building Next.js Frontend"
+echo "============================="
+cd services/web
+npm run build
+cd ../..
 
 echo ""
-echo "============================"
-echo "Running Integration Tests..."
-echo "============================"
-python -m pytest tests/test_integration_*.py
+echo "============================="
+echo "3. Running Playwright E2E Tests"
+echo "============================="
+cd services/web
+npx playwright test --project=chromium
+cd ../..
 
 echo ""
+echo "============================="
 echo "ALL TESTS PASSED"
+echo "============================="

@@ -45,6 +45,9 @@ export default defineConfig({
       env: {
         PYTHONPATH: path.resolve(__dirname, "../.."),
         DATABASE_URL: dbUrl,
+        // Enable auth bypass for E2E tests
+        RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES: "true",
+        RETAIL_OS_DEFAULT_ROLE: "power",
       },
       cwd: path.resolve(__dirname, "../.."),
     },

@@ -1,0 +1,4 @@
+# file: C:\Users\deepak.chhabra\OneDrive - Datacom\Documents\Trademe\Trademe Integration V2\retail_os\core\reconciliation.py
+# hypothesis_version: 6.148.9
+
+['Live', 'MISSING_ONCE', 'PRESENT', 'REMOVED', 'ReconciliationEngine', 'STATUS_CHANGE', 'SupplierProduct', 'WITHDRAW_LISTING', 'listing_id', 'reason']
