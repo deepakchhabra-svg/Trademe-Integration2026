@@ -22,8 +22,8 @@ from retail_os.scrapers.cash_converters.adapter import CashConvertersAdapter
 # Assuming Noel Leeming has an adapter too, but for robust import:
 # from retail_os.scrapers.noel_leeming.adapter import NoelLeemingAdapter
 
-# Import Core
-from retail_os.core.unified_schema import normalize_onecheq_row, normalize_cash_converters_row, normalize_noel_leeming_row
+# Import Core (only used normalizers)
+from retail_os.core.unified_schema import normalize_onecheq_row, normalize_noel_leeming_row
 
 class UnifiedPipeline:
     def __init__(self, max_pages: int = 200, batch_size: int = 50, log_file: str = "production_sync.log"):
@@ -208,7 +208,8 @@ class UnifiedPipeline:
                 elif result == 'updated': self.stats['total_updated'] += 1
                 
             elif supplier_code == 'CC':
-                unified = normalize_cash_converters_row(raw_data)
+                # Use adapter's normalize_row method
+                unified = self.adapters['CC'].normalize_row(raw_data)
                 result = self.adapters['CC']._upsert_product(unified)
                 if result == 'created': self.stats['total_new'] += 1
                 elif result == 'updated': self.stats['total_updated'] += 1

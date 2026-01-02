@@ -114,35 +114,8 @@ def normalize_noel_leeming_row(nl_row: dict) -> UnifiedProduct:
         "collection_page": nl_row.get("page_number"),
     }
 
-def normalize_cash_converters_row(cc_row: dict) -> UnifiedProduct:
-    """Convert Cash Converters scraper output to UnifiedProduct."""
-    return {
-        "source_listing_id": str(cc_row.get("source_listing_id", "")),
-        "source": "cashconverters",
-        "source_url": cc_row.get("source_url", ""),
-        "title": cc_row.get("title", ""),
-        "description": cc_row.get("description", ""),
-        "brand": cc_row.get("brand", ""),
-        "condition": cc_row.get("condition", ""),
-        "reserve_price": str(cc_row.get("reserve_price", "")),
-        "buy_now_price": str(cc_row.get("buy_now_price", "")),
-        "source_current_price": str(cc_row.get("source_current_price", "")),
-        "buy_now_only": cc_row.get("buy_now_only", ""),
-        "allow_buy_now": cc_row.get("allow_buy_now", ""),
-        "source_category": cc_row.get("source_category", ""),
-        "category": cc_row.get("category", ""),
-        "store_name": cc_row.get("store_name", ""),
-        "store_location": cc_row.get("store_location", ""),
-        "photo1": cc_row.get("photo1", ""),
-        "photo2": cc_row.get("photo2", ""),
-        "photo3": cc_row.get("photo3", ""),
-        "photo4": cc_row.get("photo4", ""),
-        "warranty": cc_row.get("warranty", ""),
-        "ean": "",
-        "source_status": cc_row.get("source_status", ""),
-        "scraped_at": cc_row.get("scraped_at", ""),
-        "price_match_verified": cc_row.get("price_match_verified", ""),
-    }
+# NOTE: normalize_cash_converters_row was removed - CashConvertersAdapter uses its own
+# normalize_row() method for better encapsulation.
 
 def normalize_onecheq_row(oc_row: dict) -> UnifiedProduct:
     """Convert OneCheq scraper output to UnifiedProduct."""
