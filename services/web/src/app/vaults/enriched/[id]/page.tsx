@@ -262,7 +262,13 @@ export default async function EnrichedDetailPage({
           ) : null}
 
           <SectionCard title="Actions" className="bg-slate-50/50">
-            <EnrichedActions internalProductId={ip.id} supplierProductId={sp?.id ?? null} sourceStatus={sp?.sync_status ?? null} />
+            <EnrichedActions
+              internalProductId={ip.id}
+              supplierId={sp?.supplier_id ?? null}
+              supplierProductId={sp?.id ?? null}
+              sourceStatus={sp?.sync_status ?? null}
+              blockers={trust.blockers || []}
+            />
           </SectionCard>
         </>
       ) : null}

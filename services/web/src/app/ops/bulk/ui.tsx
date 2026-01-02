@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiGetClient, apiPostClient } from "../../_components/api_client";
 import { buttonClass } from "../../_components/ui";
+import { RepriceSection } from "./RepriceSection";
 
 type Resp = { id: string; status: string };
 type Supplier = { id: number; name: string };
@@ -331,9 +332,8 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
           <button
             type="button"
             disabled={!!busyKey || supplierName.toUpperCase() !== "ONECHEQ"}
-            className={`rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ${
-              busyKey || supplierName.toUpperCase() !== "ONECHEQ" ? "cursor-not-allowed opacity-60" : "hover:bg-indigo-700"
-            }`}
+            className={`rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white ${busyKey || supplierName.toUpperCase() !== "ONECHEQ" ? "cursor-not-allowed opacity-60" : "hover:bg-indigo-700"
+              }`}
             onClick={() =>
               run("ONECHEQ_FULL_BACKFILL", async () => {
                 const sid = supplierId ? Number(supplierId) : undefined;
@@ -604,6 +604,11 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
         </div>
       </Section>
 
+      <RepriceSection
+        supplierId={supplierId}
+        supplierName={supplierName}
+        sourceCategory={sourceCategory}
+      />
     </div>
   );
 }

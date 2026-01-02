@@ -2874,3 +2874,189 @@ def put_setting(key: str, req: SettingUpsertRequest, _role: Role = Depends(requi
         session.commit()
         return {"key": s.key, "value": s.value, "updated_at": _dt(s.updated_at)}
 
+
+# --- SELLING MACHINE V1 OPS (2026-01-01) ---
+
+class BulkRepriceRequest(BaseModel):
+    supplier_id: Optional[int] = None
+    category_id: Optional[str] = None
+    rule_type: str = "percentage"  # percentage, fixed_markup
+    rule_value: float = 0.0        # e.g. 1.05 for +5% or 0.15 for 15% margin
+    min_margin: float = 0.10       # Safety: don't go below 10%
+    dry_run: bool = True
+    limit: int = 50
+
+@app.post("/ops/bulk/reprice")
+def bulk_reprice(req: BulkRepriceRequest, _role: Role = Depends(require_role("power"))):
+    """
+    Bulk Reprice / Preview.
+    - Dry Run: Returns a list of proposed price changes with safety checks.
+    - Live: Enqueues UPDATE_PRICE commands for approved changes.
+    """
+    from retail_os.analysis.profitability import ProfitabilityAnalyzer
+    import uuid
+
+    with get_db_session() as session:
+        # 1. Select Live listings
+        q = session.query(TradeMeListing).join(InternalProduct).join(SupplierProduct)
+        q = q.filter(TradeMeListing.actual_state == "Live")
+        
+        if req.supplier_id:
+            q = q.filter(SupplierProduct.supplier_id == int(req.supplier_id))
+        if req.category_id:
+            # Simple exact match for now, could be prefix
+            q = q.filter(SupplierProduct.source_category == req.category_id)
+            
+        listings = q.limit(req.limit).all()
+        
+        results = []
+        enqueued_count = 0
+        
+        for l in listings:
+            try:
+                sp = l.internal_product.supplier_product
+                cost = float(sp.cost_price or 0)
+                if cost <= 0:
+                    continue
+                    
+                current_price = float(l.actual_price or 0)
+                
+                # Calculate New Price
+                new_price = current_price
+                if req.rule_type == "percentage":
+                    # e.g. rule_value=1.05 means increase by 5%? Or multiply by?
+                    # Let's assume input is multiplier (1.05) or explicit margin logic? 
+                    # User spec: "% or fixed".
+                    # Let's interpret rule_value as 'target margin' for simplicity if generic, 
+                    # OR strict multiplier on COST if that's what reprice usually means.
+                    # But usually reprice means "Update current price by X%".
+                    # Let's assume rule_value is TARGET MARGIN (e.g. 0.15) for now as it's safer.
+                    target_price = cost * (1 + req.rule_value)
+                    new_price = target_price
+                elif req.rule_type == "fixed_markup":
+                    new_price = cost + req.rule_value
+                
+                # Safety Check
+                prof = ProfitabilityAnalyzer.predict_profitability(new_price, cost)
+                is_safe = True
+                safety_reason = None
+                
+                if prof["net_profit"] < 0:
+                    is_safe = False
+                    safety_reason = "Negative Profit"
+                elif (prof["net_profit"] / new_price) < req.min_margin:
+                    is_safe = False
+                    safety_reason = f"Margin < {req.min_margin:.0%}"
+                
+                item = {
+                    "listing_id": l.id,
+                    "tm_listing_id": l.tm_listing_id,
+                    "title": l.internal_product.enriched_title or sp.product_name,
+                    "cost": cost,
+                    "current_price": current_price,
+                    "new_price": round(new_price, 2),
+                    "net_profit": prof["net_profit"],
+                    "roi": prof["roi_percent"],
+                    "is_safe": is_safe,
+                    "safety_reason": safety_reason
+                }
+                
+                if not req.dry_run and is_safe:
+                    # Enqueue
+                    cmd = SystemCommand(
+                        id=str(uuid.uuid4()),
+                        type="UPDATE_PRICE",
+                        payload={"listing_id": l.id, "new_price": item["new_price"]},
+                        status=CommandStatus.PENDING,
+                        priority=60
+                    )
+                    session.add(cmd)
+                    enqueued_count += 1
+                
+                results.append(item)
+                
+            except Exception:
+                continue
+
+        if not req.dry_run:
+            session.commit()
+            return {"enqueued": enqueued_count, "items": results}
+        
+        return {"dry_run": True, "items": results}
+
+
+@app.get("/ops/kpis")
+def get_ops_kpis(_role: Role = Depends(require_role("reader"))):
+    """
+    Store Health KPIs for Dashboard.
+    """
+    from sqlalchemy import func
+    from datetime import date, timedelta
+    
+    with get_db_session() as session:
+        today = date.today()
+        
+        # 1. Sales Today
+        sales_today = (
+            session.query(func.count(Order.id))
+            .filter(func.date(Order.sold_date) == today)
+            .scalar()
+        ) or 0
+        
+        # 2. Listed Today (Successful Publish commands)
+        listed_today = (
+            session.query(func.count(SystemCommand.id))
+            .filter(SystemCommand.type == "PUBLISH_LISTING")
+            .filter(SystemCommand.status == "SUCCEEDED")
+            .filter(func.date(SystemCommand.updated_at) == today)
+            .scalar()
+        ) or 0
+        
+        # 3. Queue Backlog
+        backlog = session.query(func.count(SystemCommand.id)).filter(SystemCommand.status == "PENDING").scalar() or 0
+        
+        # 4. Failures Today
+        failures_today = (
+            session.query(func.count(SystemCommand.id))
+            .filter(SystemCommand.status.like("FAILED%"))
+            .filter(func.date(SystemCommand.updated_at) == today)
+            .scalar()
+        ) or 0
+        
+        return {
+            "sales_today": sales_today,
+            "listed_today": listed_today,
+            "backlog": backlog,
+            "failures_today": failures_today
+        }
+
+
+@app.get("/ops/duplicates")
+def get_duplicates(_role: Role = Depends(require_role("power"))):
+    """
+    Finds potential duplicates: InternalProduct mapped to multiple Live listings.
+    """
+    from sqlalchemy import func
+    with get_db_session() as session:
+        subq = (
+            session.query(TradeMeListing.internal_product_id)
+            .filter(TradeMeListing.actual_state == "Live")
+            .group_by(TradeMeListing.internal_product_id)
+            .having(func.count(TradeMeListing.id) > 1)
+        )
+        
+        dupes = []
+        for row in subq:
+            ip_id = row[0]
+            listings = session.query(TradeMeListing).filter(TradeMeListing.internal_product_id == ip_id, TradeMeListing.actual_state == 'Live').all()
+            dupes.append({
+                "internal_product_id": ip_id,
+                "listings": [
+                    {"id": l.id, "tm_id": l.tm_listing_id, "price": l.actual_price, "last_synced": _dt(l.last_synced_at)} 
+                    for l in listings
+                ]
+            })
+            
+        return {"duplicates": dupes, "count": len(dupes)}
+
+

@@ -1,63 +1,35 @@
-route,journey,action,trigger,method,uri,operation_id,caller_files,payload_keys,query_keys,success_ui,error_ui,notes
-/,JDashboard,Refresh summary,Button click,GET,/ops/summary,get_ops_summary,WorkbenchClient.tsx,-,-,Updates stats,Toast error,
-/,JDashboard,Load Trade Me health,Auto-load,GET,/trademe/account_summary,get_trademe_summary,WorkbenchClient.tsx,-,-,Updates balance,Toast error,
-/access,JSystemConfig,Set access token,Button click,-,-,set_cookie_token,TokenSetter.tsx,-,-,Success message,toast error,Client-side cookie
-/admin/settings,JSystemConfig,Load settings,Page load,GET,/settings/{key},get_setting,settings/page.tsx,key,-,Renders settings,Error page,Multiple calls
-/admin/settings,JSystemConfig,Save setting,Button click,PUT,/settings/{key},update_setting,settings/Editor.tsx,value,key,Toast/Status,Status text,
-/admin/settings,JSystemConfig,Toggle shipping template,Checkbox,PUT,/settings/trademe.shipping.use_template,update_shipping_template,settings/Editor.tsx,value,-,Toast/Status,Status text,
-/admin/settings,JSystemConfig,Save template ID,Button click,PUT,/settings/trademe.shipping.template_id,update_template_id,settings/Editor.tsx,value,-,Toast/Status,Status text,
-/admin/settings,JSystemConfig,Save footer,Button click,PUT,/settings/trademe.listing.footer,update_listing_footer,settings/Editor.tsx,value,-,Toast/Status,Status text,
-/ops/bulk,JBulkOps,Select supplier,Dropdown change,GET,/suppliers,get_suppliers_list,ops/bulk/ui.tsx,-,-,Populates dropdown,-,
-/ops/bulk,JBulkOps,Load category presets,Auto-load,GET,/suppliers/{id}/policy,get_supplier_policy,ops/bulk/ui.tsx,id,-,Populates presets,-,
-/ops/bulk,JBulkOps,Scrape all presets,Button click,POST,/ops/enqueue,enqueue_scrape_supplier,ops/bulk/ui.tsx,type|payload|priority,-,Success toast,Error toast,Multiple calls
-/ops/bulk,JBulkOps,Enrich all presets,Button click,POST,/ops/enqueue,enqueue_enrich_supplier,ops/bulk/ui.tsx,type|payload|priority,-,Success toast,Error toast,Multiple calls
-/ops/bulk,JBulkOps,Start scrape,Button click,POST,/ops/enqueue,enqueue_scrape_supplier,ops/bulk/ui.tsx,type|payload|priority,-,Success toast,Error toast,
-/ops/bulk,JBulkOps,OneCheq full backfill,Button click,POST,/ops/enqueue,enqueue_backfill_images,ops/bulk/ui.tsx,type|payload|priority,-,Success toast,Error toast,
-/ops/bulk,JBulkOps,Enrich now,Button click,POST,/ops/enqueue,enqueue_enrich_supplier,ops/bulk/ui.tsx,type|payload|priority,-,Success toast,Error toast,
-/ops/bulk,JBulkOps,Sync sold items,Button click,POST,/ops/enqueue,enqueue_sync_sold,ops/bulk/ui.tsx,type|payload|priority,-,Success toast,Error toast,Duplicate in Listing Actions
-/ops/bulk,JBulkOps,Sync selling items,Button click,POST,/ops/enqueue,enqueue_sync_selling,ops/bulk/ui.tsx,type|payload|priority,-,Success toast,Error toast,
-/ops/bulk,JBulkOps,Create drafts,Button click,POST,/ops/bulk/dryrun_publish,bulk_dryrun_publish,ops/bulk/ui.tsx,supplier_id|limit,-,Success toast,Error toast,Duplicate in Pipeline
-/ops/bulk,JBulkOps,Publish approved drafts,Button click,POST,/ops/bulk/approve_publish,bulk_approve_publish,ops/bulk/ui.tsx,supplier_id|limit,-,Success toast,Error toast,
-/ops/bulk,JBulkOps,Reset enrichment,Button click,POST,/ops/bulk/reset_enrichment,bulk_reset_enrichment,ops/bulk/ui.tsx,supplier_id,-,Success toast,Error toast,
-/ops/commands,JMonitoring,Load commands,Page load,GET,/commands,get_commands,ops/commands/page.tsx,-,page|per_page|type|status,Renders list,Error page,
-/ops/commands/[id],JErrorResolution,Load command detail,Page load,GET,/commands/{id},get_command_detail,ops/commands/[id]/page.tsx,id,-,Renders detail,Error page,
-/ops/commands/[id],JErrorResolution,Retry command,Button click,POST,/commands/{id}/retry,retry_command,ops/commands/[id]/Actions.tsx,id,-,Reloads page,Error msg,
-/ops/commands/[id],JErrorResolution,Mark resolved,Button click,POST,/commands/{id}/ack,ack_command,ops/commands/[id]/Actions.tsx,id,-,Reloads page,Error msg,
-/ops/commands/[id],JErrorResolution,Cancel command,Button click,POST,/commands/{id}/cancel,cancel_command,ops/commands/[id]/Actions.tsx,id,-,Reloads page,Error msg,
-/ops/inbox,JMonitoring,Load inbox,Page load,GET,/ops/inbox,get_inbox,ops/inbox/page.tsx,-,-,Renders summary,Error page,
-/ops/inbox,JErrorResolution,Retry command (inline),Button click,POST,/commands/{id}/retry,retry_command,ops/inbox/Actions.tsx,id,-,Reloads page,Error msg,Duplicate Action
-/ops/inbox,JErrorResolution,Acknowledge command,Button click,POST,/commands/{id}/ack,ack_command,ops/inbox/Actions.tsx,id,-,Reloads page,Error msg,Duplicate Action
-/ops/inbox,JErrorResolution,Cancel command (inline),Button click,POST,/commands/{id}/cancel,cancel_command,ops/inbox/Actions.tsx,id,-,Reloads page,Error msg,Duplicate Action
-/ops/readiness,JMonitoring,Load readiness,Page load,GET,/ops/readiness,get_readiness,ops/readiness/page.tsx,-,-,Renders dashboard,Error page,
-/ops/removed,JLifecycle,Load removed items,Page load,GET,/ops/removed_items,get_removed_items,ops/removed/page.tsx,-,supplier_id|page|per_page,Renders table,Error page,
-/ops/removed,JLifecycle,Withdraw all removed,Button click,POST,/ops/bulk/withdraw_removed,withdraw_removed_items,WithdrawButton.tsx,supplier_id,-,Success msg,Error msg,
-/ops/trademe,JMonitoring,Load account summary,Page load,GET,/trademe/account_summary,get_trademe_summary,ops/trademe/page.tsx,-,-,Renders dashboard,Error page,
-/ops/trademe,JMonitoring,Validate drafts,Button click,POST,/trademe/validate_drafts,validate_drafts,ValidateDraftsClient.tsx,supplier_id|limit,-,Renders results,Error msg,
-/orders,JOrderFulfillment,Load orders,Page load,GET,/orders,get_orders,orders/page.tsx,-,page|per_page|q|status,Renders table,Error page,
-/pipeline,JPipeline,Load suppliers,Page load,GET,/suppliers,get_suppliers_list,pipeline/page.tsx,-,-,Renders list,Error page,
-/pipeline/[supplierId],JPipeline,Load pipeline,Page load,GET,/ops/suppliers/{id}/pipeline,get_supplier_pipeline,pipeline/[supplierId]/page.tsx,id,-,Renders stats,Error page,
-/pipeline/[supplierId],JPipeline,Refresh pipeline,Button click,GET,/ops/suppliers/{id}/pipeline,get_supplier_pipeline,PipelineClient.tsx,id,-,Updates stats,Error toast,
-/pipeline/[supplierId],JPipeline,Run scrape,Button click,POST,/ops/enqueue,enqueue_scrape_supplier,PipelineClient.tsx,type|payload|priority,-,Queued toast,Error toast,
-/pipeline/[supplierId],JPipeline,Backfill images,Button click,POST,/ops/enqueue,enqueue_backfill_images,PipelineClient.tsx,type|payload|priority,-,Queued toast,Error toast,
-/pipeline/[supplierId],JPipeline,Run enrich,Button click,POST,/ops/enqueue,enqueue_enrich_supplier,PipelineClient.tsx,type|payload|priority,-,Queued toast,Error toast,
-/pipeline/[supplierId],JPipeline,Build drafts,Button click,POST,/ops/bulk/dryrun_publish,bulk_dryrun_publish,PipelineClient.tsx,supplier_id,-,Queued toast,Error toast,Duplicate in Bulk Ops
-/products,JInspection,Load products,Page load,GET,/products,get_products,products/page.tsx,-,page|per_page|q|supplier_id|source_category|stage,Renders table,Error page,
-/products/[id],JInspection,Load inspector,Page load,GET,/inspector/supplier-products/{id},get_product_inspector,products/[id]/page.tsx,id,-,Renders detail,Error page,
-/suppliers,JSupplierOnboarding,Load suppliers,Page load,GET,/suppliers,get_suppliers_list,suppliers/page.tsx,-,-,Renders list,Error page,
-/suppliers/[id],JSupplierOnboarding,Load policy,Page load,GET,/suppliers/{id}/policy,get_supplier_policy,suppliers/[id]/PolicyEditor.tsx,id,-,Populates form,Error page,
-/suppliers/[id],JSupplierOnboarding,Save policy,Button click,PUT,/suppliers/{id}/policy,update_supplier_policy,suppliers/[id]/PolicyEditor.tsx,policy|enable_scrape|enable_enrich|enable_publish,-,Success toast,Error toast,
-/vaults/raw,JLifecycle,Load raw items,Page load,GET,/vaults/raw,get_raw_vault,vaults/raw/RawVaultClient.tsx,-,page|per_page|q|supplier_id|sync_status,Renders table,Error page,
-/vaults/raw/[id],JLifecycle,Load raw detail,Page load,GET,/supplier-products/{id},get_supplier_product,vaults/raw/[id]/page.tsx,id,-,Renders detail,Error page,
-/vaults/raw/[id],JLifecycle,Load draft payload,Page load,GET,/draft/internal-products/{id}/trademe,get_draft_payload,vaults/raw/[id]/page.tsx,id,-,Renders payload,Error page,
-/vaults/enriched,JLifecycle,Load enriched items,Page load,GET,/vaults/enriched,get_enriched_vault,vaults/enriched/EnrichedVaultClient.tsx,-,page|per_page|q|supplier_id|enrichment_status,Renders table,Error page,
-/vaults/enriched/[id],JLifecycle,Load internal detail,Page load,GET,/internal-products/{id},get_internal_product,vaults/enriched/[id]/page.tsx,id,-,Renders detail,Error page,
-/vaults/enriched/[id],JLifecycle,Load trust report,Page load,GET,/trust/internal-products/{id},get_trust_report,vaults/enriched/[id]/page.tsx,id,-,Renders report,Error page,
-/vaults/enriched/[id],JLifecycle,Load validation,Page load,GET,/validate/internal-products/{id},get_validation_result,vaults/enriched/[id]/page.tsx,id,-,Renders validation,Error page,
-/vaults/enriched/[id],JLifecycle,Load draft payload,Page load,GET,/draft/internal-products/{id}/trademe,get_draft_payload,vaults/enriched/[id]/page.tsx,id,-,Renders payload,Error page,
-/vaults/enriched/[id],JLifecycle,Reset enrichment,Button click,POST,/commands,enqueue_reset_enrichment,vaults/enriched/[id]/Actions.tsx,type|payload|priority,-,Queued toast,Error toast,
-/vaults/enriched/[id],JLifecycle,Create draft,Button click,POST,/commands,enqueue_publish_listing,vaults/enriched/[id]/Actions.tsx,type|payload|priority (dry_run=true),-,Queued toast,Error toast,
-/vaults/enriched/[id],JLifecycle,Publish listing,Button click,POST,/commands,enqueue_publish_listing,vaults/enriched/[id]/Actions.tsx,type|payload|priority (dry_run=false),-,Queued toast,Error toast,
-/vaults/live,JLifecycle,Load listings,Page load,GET,/vaults/live,get_live_vault,vaults/live/LiveVaultClient.tsx,-,page|per_page|q|supplier_id|status,Renders table,Error page,
-/vaults/live/[id],JLifecycle,Load listing detail,Page load,GET,/listings/{id},get_listing_detail,vaults/live/[id]/page.tsx,id,-,Renders detail,Error page,
-/vaults/live/[id],JLifecycle,Scan competitors,Button click,POST,/commands,enqueue_scan_competitors,vaults/live/[id]/Actions.tsx,type|payload|priority,-,Queued toast,Error toast,
-/vaults/live/[id],JLifecycle,Sync sold items,Button click,POST,/commands,enqueue_sync_sold,vaults/live/[id]/Actions.tsx,type|payload|priority,-,Queued toast,Error toast,Duplicate in Bulk Ops
+operation_id,uri,method,auth,description,payload
+enqueue_scrape_supplier,/ops/enqueue,POST,power,Trigger a scrape for a specific supplier.,type|payload|priority
+enqueue_enrich_supplier,/ops/enqueue,POST,power,Trigger enrichment for a specific supplier.,type|payload|priority
+enqueue_backfill_images,/ops/enqueue,POST,power,Backfill images for OneCheq (or other suppliers).,type|payload|priority
+enqueue_sync_sold,/ops/enqueue,POST,power,Sync sold items from Trade Me.,type|priority
+enqueue_sync_selling,/ops/enqueue,POST,power,Sync currently selling items from Trade Me.,type|priority
+bulk_dryrun_publish,/ops/bulk/dryrun_publish,POST,power,Generate draft listings for review.,supplier_id|limit
+bulk_approve_publish,/ops/bulk/approve_publish,POST,power,Publish approved drafts to Trade Me.,supplier_id|limit
+bulk_reset_enrichment,/ops/bulk/reset_enrichment,POST,power,Reset enrichment status for a supplier's products.,supplier_id
+withdraw_removed_items,/ops/bulk/withdraw_removed,POST,power,Withdraw items that have been removed by the supplier.,supplier_id
+retry_command,/commands/{id}/retry,POST,power,Retry a failed command.,
+ack_command,/commands/{id}/ack,POST,power,Acknowledge a failed command (mark resolved).,
+cancel_command,/commands/{id}/cancel,POST,power,Cancel a pending or active command.,
+enqueue_scan_competitors,/ops/enqueue,POST,power,Scan competitors for a specific listing.,type|payload
+enqueue_reset_enrichment,/ops/enqueue,POST,power,Reset enrichment for a single product.,type|payload
+enqueue_publish_listing,/ops/enqueue,POST,power,Publish a single listing (or draft).,type|payload
+validate_drafts,/trademe/validate_drafts,POST,power,Validate drafts against Trade Me API.,supplier_id|limit
+get_ops_summary,/ops/summary,GET,reader,Get operational summary stats.,
+get_trademe_summary,/trademe/account_summary,GET,reader,Get Trade Me account health.,
+get_suppliers_list,/suppliers,GET,reader,Get list of all suppliers.,
+get_supplier_policy,/suppliers/{id}/policy,GET,reader,Get policy for a supplier.,
+update_supplier_policy,/suppliers/{id}/policy,PUT,admin,Update supplier policy.,
+get_setting,/settings/{key},GET,admin,Get a system setting.,
+update_setting,/settings/{key},PUT,admin,Update a system setting.,
+get_commands,/commands,GET,reader,Get command log.,
+get_inbox,/ops/inbox,GET,reader,Get operator inbox.,
+get_readiness,/ops/readiness,GET,reader,Get publish readiness stats.,
+get_removed_items,/ops/removed_items,GET,reader,Get removed items list.,
+get_orders,/orders,GET,reader,Get orders list.,
+get_supplier_pipeline,/ops/suppliers/{id}/pipeline,GET,reader,Get pipeline stats for supplier.,
+get_products,/products,GET,reader,Get master product list.,
+get_product_inspector,/inspector/supplier-products/{id},GET,reader,Get deep inspection data.,
+get_raw_vault,/vaults/raw,GET,reader,Get raw vault items.,
+get_enriched_vault,/vaults/enriched,GET,reader,Get enriched vault items.,
+get_live_vault,/vaults/live,GET,reader,Get live vault listings.,

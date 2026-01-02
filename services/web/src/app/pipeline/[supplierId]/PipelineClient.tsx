@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { apiGetClient, apiPostClient } from "../../_components/api_client";
+import { useEnqueue } from "../../_hooks/useEnqueue";
 import { buttonClass } from "../../_components/ui";
 import { formatNZT } from "../../_components/time";
 import { SectionCard } from "../../../components/ui/SectionCard";
@@ -57,14 +58,13 @@ function pct(done: number | null | undefined, total: number | null | undefined):
   return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
 }
 
-async function enqueue(type: string, payload: Record<string, unknown>, priority = 60): Promise<{ id: string }> {
-  return await apiPostClient<{ id: string }>("/ops/enqueue", { type, payload, priority });
-}
+
 
 export function PipelineClient({ supplierId, initial }: { supplierId: number; initial: PipelineResp }) {
   const [data, setData] = useState<PipelineResp>(initial);
   const [refreshing, setRefreshing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const { enqueue: runEnqueue } = useEnqueue();
 
   const topBlocker = data.summary.top_blockers?.[0]?.[0] || null;
   const topBlockerCount = data.summary.top_blockers?.[0]?.[1] || 0;
@@ -187,7 +187,7 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Scrape", async () => {
-                    const out = await enqueue("SCRAPE_SUPPLIER", { supplier_id: supplierId, supplier_name: data.supplier.name }, 70);
+                    const out = await runEnqueue({ type: "SCRAPE_SUPPLIER", payload: { supplier_id: supplierId, supplier_name: data.supplier.name }, priority: 70 });
                     return `Queued scrape command ${out.id.slice(0, 8)}…`;
                   })
                 }
@@ -212,11 +212,11 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Backfill images", async () => {
-                    const out = await enqueue(
-                      "BACKFILL_IMAGES_ONECHEQ",
-                      { supplier_id: supplierId, supplier_name: data.supplier.name, batch: 5000, concurrency: 16, max_seconds: 600 },
-                      65,
-                    );
+                    const out = await runEnqueue({
+                      type: "BACKFILL_IMAGES_ONECHEQ",
+                      payload: { supplier_id: supplierId, supplier_name: data.supplier.name, batch: 5000, concurrency: 16, max_seconds: 600 },
+                      priority: 65,
+                    });
                     return `Queued image backfill ${out.id.slice(0, 8)}…`;
                   })
                 }
@@ -238,11 +238,11 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Enrich", async () => {
-                    const out = await enqueue(
-                      "ENRICH_SUPPLIER",
-                      { supplier_id: supplierId, supplier_name: data.supplier.name, batch_size: 1000, delay_seconds: 0 },
-                      60,
-                    );
+                    const out = await runEnqueue({
+                      type: "ENRICH_SUPPLIER",
+                      payload: { supplier_id: supplierId, supplier_name: data.supplier.name, batch_size: 1000, delay_seconds: 0 },
+                      priority: 60,
+                    });
                     return `Queued enrich command ${out.id.slice(0, 8)}…`;
                   })
                 }
@@ -350,7 +350,7 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
               className="underline"
               onClick={() =>
                 runStep("Scrape", async () => {
-                  const out = await enqueue("SCRAPE_SUPPLIER", { supplier_id: supplierId, supplier_name: data.supplier.name }, 70);
+                  const out = await runEnqueue({ type: "SCRAPE_SUPPLIER", payload: { supplier_id: supplierId, supplier_name: data.supplier.name }, priority: 70 });
                   return `Queued scrape command ${out.id.slice(0, 8)}…`;
                 })
               }

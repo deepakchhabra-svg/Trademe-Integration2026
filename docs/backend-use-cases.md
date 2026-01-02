@@ -1,56 +1,40 @@
-# Backend Use Case Catalog
+# Backend Use Cases
 
-## 1. HTTP API (FastAPI)
-**Entry Point:** `services/api/main.py`
+> **Source:** `docs/operations_registry.json`
 
-| Use Case | Method / URI | Auth Mode | Description |
-| :--- | :--- | :--- | :--- |
-| **Health Check** | `GET /health` | Public | Probes DB connection and returns service health status. |
-| **Media Server** | `GET /media/{rel_path}` | Token (Listing) | Serves protected local media files (`data/media/*`) to authenticated clients. |
-| **Identity Debug** | `GET /whoami` | Public/Header | Debug endpoint returning current Role and RBAC configuration. |
-| **Operator Inbox** | `GET /ops/inbox` | Role (Power) | Returns counts/groups of items requiring human attention (Human Required commands, Failed Jobs). |
-| **Ops Summary** | `GET /ops/summary` | Role (Power) | High-level KPI dashboard (Command counts, Vault totals, Listing states). |
-| **Pipeline Summary** | `GET /ops/pipeline_summary` | Role (Power) | Per-supplier pipeline status (Raw -> Enriched -> Draft -> Live) and top blockers. |
-| **Supplier Detail** | `GET /ops/suppliers/{id}/pipeline` | Role (Power) | Detailed view of a supplier's pipeline + active command list. |
-| **Account Health** | `GET /trademe/account_summary` | Role (Power) | Live check of Trade Me API connectivity and Account Balance. |
-| **LLM Health** | `GET /llm/health` | Role (Power) | Diagnostics for the configured LLM provider. |
-| **Validate Drafts** | `POST /trademe/validate_drafts` | Role (Power) | Batch validates pending drafts against real Trade Me API regulations. |
-
-## 2. Queue Consumers (Worker)
-**Entry Point:** `retail_os/trademe/worker.py` (CommandWorker)
-
-| Command Type | Use Case | Description | Side Effects |
-| :--- | :--- | :--- | :--- |
-| `PUBLISH_LISTING` | **Publish Listing** | "Golden Path" publishing. Validates, uploads images, creates TM listing. Supports `dry_run`. | DB Updates (TradeMeListing), API Calls (Photo Upload, Publish), File Read. |
-| `UPDATE_PRICE` | **Update Price** | Updates price of a live listing. | API Call (Price Update), DB Update (TradeMeListing, PriceHistory). |
-| `WITHDRAW_LISTING` | **Withdraw Listing** | Withdraws a live listing from Trade Me. | API Call (Withdraw), DB Update (TradeMeListing state). |
-| `SCRAPE_SUPPLIER` | **Scrape Supplier** | Generic scraper runner. Dispatches to specific adapters (OneCheq, Noel Leeming). | Updates `SupplierProduct` table, DB Logs. |
-| `SCRAPE_OC` | **Scrape OneCheq** | Specific OneCheq scraper trigger (Legacy/Specific). | Updates `SupplierProduct` table. |
-| `ENRICH_SUPPLIER` | **Enrich Supplier** | Enriches raw supplier products using LLM. | Updates `SupplierProduct` (enriched fields), `InternalProduct` creation. |
-| `SYNC_SOLD_ITEMS` | **Sync Orders** | Polling "Heartbeat". Fetches sold items, creates Orders. | Creates `Order` rows, Updates `TradeMeListing` stock/state. |
-| `SYNC_SELLING_ITEMS` | **Sync Live Items** | Syncs "Selling" list from TM to DB for state reconciliation. | Updates `TradeMeListing` (actual_price, actual_state). |
-| `ONECHEQ_FULL_BACKFILL` | **OneCheq Backfill** | Orchestrates full backfill: Scrape -> Image -> Enrich -> Validate. | Massive DB updates, Image downloads. |
-| `BACKFILL_IMAGES_...` | **Image Backfill** | Downloads missing images for OneCheq products. | File writes (`data/media`), DB updates. |
-| `VALIDATE_LAUNCHLOCK`| **Validate LaunchLock**| Runs LaunchLock validation suite on products. | DB Updates (Validation Status). |
-
-## 3. Scheduled Jobs
-**Entry Point:** `retail_os/core/scheduler.py`
-
-| Job ID | Frequency | Use Case | Command Enqueued |
-| :--- | :--- | :--- | :--- |
-| `scrape_all` | ~60 min | **Routine Scrape** | `SCRAPE_SUPPLIER` (for each enabled supplier). |
-| `enrich_all` | ~60 min | **Routine Enrich** | `ENRICH_SUPPLIER` (for each enabled supplier). |
-| `sync_orders` | ~5-10 min | **Order Sync** | `SYNC_SOLD_ITEMS` (Critical Fulfillment). |
-| `sync_trademe`| ~30 min | **State Sync** | `SYNC_SELLING_ITEMS` (Marketplace Truth). |
-
-## 4. CLI Scripts
-**Entry Point:** `scripts/*.py`
-
-| Script | Use Case | Args | Notes |
-| :--- | :--- | :--- | :--- |
-| `run_unified_pipeline.py` | **Run Unified Pipeline** | `--suppliers`, `--limit`, `--batch-size` | Async orchestrator for Discovery -> Scrape -> Upsert. Supports OneCheq, CashConverters, Noel Leeming. |
-| `sync_sold_items.py` | **Sync Orders (CLI)** | *None* | Standalone runner for Sold Items sync. Shares logic with Worker. |
-| `run_enrichment_daemon.py`| **Enrichment Daemon** | *None* | Long-running process to enrich pending products. |
-| `batch_production_simple.py`| **Batch Lister** | `--limit`, `--dry-run` | Simple batch listing tool (likely legacy/simplified). |
-| `onecheq_*.py` | **OneCheq Utilities** | *Various* | Specific maintenance tasks (Full backfill, Image backfill). |
-| `migrate_database.py` | **DB Migration** | *None* | Applies schema changes. |
+| Operation ID | URI | Method | Auth | Description |
+|---|---|---|---|---|
+| `enqueue_scrape_supplier` | `/ops/enqueue` | **POST** | power | Trigger a scrape for a specific supplier. |
+| `enqueue_enrich_supplier` | `/ops/enqueue` | **POST** | power | Trigger enrichment for a specific supplier. |
+| `enqueue_backfill_images` | `/ops/enqueue` | **POST** | power | Backfill images for OneCheq (or other suppliers). |
+| `enqueue_sync_sold` | `/ops/enqueue` | **POST** | power | Sync sold items from Trade Me. |
+| `enqueue_sync_selling` | `/ops/enqueue` | **POST** | power | Sync currently selling items from Trade Me. |
+| `bulk_dryrun_publish` | `/ops/bulk/dryrun_publish` | **POST** | power | Generate draft listings for review. |
+| `bulk_approve_publish` | `/ops/bulk/approve_publish` | **POST** | power | Publish approved drafts to Trade Me. |
+| `bulk_reset_enrichment` | `/ops/bulk/reset_enrichment` | **POST** | power | Reset enrichment status for a supplier's products. |
+| `withdraw_removed_items` | `/ops/bulk/withdraw_removed` | **POST** | power | Withdraw items that have been removed by the supplier. |
+| `retry_command` | `/commands/{id}/retry` | **POST** | power | Retry a failed command. |
+| `ack_command` | `/commands/{id}/ack` | **POST** | power | Acknowledge a failed command (mark resolved). |
+| `cancel_command` | `/commands/{id}/cancel` | **POST** | power | Cancel a pending or active command. |
+| `enqueue_scan_competitors` | `/ops/enqueue` | **POST** | power | Scan competitors for a specific listing. |
+| `enqueue_reset_enrichment` | `/ops/enqueue` | **POST** | power | Reset enrichment for a single product. |
+| `enqueue_publish_listing` | `/ops/enqueue` | **POST** | power | Publish a single listing (or draft). |
+| `validate_drafts` | `/trademe/validate_drafts` | **POST** | power | Validate drafts against Trade Me API. |
+| `get_ops_summary` | `/ops/summary` | **GET** | reader | Get operational summary stats. |
+| `get_trademe_summary` | `/trademe/account_summary` | **GET** | reader | Get Trade Me account health. |
+| `get_suppliers_list` | `/suppliers` | **GET** | reader | Get list of all suppliers. |
+| `get_supplier_policy` | `/suppliers/{id}/policy` | **GET** | reader | Get policy for a supplier. |
+| `update_supplier_policy` | `/suppliers/{id}/policy` | **PUT** | admin | Update supplier policy. |
+| `get_setting` | `/settings/{key}` | **GET** | admin | Get a system setting. |
+| `update_setting` | `/settings/{key}` | **PUT** | admin | Update a system setting. |
+| `get_commands` | `/commands` | **GET** | reader | Get command log. |
+| `get_inbox` | `/ops/inbox` | **GET** | reader | Get operator inbox. |
+| `get_readiness` | `/ops/readiness` | **GET** | reader | Get publish readiness stats. |
+| `get_removed_items` | `/ops/removed_items` | **GET** | reader | Get removed items list. |
+| `get_orders` | `/orders` | **GET** | reader | Get orders list. |
+| `get_supplier_pipeline` | `/ops/suppliers/{id}/pipeline` | **GET** | reader | Get pipeline stats for supplier. |
+| `get_products` | `/products` | **GET** | reader | Get master product list. |
+| `get_product_inspector` | `/inspector/supplier-products/{id}` | **GET** | reader | Get deep inspection data. |
+| `get_raw_vault` | `/vaults/raw` | **GET** | reader | Get raw vault items. |
+| `get_enriched_vault` | `/vaults/enriched` | **GET** | reader | Get enriched vault items. |
+| `get_live_vault` | `/vaults/live` | **GET** | reader | Get live vault listings. |

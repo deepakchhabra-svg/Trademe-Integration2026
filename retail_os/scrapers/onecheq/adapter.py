@@ -211,220 +211,26 @@ class OneCheqAdapter:
         self.db.close()
 
     def _upsert_product(self, data: UnifiedProduct, should_abort=None, cmd_id: str | None = None, progress_hook=None):
-        # Import downloader
-        from retail_os.utils.image_downloader import ImageDownloader
-        downloader = ImageDownloader()
-        
-        # Map Unified -> DB
-        sku = data["source_listing_id"]
         # Supplier-native SKU should not include our prefix.
+        sku = data["source_listing_id"]
         supplier_sku = sku
         if isinstance(supplier_sku, str) and supplier_sku.startswith("OC-"):
             supplier_sku = supplier_sku.replace("OC-", "", 1)
+
+        # Delegate to shared upserter
+        # OneCheq uses "OC" as internal prefix.
+        from retail_os.core.product_upserter import ProductUpserter
+        upserter = ProductUpserter(self.db, self.supplier_id)
         
-        # Parse Price
-        try:
-            cost = float(data["buy_now_price"])
-        except:
-            cost = 0.0
-
-        # Stock / availability:
-        # OneCheq (Shopify) does not expose a reliable quantity. Treat stock_level as UNKNOWN (null)
-        # unless we have a real numeric quantity from the supplier.
-        stock_raw = data.get("stock_level")
-        stock_level = None
-        try:
-            if stock_raw is None:
-                stock_level = None
-            else:
-                # Preserve 0 correctly (previous code `or 1` was dishonest).
-                stock_level = int(stock_raw)
-        except Exception:
-            stock_level = None
-            
-        # Collect Images
-        imgs = []
-        for k in ["photo1", "photo2", "photo3", "photo4"]:
-            val = data.get(k)
-            if val:
-                imgs.append(val)
-
-        # Pass through structured specs (from scraper)
-        specs = data.get("specs") if isinstance(data, dict) else None
-        if not isinstance(specs, dict):
-            specs = {}
-        
-        # PHYSICAL IMAGE DOWNLOAD - Download all available images
-        local_images = []
-        limit_imgs = int(os.getenv("RETAILOS_IMAGE_LIMIT_PER_PRODUCT", "4") or "4")
-        limit_imgs = max(0, min(4, limit_imgs))
-        img_conc = int(os.getenv("RETAILOS_IMAGE_CONCURRENCY_PER_PRODUCT", "4") or "4")
-        img_conc = max(1, min(8, img_conc))
-
-        # Fast path: no downloads (operator may backfill separately)
-        if limit_imgs <= 0:
-            local_images = []
-        else:
-            # Download images concurrently (bounded).
-            # This is the biggest speed win for large scrapes.
-            tasks: list[tuple[int, str, str]] = []
-            for idx, img_url in enumerate(imgs[:limit_imgs], 1):
-                if not img_url:
-                    continue
-                img_sku = f"{sku}_{idx}" if idx > 1 else sku
-                tasks.append((idx, img_url, img_sku))
-
-            if tasks:
-                def _dl(t: tuple[int, str, str]):
-                    i, u, s = t
-                    return i, downloader.download_image(u, s, should_abort=should_abort)
-
-                with ThreadPoolExecutor(max_workers=min(img_conc, len(tasks))) as ex:
-                    futs = [ex.submit(_dl, t) for t in tasks]
-                    for fut in as_completed(futs):
-                        # Cooperative cancellation
-                        try:
-                            if should_abort and bool(should_abort()):
-                                break
-                        except Exception:
-                            pass
-
-                        idx, result = fut.result()
-                        if result.get("success"):
-                            local_images.append(result.get("path"))
-                        # Keep console output minimal; detailed logs go to cmd_id progress
-
-            # Preserve deterministic ordering
-            local_images = [p for p in local_images if p]
-        
-        # Calculate Snapshot Hash (include more fields so changes are detected)
-        content = json.dumps(
-            {
-                "title": data.get("title"),
-                "description": data.get("description"),
-                "brand": data.get("brand"),
-                "condition": data.get("condition"),
-                "cost": cost,
-                "status": data.get("source_status"),
-                "images": local_images,
-                "specs": specs,
-                "stock_level": data.get("stock_level"),
-            },
-            sort_keys=True,
-            ensure_ascii=True,
+        return upserter.upsert(
+            data=data,
+            external_sku=supplier_sku,
+            internal_sku_prefix="OC",
+            should_abort=should_abort,
+            progress_hook=progress_hook
         )
-        current_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
-        
-        # DB Logic
-        sp = self.db.query(SupplierProduct).filter_by(
-            supplier_id=self.supplier_id, 
-            external_sku=supplier_sku
-        ).first()
-        
-        if not sp:
-            # CREATE
-            sp = SupplierProduct(
-                supplier_id=self.supplier_id,
-                external_sku=supplier_sku,
-                title=data["title"],
-                description=data["description"],
-                brand=data.get("brand", ""),
-                condition=data.get("condition", "Used"),
-                cost_price=cost,
-                stock_level=stock_level,
-                product_url=data["source_url"],
-                images=local_images if local_images else imgs,  # Prefer local
-                specs=specs,
-                collection_rank=data.get("collection_rank"),
-                collection_page=data.get("collection_page"),
-                source_category=data.get("source_category"),
-                source_categories=data.get("source_categories"),
-                snapshot_hash=current_hash,
-                last_scraped_at=datetime.utcnow()
-            )
-            self.db.add(sp)
-            self.db.flush()
-            
-            # Auto-Create Internal
-            my_sku = f"OC-{supplier_sku}"
-            ip = self.db.query(InternalProduct).filter_by(sku=my_sku).first()
-            if not ip:
-                ip = InternalProduct(
-                    sku=my_sku,
-                    title=data["title"],
-                    primary_supplier_product_id=sp.id
-                )
-                self.db.add(ip)
-            else:
-                # Self-Healing: Ensure Link is correct
-                if ip.primary_supplier_product_id != sp.id:
-                    print(f"   -> Fixing Broken Link for {my_sku}: {ip.primary_supplier_product_id} -> {sp.id}")
-                    ip.primary_supplier_product_id = sp.id
-        else:
-            # UPDATE
-            sp.last_scraped_at = datetime.utcnow()
-            # Always refresh category/ranking metadata even if content snapshot is unchanged.
-            # Otherwise older rows (or newly-added DB columns) never get populated.
-            sp.source_category = data.get("source_category")
-            sp.source_categories = data.get("source_categories")
-            sp.collection_rank = data.get("collection_rank")
-            sp.collection_page = data.get("collection_page")
-            
-            if sp.snapshot_hash != current_hash:
-                # Audit Logic
-                from retail_os.core.database import AuditLog
-                
-                # Check Price Change
-                if sp.cost_price != cost:
-                    price_log = AuditLog(
-                        entity_type="SupplierProduct",
-                        entity_id=str(sp.id),
-                        action="PRICE_CHANGE",
-                        old_value=str(sp.cost_price),
-                        new_value=str(cost),
-                        user="System",
-                        timestamp=datetime.utcnow()
-                    )
-                    self.db.add(price_log)
-                    print(f"   -> Audited Price Change: {sp.cost_price} -> {cost}")
-
-                # Check Title Change
-                if sp.title != data["title"]:
-                    title_log = AuditLog(
-                        entity_type="SupplierProduct",
-                        entity_id=str(sp.id),
-                        action="TITLE_CHANGE",
-                        old_value=sp.title,
-                        new_value=data["title"],
-                        user="System",
-                        timestamp=datetime.utcnow()
-                    )
-                    self.db.add(title_log)
-
-                # Commit Updates
-                sp.title = data["title"]
-                sp.description = data.get("description", "")
-                sp.brand = data.get("brand", "")
-                sp.condition = data.get("condition", "Used")
-                sp.cost_price = cost
-                sp.images = local_images if local_images else imgs  # Prefer local
-                sp.specs = specs
-                sp.collection_rank = data.get("collection_rank")
-                sp.collection_page = data.get("collection_page")
-                sp.source_category = data.get("source_category")
-                sp.source_categories = data.get("source_categories")
-                sp.snapshot_hash = current_hash
-                
-                self.db.commit()
-                return 'updated'
-            else:
-                self.db.commit()
-                return 'unchanged'
-
-        self.db.commit()
-        return 'created'
-
 
 if __name__ == "__main__":
     adapter = OneCheqAdapter()
     adapter.run_sync(pages=1, collection="smartphones-and-mobilephones")
+```

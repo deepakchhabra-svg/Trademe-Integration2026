@@ -1,0 +1,303 @@
+{
+  "operations": {
+    "enqueue_scrape_supplier": {
+      "uri": "/ops/enqueue",
+      "method": "POST",
+      "payload": {
+        "type": "SCRAPE_SUPPLIER",
+        "payload": {
+          "supplier_id": "number"
+        },
+        "priority": "number (optional)"
+      },
+      "auth": "power",
+      "description": "Trigger a scrape for a specific supplier."
+    },
+    "enqueue_enrich_supplier": {
+      "uri": "/ops/enqueue",
+      "method": "POST",
+      "payload": {
+        "type": "ENRICH_SUPPLIER",
+        "payload": {
+          "supplier_id": "number"
+        },
+        "priority": "number (optional)"
+      },
+      "auth": "power",
+      "description": "Trigger enrichment for a specific supplier."
+    },
+    "enqueue_backfill_images": {
+      "uri": "/ops/enqueue",
+      "method": "POST",
+      "payload": {
+        "type": "BACKFILL_IMAGES_ONECHEQ",
+        "payload": {
+          "supplier_id": "number"
+        },
+        "priority": "number (optional)"
+      },
+      "auth": "power",
+      "description": "Backfill images for OneCheq (or other suppliers)."
+    },
+    "enqueue_sync_sold": {
+      "uri": "/ops/enqueue",
+      "method": "POST",
+      "payload": {
+        "type": "SYNC_SOLD_ITEMS",
+        "priority": "number (optional)"
+      },
+      "auth": "power",
+      "description": "Sync sold items from Trade Me."
+    },
+    "enqueue_sync_selling": {
+      "uri": "/ops/enqueue",
+      "method": "POST",
+      "payload": {
+        "type": "SYNC_SELLING_ITEMS",
+        "priority": "number (optional)"
+      },
+      "auth": "power",
+      "description": "Sync currently selling items from Trade Me."
+    },
+    "bulk_dryrun_publish": {
+      "uri": "/ops/bulk/dryrun_publish",
+      "method": "POST",
+      "payload": {
+        "supplier_id": "number",
+        "limit": "number (optional)"
+      },
+      "auth": "power",
+      "description": "Generate draft listings for review."
+    },
+    "bulk_approve_publish": {
+      "uri": "/ops/bulk/approve_publish",
+      "method": "POST",
+      "payload": {
+        "supplier_id": "number",
+        "limit": "number (optional)"
+      },
+      "auth": "power",
+      "description": "Publish approved drafts to Trade Me."
+    },
+    "bulk_reset_enrichment": {
+      "uri": "/ops/bulk/reset_enrichment",
+      "method": "POST",
+      "payload": {
+        "supplier_id": "number"
+      },
+      "auth": "power",
+      "description": "Reset enrichment status for a supplier's products."
+    },
+    "bulk_reprice": {
+      "uri": "/ops/bulk/reprice",
+      "method": "POST",
+      "payload": {
+        "supplier_id": "number (optional)",
+        "rule_type": "string (percentage|fixed_markup)",
+        "rule_value": "number",
+        "dry_run": "boolean"
+      },
+      "auth": "power",
+      "description": "Bulk reprice preview or apply."
+    },
+    "get_kpis": {
+      "uri": "/ops/kpis",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get Store Health KPIs."
+    },
+    "get_duplicates": {
+      "uri": "/ops/duplicates",
+      "method": "GET",
+      "auth": "power",
+      "description": "Get duplicate listing groups."
+    },
+    "withdraw_removed_items": {
+      "uri": "/ops/bulk/withdraw_removed",
+      "method": "POST",
+      "payload": {
+        "supplier_id": "number"
+      },
+      "auth": "power",
+      "description": "Withdraw items that have been removed by the supplier."
+    },
+    "retry_command": {
+      "uri": "/commands/{id}/retry",
+      "method": "POST",
+      "payload": {},
+      "auth": "power",
+      "description": "Retry a failed command."
+    },
+    "ack_command": {
+      "uri": "/commands/{id}/ack",
+      "method": "POST",
+      "payload": {},
+      "auth": "power",
+      "description": "Acknowledge a failed command (mark resolved)."
+    },
+    "cancel_command": {
+      "uri": "/commands/{id}/cancel",
+      "method": "POST",
+      "payload": {},
+      "auth": "power",
+      "description": "Cancel a pending or active command."
+    },
+    "enqueue_scan_competitors": {
+      "uri": "/ops/enqueue",
+      "method": "POST",
+      "payload": {
+        "type": "SCAN_COMPETITORS",
+        "payload": {
+          "listing_db_id": "number",
+          "tm_listing_id": "string",
+          "internal_product_id": "number"
+        }
+      },
+      "auth": "power",
+      "description": "Scan competitors for a specific listing."
+    },
+    "enqueue_reset_enrichment": {
+      "uri": "/ops/enqueue",
+      "method": "POST",
+      "payload": {
+        "type": "RESET_ENRICHMENT",
+        "payload": {
+          "supplier_product_id": "number"
+        }
+      },
+      "auth": "power",
+      "description": "Reset enrichment for a single product."
+    },
+    "enqueue_publish_listing": {
+      "uri": "/ops/enqueue",
+      "method": "POST",
+      "payload": {
+        "type": "PUBLISH_LISTING",
+        "payload": {
+          "internal_product_id": "number",
+          "dry_run": "boolean"
+        }
+      },
+      "auth": "power",
+      "description": "Publish a single listing (or draft)."
+    },
+    "validate_drafts": {
+      "uri": "/trademe/validate_drafts",
+      "method": "POST",
+      "payload": {
+        "supplier_id": "number (optional)",
+        "limit": "number"
+      },
+      "auth": "power",
+      "description": "Validate drafts against Trade Me API."
+    },
+    "get_ops_summary": {
+      "uri": "/ops/summary",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get operational summary stats."
+    },
+    "get_trademe_summary": {
+      "uri": "/trademe/account_summary",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get Trade Me account health."
+    },
+    "get_suppliers_list": {
+      "uri": "/suppliers",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get list of all suppliers."
+    },
+    "get_supplier_policy": {
+      "uri": "/suppliers/{id}/policy",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get policy for a supplier."
+    },
+    "update_supplier_policy": {
+      "uri": "/suppliers/{id}/policy",
+      "method": "PUT",
+      "auth": "admin",
+      "description": "Update supplier policy."
+    },
+    "get_setting": {
+      "uri": "/settings/{key}",
+      "method": "GET",
+      "auth": "admin",
+      "description": "Get a system setting."
+    },
+    "update_setting": {
+      "uri": "/settings/{key}",
+      "method": "PUT",
+      "auth": "admin",
+      "description": "Update a system setting."
+    },
+    "get_commands": {
+      "uri": "/commands",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get command log."
+    },
+    "get_inbox": {
+      "uri": "/ops/inbox",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get operator inbox."
+    },
+    "get_readiness": {
+      "uri": "/ops/readiness",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get publish readiness stats."
+    },
+    "get_removed_items": {
+      "uri": "/ops/removed_items",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get removed items list."
+    },
+    "get_orders": {
+      "uri": "/orders",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get orders list."
+    },
+    "get_supplier_pipeline": {
+      "uri": "/ops/suppliers/{id}/pipeline",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get pipeline stats for supplier."
+    },
+    "get_products": {
+      "uri": "/products",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get master product list."
+    },
+    "get_product_inspector": {
+      "uri": "/inspector/supplier-products/{id}",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get deep inspection data."
+    },
+    "get_raw_vault": {
+      "uri": "/vaults/raw",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get raw vault items."
+    },
+    "get_enriched_vault": {
+      "uri": "/vaults/enriched",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get enriched vault items."
+    },
+    "get_live_vault": {
+      "uri": "/vaults/live",
+      "method": "GET",
+      "auth": "reader",
+      "description": "Get live vault listings."
+    }
+  }
+}

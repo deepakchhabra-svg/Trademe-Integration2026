@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { apiPostClient } from "../../../_components/api_client";
+
+import { useEnqueue } from "../../../_hooks/useEnqueue";
 import { buttonClass } from "../../../_components/ui";
 
 function Spinner() {
@@ -39,9 +40,11 @@ export function ListingActions({
     }
   }
 
+  const { enqueue: runEnqueue } = useEnqueue();
+
   async function enqueue(type: string, payload: Record<string, unknown>): Promise<string> {
-    const res = await apiPostClient<{ id: string; status: string }>("/commands", { type, payload, priority: 40 });
-    return `Queued action (${res.id.slice(0, 12)})`;
+    const res = await runEnqueue({ type, payload, priority: 40 });
+    return `Queued action (${(res.id || "000").slice(0, 12)})`;
   }
 
   return (

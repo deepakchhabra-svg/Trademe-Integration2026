@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { apiPostClient } from "../../../_components/api_client";
+
+import { useEnqueue } from "../../../_hooks/useEnqueue";
 import { buttonClass } from "../../../_components/ui";
 
 function Spinner() {
@@ -15,12 +16,16 @@ function Spinner() {
 
 export function EnrichedActions({
   internalProductId,
+  supplierId,
   supplierProductId,
   sourceStatus,
+  blockers = [],
 }: {
   internalProductId: number;
+  supplierId: number | null;
   supplierProductId: number | null;
   sourceStatus: string | null;
+  blockers?: string[];
 }) {
   const [status, setStatus] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -39,9 +44,11 @@ export function EnrichedActions({
     }
   }
 
+  const { enqueue: runEnqueue } = useEnqueue();
+
   async function enqueue(type: string, payload: Record<string, unknown>): Promise<string> {
-    const res = await apiPostClient<{ id: string; status: string }>("/commands", { type, payload, priority: 60 });
-    return `Queued action (${res.id.slice(0, 12)})`;
+    const res = await runEnqueue({ type, payload, priority: 60 });
+    return `Queued action (${(res.id || "000").slice(0, 12)})`;
   }
 
   return (
@@ -79,6 +86,17 @@ export function EnrichedActions({
             "Reset enrichment"
           )}
         </button>
+
+        {supplierId && blockers.some((b) => b.toLowerCase().includes("image")) ? (
+          <button
+            type="button"
+            disabled={!!busyKey}
+            className={buttonClass({ variant: "outline", disabled: !!busyKey })}
+            onClick={() => run("BACKFILL_IMAGES", () => enqueue("BACKFILL_IMAGES_ONECHEQ", { supplier_id: supplierId, priority: 80 }))}
+          >
+            {busyKey === "BACKFILL_IMAGES" ? "Queuing..." : "Backfill images"}
+          </button>
+        ) : null}
 
         <button
           type="button"
