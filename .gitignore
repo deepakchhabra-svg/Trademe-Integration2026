@@ -120,3 +120,8 @@ npm-debug.log*
 /data/
 /logs/
 retail_os/cache/
+
+# Generated/temp files
+ProductExport*.xlsx
+repo_bundle.txt
+*.code-workspace
