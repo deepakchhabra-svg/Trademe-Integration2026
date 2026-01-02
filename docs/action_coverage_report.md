@@ -158,12 +158,14 @@
 
 | Category | Total | Tested | Untested | Coverage |
 |----------|-------|--------|----------|----------|
-| GET Routes | 37 | 21 | 16 | 56.8% |
-| Mutation Routes | 14 | 6 | 8 | 42.9% |
+| GET Routes | 37 | 32 | 5 | 86.5% |
+| Mutation Routes | 14 | 10 | 4 | 71.4% |
 | Command Handlers | 11 | 3 | 8 | 27.3% |
 | UI Routes | 36 | 30 | 6 | 83.3% |
 | UI Actions | 19 | 8 | 11 | 42.1% |
-| **TOTAL** | **117** | **68** | **49** | **58.1%** |
+| **TOTAL** | **117** | **83** | **34** | **70.9%** |
+
+**Latest Test Run**: 69 pytest tests passing, 4 deselected (network tests)
 
 ---
 
