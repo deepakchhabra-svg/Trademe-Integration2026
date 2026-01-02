@@ -1,0 +1,888 @@
+{
+    "generated_at": "2026-01-02T09:33:00Z",
+    "version": "1.0.0",
+    "description": "Final Truth Snapshot - Action Inventory for God-Level Trade Me Ops System",
+    "backend_routes": [
+        {
+            "path": "/health",
+            "method": "GET",
+            "name": "health",
+            "category": "system",
+            "auth": "none"
+        },
+        {
+            "path": "/whoami",
+            "method": "GET",
+            "name": "whoami",
+            "category": "system",
+            "auth": "reader"
+        },
+        {
+            "path": "/ops/summary",
+            "method": "GET",
+            "name": "ops_summary",
+            "category": "dashboard",
+            "auth": "reader"
+        },
+        {
+            "path": "/ops/kpis",
+            "method": "GET",
+            "name": "get_ops_kpis",
+            "category": "dashboard",
+            "auth": "reader"
+        },
+        {
+            "path": "/ops/pipeline_summary",
+            "method": "GET",
+            "name": "ops_pipeline_summary",
+            "category": "pipeline",
+            "auth": "reader"
+        },
+        {
+            "path": "/ops/suppliers/{supplier_id}/pipeline",
+            "method": "GET",
+            "name": "ops_supplier_pipeline",
+            "category": "pipeline",
+            "auth": "power"
+        },
+        {
+            "path": "/ops/alerts",
+            "method": "GET",
+            "name": "ops_alerts",
+            "category": "monitoring",
+            "auth": "reader"
+        },
+        {
+            "path": "/ops/inbox",
+            "method": "GET",
+            "name": "ops_inbox",
+            "category": "jobs",
+            "auth": "power"
+        },
+        {
+            "path": "/ops/readiness",
+            "method": "GET",
+            "name": "ops_readiness",
+            "category": "publish",
+            "auth": "reader"
+        },
+        {
+            "path": "/ops/removed_items",
+            "method": "GET",
+            "name": "ops_removed_items",
+            "category": "cleanup",
+            "auth": "reader"
+        },
+        {
+            "path": "/ops/duplicates",
+            "method": "GET",
+            "name": "get_duplicates",
+            "category": "cleanup",
+            "auth": "power"
+        },
+        {
+            "path": "/ops/enqueue",
+            "method": "POST",
+            "name": "ops_enqueue",
+            "category": "jobs",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/ops/bulk/dryrun_publish",
+            "method": "POST",
+            "name": "bulk_dryrun_publish",
+            "category": "publish",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/ops/bulk/approve_publish",
+            "method": "POST",
+            "name": "bulk_approve_publish",
+            "category": "publish",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/ops/bulk/reset_enrichment",
+            "method": "POST",
+            "name": "bulk_reset_enrichment",
+            "category": "pipeline",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/ops/bulk/reprice",
+            "method": "POST",
+            "name": "bulk_reprice",
+            "category": "live",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/ops/bulk/withdraw_removed",
+            "method": "POST",
+            "name": "bulk_withdraw_removed",
+            "category": "cleanup",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/vaults/raw",
+            "method": "GET",
+            "name": "vault_raw",
+            "category": "products",
+            "auth": "reader"
+        },
+        {
+            "path": "/vaults/enriched",
+            "method": "GET",
+            "name": "vault_enriched",
+            "category": "products",
+            "auth": "reader"
+        },
+        {
+            "path": "/vaults/live",
+            "method": "GET",
+            "name": "vault_live",
+            "category": "live",
+            "auth": "reader"
+        },
+        {
+            "path": "/commands",
+            "method": "GET",
+            "name": "list_commands",
+            "category": "jobs",
+            "auth": "reader"
+        },
+        {
+            "path": "/commands",
+            "method": "POST",
+            "name": "create_command",
+            "category": "jobs",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/commands/{command_id}",
+            "method": "GET",
+            "name": "command_detail",
+            "category": "jobs",
+            "auth": "reader"
+        },
+        {
+            "path": "/commands/{command_id}/retry",
+            "method": "POST",
+            "name": "retry_command",
+            "category": "jobs",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/commands/{command_id}/cancel",
+            "method": "POST",
+            "name": "cancel_command",
+            "category": "jobs",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/commands/{command_id}/ack",
+            "method": "POST",
+            "name": "ack_command",
+            "category": "jobs",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/commands/{command_id}/progress",
+            "method": "GET",
+            "name": "command_progress",
+            "category": "jobs",
+            "auth": "reader"
+        },
+        {
+            "path": "/commands/{command_id}/logs",
+            "method": "GET",
+            "name": "command_logs",
+            "category": "jobs",
+            "auth": "reader"
+        },
+        {
+            "path": "/products",
+            "method": "GET",
+            "name": "master_products",
+            "category": "products",
+            "auth": "reader"
+        },
+        {
+            "path": "/orders",
+            "method": "GET",
+            "name": "orders",
+            "category": "fulfillment",
+            "auth": "reader"
+        },
+        {
+            "path": "/suppliers",
+            "method": "GET",
+            "name": "suppliers",
+            "category": "pipeline",
+            "auth": "reader"
+        },
+        {
+            "path": "/suppliers/{supplier_id}/policy",
+            "method": "GET",
+            "name": "supplier_policy_get",
+            "category": "pipeline",
+            "auth": "reader"
+        },
+        {
+            "path": "/suppliers/{supplier_id}/policy",
+            "method": "PUT",
+            "name": "supplier_policy_put",
+            "category": "pipeline",
+            "auth": "admin",
+            "mutation": true
+        },
+        {
+            "path": "/trademe/account_summary",
+            "method": "GET",
+            "name": "trademe_account_summary",
+            "category": "monitoring",
+            "auth": "reader"
+        },
+        {
+            "path": "/trademe/validate_drafts",
+            "method": "POST",
+            "name": "trademe_validate_drafts",
+            "category": "publish",
+            "auth": "power",
+            "mutation": true
+        },
+        {
+            "path": "/llm/health",
+            "method": "GET",
+            "name": "llm_health",
+            "category": "monitoring",
+            "auth": "reader"
+        },
+        {
+            "path": "/jobs",
+            "method": "GET",
+            "name": "jobs",
+            "category": "jobs",
+            "auth": "power"
+        },
+        {
+            "path": "/jobs/{job_id}",
+            "method": "GET",
+            "name": "job_detail",
+            "category": "jobs",
+            "auth": "power"
+        },
+        {
+            "path": "/audits",
+            "method": "GET",
+            "name": "audits",
+            "category": "monitoring",
+            "auth": "reader"
+        },
+        {
+            "path": "/settings/{key}",
+            "method": "GET",
+            "name": "get_setting",
+            "category": "admin",
+            "auth": "admin"
+        },
+        {
+            "path": "/settings/{key}",
+            "method": "PUT",
+            "name": "put_setting",
+            "category": "admin",
+            "auth": "admin",
+            "mutation": true
+        },
+        {
+            "path": "/supplier-products/{supplier_product_id}",
+            "method": "GET",
+            "name": "supplier_product_detail",
+            "category": "products",
+            "auth": "reader"
+        },
+        {
+            "path": "/internal-products/{internal_product_id}",
+            "method": "GET",
+            "name": "internal_product_detail",
+            "category": "products",
+            "auth": "reader"
+        },
+        {
+            "path": "/listings/{listing_id}",
+            "method": "GET",
+            "name": "listing_detail",
+            "category": "live",
+            "auth": "reader"
+        },
+        {
+            "path": "/listings/by-tm/{tm_listing_id}",
+            "method": "GET",
+            "name": "listing_detail_by_tm",
+            "category": "live",
+            "auth": "reader"
+        },
+        {
+            "path": "/listing-drafts/{command_id}",
+            "method": "GET",
+            "name": "listing_draft",
+            "category": "publish",
+            "auth": "reader"
+        },
+        {
+            "path": "/inspector/supplier-products/{supplier_product_id}",
+            "method": "GET",
+            "name": "inspector_supplier_product",
+            "category": "products",
+            "auth": "reader"
+        },
+        {
+            "path": "/trust/internal-products/{internal_product_id}",
+            "method": "GET",
+            "name": "trust_internal_product",
+            "category": "products",
+            "auth": "reader"
+        },
+        {
+            "path": "/validate/internal-products/{internal_product_id}",
+            "method": "GET",
+            "name": "validate_internal_product",
+            "category": "products",
+            "auth": "reader"
+        },
+        {
+            "path": "/draft/internal-products/{internal_product_id}/trademe",
+            "method": "GET",
+            "name": "draft_trademe_payload",
+            "category": "publish",
+            "auth": "reader"
+        },
+        {
+            "path": "/metrics/listings/{listing_id}",
+            "method": "GET",
+            "name": "listing_metrics",
+            "category": "live",
+            "auth": "reader"
+        }
+    ],
+    "ui_routes": {
+        "core": [
+            {
+                "path": "/",
+                "name": "Home/Dashboard",
+                "screen": "Dashboard",
+                "actions": [
+                    "nav_pipeline",
+                    "nav_inbox",
+                    "nav_live"
+                ]
+            },
+            {
+                "path": "/ops/summary",
+                "name": "Store Dashboard",
+                "screen": "Dashboard",
+                "actions": [
+                    "view_kpis",
+                    "nav_actions"
+                ]
+            },
+            {
+                "path": "/pipeline",
+                "name": "Pipeline Index",
+                "screen": "Pipeline",
+                "actions": [
+                    "select_supplier"
+                ]
+            },
+            {
+                "path": "/pipeline/[supplierId]",
+                "name": "Supplier Pipeline",
+                "screen": "Pipeline",
+                "actions": [
+                    "scrape",
+                    "enrich",
+                    "build_drafts",
+                    "backfill_images"
+                ]
+            },
+            {
+                "path": "/ops/bulk",
+                "name": "Bulk Operations",
+                "screen": "Publish",
+                "actions": [
+                    "dryrun_publish",
+                    "approve_publish",
+                    "reprice_preview",
+                    "reprice_apply"
+                ]
+            },
+            {
+                "path": "/vaults/live",
+                "name": "Live Listings",
+                "screen": "Live",
+                "actions": [
+                    "search",
+                    "filter",
+                    "paginate",
+                    "view_detail"
+                ]
+            },
+            {
+                "path": "/vaults/live/[id]",
+                "name": "Listing Detail",
+                "screen": "Live",
+                "actions": [
+                    "view_trust",
+                    "view_payload"
+                ]
+            },
+            {
+                "path": "/ops/inbox",
+                "name": "Operator Inbox",
+                "screen": "Jobs",
+                "actions": [
+                    "retry",
+                    "open_detail"
+                ]
+            },
+            {
+                "path": "/ops/commands",
+                "name": "Jobs List",
+                "screen": "Jobs",
+                "actions": [
+                    "search",
+                    "filter",
+                    "paginate"
+                ]
+            },
+            {
+                "path": "/ops/commands/[id]",
+                "name": "Job Detail",
+                "screen": "Jobs",
+                "actions": [
+                    "retry",
+                    "cancel",
+                    "ack"
+                ]
+            },
+            {
+                "path": "/fulfillment",
+                "name": "Fulfillment Dashboard",
+                "screen": "Fulfillment",
+                "actions": [
+                    "view_orders"
+                ]
+            }
+        ],
+        "advanced": [
+            {
+                "path": "/access",
+                "name": "Role Selection",
+                "screen": "System",
+                "actions": []
+            },
+            {
+                "path": "/admin/settings",
+                "name": "System Settings",
+                "screen": "Admin",
+                "actions": [
+                    "update_setting"
+                ]
+            },
+            {
+                "path": "/ops/jobs",
+                "name": "Scheduled Jobs",
+                "screen": "Advanced",
+                "actions": [
+                    "view_jobs"
+                ]
+            },
+            {
+                "path": "/ops/alerts",
+                "name": "System Alerts",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/ops/audits",
+                "name": "Audit Log",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/ops/readiness",
+                "name": "Publish Readiness",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/ops/removed",
+                "name": "Removed Items",
+                "screen": "Advanced",
+                "actions": [
+                    "withdraw_removed"
+                ]
+            },
+            {
+                "path": "/ops/duplicates",
+                "name": "Duplicate Listings",
+                "screen": "Advanced",
+                "actions": [
+                    "auto_resolve"
+                ]
+            },
+            {
+                "path": "/ops/queue",
+                "name": "Worker Queue",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/ops/trademe",
+                "name": "Trade Me Account",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/ops/llm",
+                "name": "AI Provider Health",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/vaults/raw",
+                "name": "Raw Products",
+                "screen": "Advanced",
+                "actions": [
+                    "search",
+                    "filter",
+                    "paginate"
+                ]
+            },
+            {
+                "path": "/vaults/raw/[id]",
+                "name": "Raw Product Detail",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/vaults/enriched",
+                "name": "Enriched Products",
+                "screen": "Advanced",
+                "actions": [
+                    "search",
+                    "filter",
+                    "paginate"
+                ]
+            },
+            {
+                "path": "/vaults/enriched/[id]",
+                "name": "Enriched Detail",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/products",
+                "name": "Product Search",
+                "screen": "Advanced",
+                "actions": [
+                    "search"
+                ]
+            },
+            {
+                "path": "/products/[id]",
+                "name": "Product Detail",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/suppliers",
+                "name": "Supplier List",
+                "screen": "Advanced",
+                "actions": []
+            },
+            {
+                "path": "/suppliers/[id]",
+                "name": "Supplier Detail",
+                "screen": "Advanced",
+                "actions": [
+                    "update_policy"
+                ]
+            },
+            {
+                "path": "/orders",
+                "name": "Orders (Legacy)",
+                "screen": "Fulfillment",
+                "actions": []
+            },
+            {
+                "path": "/fulfillment/messages",
+                "name": "Buyer Messages",
+                "screen": "Fulfillment",
+                "actions": []
+            },
+            {
+                "path": "/fulfillment/shipments",
+                "name": "Shipments",
+                "screen": "Fulfillment",
+                "actions": []
+            },
+            {
+                "path": "/fulfillment/returns",
+                "name": "Returns",
+                "screen": "Fulfillment",
+                "actions": []
+            },
+            {
+                "path": "/fulfillment/refunds",
+                "name": "Refunds",
+                "screen": "Fulfillment",
+                "actions": []
+            },
+            {
+                "path": "/fulfillment/risk",
+                "name": "Fraud Check",
+                "screen": "Fulfillment",
+                "actions": []
+            }
+        ]
+    },
+    "command_types": [
+        {
+            "type": "SCRAPE_SUPPLIER",
+            "category": "pipeline",
+            "handler": "handle_scrape_supplier"
+        },
+        {
+            "type": "ENRICH_SUPPLIER",
+            "category": "pipeline",
+            "handler": "handle_enrich_supplier"
+        },
+        {
+            "type": "BACKFILL_IMAGES_ONECHEQ",
+            "category": "pipeline",
+            "handler": "handle_backfill_images"
+        },
+        {
+            "type": "PUBLISH_LISTING",
+            "category": "publish",
+            "handler": "handle_publish_listing"
+        },
+        {
+            "type": "WITHDRAW_LISTING",
+            "category": "live",
+            "handler": "handle_withdraw_listing"
+        },
+        {
+            "type": "UPDATE_PRICE",
+            "category": "live",
+            "handler": "handle_update_price"
+        },
+        {
+            "type": "SYNC_SOLD_ITEMS",
+            "category": "fulfillment",
+            "handler": "handle_sync_sold"
+        },
+        {
+            "type": "SYNC_SELLING_ITEMS",
+            "category": "live",
+            "handler": "handle_sync_selling"
+        },
+        {
+            "type": "RESET_ENRICHMENT",
+            "category": "pipeline",
+            "handler": "handle_reset_enrichment"
+        },
+        {
+            "type": "VALIDATE_LAUNCHLOCK",
+            "category": "publish",
+            "handler": "handle_validate_launchlock"
+        },
+        {
+            "type": "SCAN_COMPETITORS",
+            "category": "live",
+            "handler": "handle_scan_competitors"
+        }
+    ],
+    "ui_actions": [
+        {
+            "id": "nav_dashboard",
+            "type": "navigation",
+            "testid": "nav-dashboard",
+            "route": "/",
+            "backend_op": null
+        },
+        {
+            "id": "nav_pipeline",
+            "type": "navigation",
+            "testid": "nav-pipeline",
+            "route": "/pipeline",
+            "backend_op": null
+        },
+        {
+            "id": "nav_bulk",
+            "type": "navigation",
+            "testid": "nav-bulk",
+            "route": "/ops/bulk",
+            "backend_op": null
+        },
+        {
+            "id": "nav_live",
+            "type": "navigation",
+            "testid": "nav-live",
+            "route": "/vaults/live",
+            "backend_op": null
+        },
+        {
+            "id": "nav_inbox",
+            "type": "navigation",
+            "testid": "nav-inbox",
+            "route": "/ops/inbox",
+            "backend_op": null
+        },
+        {
+            "id": "nav_fulfillment",
+            "type": "navigation",
+            "testid": "nav-fulfillment",
+            "route": "/fulfillment",
+            "backend_op": null
+        },
+        {
+            "id": "action_scrape",
+            "type": "mutation",
+            "testid": "btn-scrape",
+            "route": "/pipeline/[supplierId]",
+            "backend_op": "enqueue_scrape_supplier"
+        },
+        {
+            "id": "action_enrich",
+            "type": "mutation",
+            "testid": "btn-enrich",
+            "route": "/pipeline/[supplierId]",
+            "backend_op": "enqueue_enrich_supplier"
+        },
+        {
+            "id": "action_build_drafts",
+            "type": "mutation",
+            "testid": "btn-build-drafts",
+            "route": "/pipeline/[supplierId]",
+            "backend_op": "bulk_dryrun_publish"
+        },
+        {
+            "id": "action_approve_publish",
+            "type": "mutation",
+            "testid": "btn-approve-publish",
+            "route": "/ops/bulk",
+            "backend_op": "bulk_approve_publish"
+        },
+        {
+            "id": "action_reprice_preview",
+            "type": "mutation",
+            "testid": "btn-reprice-preview",
+            "route": "/ops/bulk",
+            "backend_op": "bulk_reprice"
+        },
+        {
+            "id": "action_reprice_apply",
+            "type": "mutation",
+            "testid": "btn-reprice-apply",
+            "route": "/ops/bulk",
+            "backend_op": "bulk_reprice"
+        },
+        {
+            "id": "action_retry_job",
+            "type": "mutation",
+            "testid": "btn-retry",
+            "route": "/ops/commands/[id]",
+            "backend_op": "retry_command"
+        },
+        {
+            "id": "action_cancel_job",
+            "type": "mutation",
+            "testid": "btn-cancel",
+            "route": "/ops/commands/[id]",
+            "backend_op": "cancel_command"
+        },
+        {
+            "id": "action_ack_job",
+            "type": "mutation",
+            "testid": "btn-ack",
+            "route": "/ops/commands/[id]",
+            "backend_op": "ack_command"
+        },
+        {
+            "id": "action_withdraw_removed",
+            "type": "mutation",
+            "testid": "btn-withdraw-removed",
+            "route": "/ops/removed",
+            "backend_op": "withdraw_removed_items"
+        },
+        {
+            "id": "action_resolve_duplicates",
+            "type": "mutation",
+            "testid": "btn-resolve-duplicates",
+            "route": "/ops/duplicates",
+            "backend_op": null
+        },
+        {
+            "id": "filter_search",
+            "type": "read",
+            "testid": "inp-search-q",
+            "route": "multiple",
+            "backend_op": null
+        },
+        {
+            "id": "filter_status",
+            "type": "read",
+            "testid": "sel-search-status",
+            "route": "multiple",
+            "backend_op": null
+        },
+        {
+            "id": "pagination_next",
+            "type": "read",
+            "testid": "btn-pagination-next",
+            "route": "multiple",
+            "backend_op": null
+        },
+        {
+            "id": "pagination_prev",
+            "type": "read",
+            "testid": "btn-pagination-prev",
+            "route": "multiple",
+            "backend_op": null
+        }
+    ],
+    "naming_glossary": {
+        "old_to_new": {
+            "Vaults": "Products",
+            "Vault 1 · Raw": "Raw Products",
+            "Vault 2 · Enriched": "Ready Products",
+            "Vault 3 · Listings": "Live Listings",
+            "Commands": "Jobs",
+            "Command Log": "Jobs Log",
+            "Readiness": "Publish Readiness",
+            "Sync sold items": "Import Orders",
+            "Sync selling items": "Reconcile Live",
+            "Acknowledge": "Dismiss",
+            "Enqueue": "Start Job"
+        }
+    },
+    "summary": {
+        "total_backend_routes": 51,
+        "total_ui_routes": 36,
+        "total_command_types": 11,
+        "total_ui_actions": 19,
+        "mutation_routes": 14,
+        "read_routes": 37
+    }
+}
