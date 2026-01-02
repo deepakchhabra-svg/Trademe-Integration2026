@@ -1721,7 +1721,7 @@ class CommandWorker:
             job_row_id = job.id
 
         try:
-            from retail_os.core.sync_sold_items import SoldItemSyncer
+            from scripts.sync_sold_items import SoldItemSyncer
 
             syncer = SoldItemSyncer()
             new_orders = syncer.sync_recent_sales()

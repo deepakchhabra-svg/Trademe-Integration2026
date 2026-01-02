@@ -11,22 +11,38 @@ from retail_os.core.database import SessionLocal, Order, TradeMeListing
 from retail_os.trademe.api import TradeMeAPI
 from datetime import datetime
 
-def sync_sold_items():
+
+class SoldItemSyncer:
     """
-    Fetch sold items from Trade Me and create Order records
+    Backward-compatible class wrapper for worker.py integration.
+    Wraps the sync_sold_items() function.
+    """
+    def __init__(self):
+        self.api = TradeMeAPI()
+    
+    def sync_recent_sales(self) -> int:
+        """Returns the number of new orders created."""
+        return sync_sold_items_internal(self.api)
+
+
+def sync_sold_items_internal(api: TradeMeAPI = None) -> int:
+    """
+    Fetch sold items from Trade Me and create Order records.
+    Returns: number of new orders created.
     """
     print("🔄 Syncing Sold Items from Trade Me...")
     
-    api = TradeMeAPI()
+    if api is None:
+        api = TradeMeAPI()
     session = SessionLocal()
     
+    new_orders = 0
     try:
         # Get sold items from Trade Me
         sold_items = api.get_sold_items()
         
         print(f"Found {len(sold_items)} sold items")
         
-        new_orders = 0
         updated_orders = 0
         
         for item in sold_items:
@@ -78,6 +94,13 @@ def sync_sold_items():
         session.rollback()
     finally:
         session.close()
+    
+    return new_orders
+
+
+def sync_sold_items():
+    """Convenience wrapper for CLI usage."""
+    return sync_sold_items_internal()
 
 def export_orders_to_csv(session):
     """
