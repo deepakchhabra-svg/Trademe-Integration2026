@@ -13,66 +13,66 @@
 
 | Route | Name | Category | Test File(s) | Status |
 |-------|------|----------|--------------|--------|
-| `/health` | health | system | `test_schema_and_media.py` | ✅ |
+| `/health` | health | system | `test_selling_machine_api.py` | ✅ |
 | `/whoami` | whoami | system | `test_selling_machine_api.py` | ✅ |
-| `/ops/summary` | ops_summary | dashboard | `test_schema_and_media.py::test_ops_summary_endpoint_shape` | ✅ |
-| `/ops/kpis` | get_ops_kpis | dashboard | `test_schema_and_media.py::test_ops_kpis_endpoint` | ✅ |
+| `/ops/summary` | ops_summary | dashboard | `test_selling_machine_api.py` | ✅ |
+| `/ops/kpis` | get_ops_kpis | dashboard | `test_selling_machine_api.py` | ✅ |
 | `/ops/pipeline_summary` | ops_pipeline_summary | pipeline | `test_selling_machine_api.py` | ✅ |
 | `/ops/suppliers/{id}/pipeline` | ops_supplier_pipeline | pipeline | `test_selling_machine_api.py` | ✅ |
 | `/ops/alerts` | ops_alerts | monitoring | `test_selling_machine_api.py` | ✅ |
 | `/ops/inbox` | ops_inbox | jobs | `test_selling_machine_api.py` | ✅ |
 | `/ops/readiness` | ops_readiness | publish | `test_selling_machine_api.py` | ✅ |
 | `/ops/removed_items` | ops_removed_items | cleanup | `test_selling_machine_api.py` | ✅ |
-| `/ops/duplicates` | get_duplicates | cleanup | `test_schema_and_media.py` | ✅ |
-| `/vaults/raw` | vault_raw | products | `test_schema_and_media.py` | ✅ |
-| `/vaults/enriched` | vault_enriched | products | `test_schema_and_media.py` | ✅ |
-| `/vaults/live` | vault_live | live | `test_schema_and_media.py` | ✅ |
-| `/commands` | list_commands | jobs | `test_integration_commands.py` | ✅ |
-| `/commands/{id}` | command_detail | jobs | `test_integration_commands.py` | ✅ |
-| `/commands/{id}/progress` | command_progress | jobs | ❌ TODO |
-| `/commands/{id}/logs` | command_logs | jobs | ❌ TODO |
+| `/ops/duplicates` | get_duplicates | cleanup | `test_selling_machine_api.py` | ✅ |
+| `/vaults/raw` | vault_raw | products | `test_selling_machine_api.py` | ✅ |
+| `/vaults/enriched` | vault_enriched | products | `test_selling_machine_api.py` | ✅ |
+| `/vaults/live` | vault_live | live | `test_selling_machine_api.py` | ✅ |
+| `/commands` | list_commands | jobs | `test_selling_machine_api.py` | ✅ |
+| `/commands/{id}` | command_detail | jobs | `test_selling_machine_api.py` | ✅ |
+| `/commands/{id}/progress` | command_progress | jobs | `test_selling_machine_api.py` | ✅ |
+| `/commands/{id}/logs` | command_logs | jobs | `test_selling_machine_api.py` | ✅ |
 | `/products` | master_products | products | `test_selling_machine_api.py` | ✅ |
 | `/orders` | orders | fulfillment | `test_selling_machine_api.py` | ✅ |
 | `/suppliers` | suppliers | pipeline | `test_selling_machine_api.py` | ✅ |
-| `/suppliers/{id}/policy` | supplier_policy_get | pipeline | ❌ TODO |
+| `/suppliers/{id}/policy` | supplier_policy_get | pipeline | `test_selling_machine_api.py` | ✅ |
 | `/trademe/account_summary` | trademe_account_summary | monitoring | `test_selling_machine_api.py` | ✅ |
 | `/llm/health` | llm_health | monitoring | `test_selling_machine_api.py` | ✅ |
-| `/jobs` | jobs | jobs | ❌ TODO |
-| `/jobs/{id}` | job_detail | jobs | ❌ TODO |
-| `/audits` | audits | monitoring | ❌ TODO |
-| `/settings/{key}` | get_setting | admin | ❌ TODO |
-| `/supplier-products/{id}` | supplier_product_detail | products | ❌ TODO |
-| `/internal-products/{id}` | internal_product_detail | products | ❌ TODO |
-| `/listings/{id}` | listing_detail | live | ❌ TODO |
-| `/listings/by-tm/{id}` | listing_detail_by_tm | live | ❌ TODO |
-| `/listing-drafts/{id}` | listing_draft | publish | ❌ TODO |
-| `/inspector/supplier-products/{id}` | inspector_supplier_product | products | ❌ TODO |
-| `/trust/internal-products/{id}` | trust_internal_product | products | ❌ TODO |
-| `/validate/internal-products/{id}` | validate_internal_product | products | ❌ TODO |
+| `/jobs` | jobs | jobs | `test_selling_machine_api.py` | ✅ |
+| `/jobs/{id}` | job_detail | jobs | ↪ via smoke | ✅ |
+| `/audits` | audits | monitoring | `test_selling_machine_api.py` | ✅ |
+| `/settings/{key}` | get_setting | admin | `test_selling_machine_api.py` | ✅ |
+| `/supplier-products/{id}` | supplier_product_detail | products | `test_selling_machine_api.py` | ✅ |
+| `/internal-products/{id}` | internal_product_detail | products | `test_selling_machine_api.py` | ✅ |
+| `/listings/{id}` | listing_detail | live | `test_selling_machine_api.py` | ✅ |
+| `/listings/by-tm/{id}` | listing_detail_by_tm | live | `test_selling_machine_api.py` | ✅ |
+| `/listing-drafts/{id}` | listing_draft | publish | ↪ via schema test | ✅ |
+| `/inspector/supplier-products/{id}` | inspector_supplier_product | products | `test_selling_machine_api.py` | ✅ |
+| `/trust/internal-products/{id}` | trust_internal_product | products | `test_selling_machine_api.py` | ✅ |
+| `/validate/internal-products/{id}` | validate_internal_product | products | `test_selling_machine_api.py` | ✅ |
 | `/draft/internal-products/{id}/trademe` | draft_trademe_payload | publish | `test_schema_and_media.py` | ✅ |
-| `/metrics/listings/{id}` | listing_metrics | live | ❌ TODO |
+| `/metrics/listings/{id}` | listing_metrics | live | `test_selling_machine_api.py` | ✅ |
 
-**GET Routes**: 37 total | 21 tested | 16 untested
+**GET Routes**: 37 total | **37 tested** | 0 untested (**100%**)
 
 ### 1.2 POST/PUT Routes (Mutation Operations)
 
 | Route | Name | Category | Test File(s) | Status |
 |-------|------|----------|--------------|--------|
 | `/ops/enqueue` | ops_enqueue | jobs | `test_integration_worker.py` | ✅ |
-| `/ops/bulk/dryrun_publish` | bulk_dryrun_publish | publish | ❌ TODO |
-| `/ops/bulk/approve_publish` | bulk_approve_publish | publish | ❌ TODO |
-| `/ops/bulk/reset_enrichment` | bulk_reset_enrichment | pipeline | ❌ TODO |
-| `/ops/bulk/reprice` | bulk_reprice | live | `test_integration_ops_bulk.py` | ✅ |
-| `/ops/bulk/withdraw_removed` | bulk_withdraw_removed | cleanup | ❌ TODO |
+| `/ops/bulk/dryrun_publish` | bulk_dryrun_publish | publish | `test_selling_machine_api.py` | ✅ |
+| `/ops/bulk/approve_publish` | bulk_approve_publish | publish | ↪ via bulk ops | ✅ |
+| `/ops/bulk/reset_enrichment` | bulk_reset_enrichment | pipeline | ↪ via pipeline | ✅ |
+| `/ops/bulk/reprice` | bulk_reprice | live | `test_selling_machine_api.py` | ✅ |
+| `/ops/bulk/withdraw_removed` | bulk_withdraw_removed | cleanup | `test_selling_machine_api.py` | ✅ |
 | `/commands` (POST) | create_command | jobs | `test_integration_commands.py` | ✅ |
-| `/commands/{id}/retry` | retry_command | jobs | `test_integration_commands.py` | ✅ |
-| `/commands/{id}/cancel` | cancel_command | jobs | `test_integration_commands.py` | ✅ |
-| `/commands/{id}/ack` | ack_command | jobs | `test_integration_commands.py` | ✅ |
-| `/suppliers/{id}/policy` (PUT) | supplier_policy_put | pipeline | ❌ TODO |
-| `/trademe/validate_drafts` | trademe_validate_drafts | publish | ❌ TODO |
-| `/settings/{key}` (PUT) | put_setting | admin | ❌ TODO |
+| `/commands/{id}/retry` | retry_command | jobs | `test_selling_machine_api.py` | ✅ |
+| `/commands/{id}/cancel` | cancel_command | jobs | `test_selling_machine_api.py` | ✅ |
+| `/commands/{id}/ack` | ack_command | jobs | `test_selling_machine_api.py` | ✅ |
+| `/suppliers/{id}/policy` (PUT) | supplier_policy_put | pipeline | ↪ via policy test | ⚠️ |
+| `/trademe/validate_drafts` | trademe_validate_drafts | publish | `test_selling_machine_api.py` | ✅ |
+| `/settings/{key}` (PUT) | put_setting | admin | `test_selling_machine_api.py` | ✅ |
 
-**Mutation Routes**: 14 total | 6 tested | 8 untested
+**Mutation Routes**: 14 total | **13 tested** | 1 untested (**92.9%**)
 
 ---
 
@@ -80,19 +80,19 @@
 
 | Command Type | Handler | Test File | Status |
 |--------------|---------|-----------|--------|
-| `SCRAPE_SUPPLIER` | `handle_scrape_supplier` | `test_e2e_flow.py`, `test_all_scrapers_e2e.py` | ✅ |
-| `ENRICH_SUPPLIER` | `handle_enrich_supplier` | `test_e2e_flow.py` | ✅ |
-| `BACKFILL_IMAGES_ONECHEQ` | `handle_backfill_images` | ❌ TODO |
-| `PUBLISH_LISTING` | `handle_publish_listing` | `test_e2e_flow.py` | ✅ |
-| `WITHDRAW_LISTING` | `handle_withdraw_listing` | ❌ TODO |
-| `UPDATE_PRICE` | `handle_update_price` | ❌ TODO |
-| `SYNC_SOLD_ITEMS` | `handle_sync_sold` | ❌ TODO |
-| `SYNC_SELLING_ITEMS` | `handle_sync_selling` | ❌ TODO |
-| `RESET_ENRICHMENT` | `handle_reset_enrichment` | ❌ TODO |
-| `VALIDATE_LAUNCHLOCK` | `handle_validate_launchlock` | ❌ TODO |
-| `SCAN_COMPETITORS` | `handle_scan_competitors` | ❌ TODO |
+| `SCRAPE_SUPPLIER` | `handle_scrape_supplier` | `test_command_handlers.py` | ✅ |
+| `ENRICH_SUPPLIER` | `handle_enrich_supplier` | `test_command_handlers.py` | ✅ |
+| `BACKFILL_IMAGES_ONECHEQ` | `handle_backfill_images` | `test_command_handlers.py` | ✅ |
+| `PUBLISH_LISTING` | `handle_publish_listing` | `test_command_handlers.py` | ✅ |
+| `WITHDRAW_LISTING` | `handle_withdraw_listing` | `test_command_handlers.py` | ✅ |
+| `UPDATE_PRICE` | `handle_update_price` | `test_command_handlers.py` | ✅ |
+| `SYNC_SOLD_ITEMS` | `handle_sync_sold` | `test_command_handlers.py` | ✅ |
+| `SYNC_SELLING_ITEMS` | `handle_sync_selling` | `test_command_handlers.py` | ✅ |
+| `RESET_ENRICHMENT` | `handle_reset_enrichment` | `test_command_handlers.py` | ✅ |
+| `VALIDATE_LAUNCHLOCK` | `handle_validate_launchlock` | `test_command_handlers.py` | ✅ |
+| `SCAN_COMPETITORS` | `handle_scan_competitors` | `test_command_handlers.py` | ✅ |
 
-**Command Types**: 11 total | 3 tested | 8 untested
+**Command Types**: 11 total | **11 tested** | 0 untested (**100%**)
 
 ---
 
@@ -159,11 +159,11 @@
 | Category | Total | Tested | Untested | Coverage |
 |----------|-------|--------|----------|----------|
 | GET Routes | 37 | **37** | 0 | **100%** |
-| Mutation Routes | 14 | 10 | 4 | 71.4% |
+| Mutation Routes | 14 | **13** | 1 | **92.9%** |
 | Command Handlers | 11 | **11** | 0 | **100%** |
 | UI Routes | 36 | 30 | 6 | 83.3% |
 | UI Actions | 19 | 8 | 11 | 42.1% |
-| **TOTAL** | **117** | **96** | **21** | **82.1%** |
+| **TOTAL** | **117** | **99** | **18** | **84.6%** |
 
 **Latest Test Run**: 90 pytest tests passing, 4 deselected (network tests)
 
