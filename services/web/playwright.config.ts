@@ -71,6 +71,8 @@ export default defineConfig({
         NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000",
         // Default role for E2E tests (no cookie set)
         NEXT_PUBLIC_DEFAULT_ROLE: "power",
+        NEXT_PUBLIC_RETAILOS_E2E_MODE: "true",
+        NEXT_PUBLIC_PLAYWRIGHT: "1",
       },
     },
   ],

@@ -937,11 +937,12 @@ class CommandWorker:
         supplier_name = payload.get("supplier_name", f"Supplier {supplier_id}")
         source_category = payload.get("source_category")
         # IMPORTANT: allow pages=0 to mean "unlimited/full backfill".
-        pages_raw = payload.get("pages", 1)
+        # Default changed from 1 to 100 to allow "Scrape Everything" by default for operators.
+        pages_raw = payload.get("pages", 100)
         try:
-            pages = int(pages_raw) if pages_raw is not None else 1
+            pages = int(pages_raw) if pages_raw is not None else 100
         except Exception:
-            pages = 1
+            pages = 100
         if pages < 0:
             pages = 0
         

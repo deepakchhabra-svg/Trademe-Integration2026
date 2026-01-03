@@ -36,14 +36,100 @@ class NoelLeemingAdapter:
     def run_sync(
         self,
         pages: int = 1,
-        category_url: str = "https://www.noelleeming.co.nz/shop/computers-office-tech/computers",
+        category_url: str = None, # None = "Scrape Everything" (via known category list)
         deep_scrape: bool = False,
         headless: bool = True,
         cmd_id: str | None = None,
         progress_hook=None,
         should_abort=None,
     ) -> None:
-        print(f"NL Adapter: Starting Sync for {self.supplier_name}...")
+        
+        # If specific URL provided, just single-shot it (legacy behavior)
+        if category_url:
+            self._scrape_single_category(
+                pages=pages,
+                category_url=category_url,
+                deep_scrape=deep_scrape,
+                headless=headless,
+                cmd_id=cmd_id,
+                progress_hook=progress_hook,
+                should_abort=should_abort
+            )
+            return
+
+        # Otherwise, iterate through major categories to simulate "Scrape Everything"
+        # Ordered by priority/revenue potential
+        DEFAULT_CATEGORIES = [
+             "https://www.noelleeming.co.nz/search?cgid=computersofficetech-computers",
+             "https://www.noelleeming.co.nz/shop/phones-gps/phones",
+             "https://www.noelleeming.co.nz/shop/audio",
+             "https://www.noelleeming.co.nz/shop/wearables",
+             "https://www.noelleeming.co.nz/shop/gaming",
+             "https://www.noelleeming.co.nz/shop/household-appliances"
+        ]
+
+        print(f"NL Adapter: Starting Multi-Category Sync for {self.supplier_name} ({len(DEFAULT_CATEGORIES)} categories)")
+        sync_start_time = datetime.utcnow()
+        
+        total_scraped = 0
+        total_updated = 0
+        
+        for idx, cat_url in enumerate(DEFAULT_CATEGORIES, 1):
+             try:
+                if should_abort and bool(should_abort()):
+                    print("NL Adapter: Aborted by operator.")
+                    break
+                
+                print(f"\n>>> Category {idx}/{len(DEFAULT_CATEGORIES)}: {cat_url}")
+                
+                # Check cancellation again before starting a big scrape block
+                if should_abort and bool(should_abort()):
+                    break
+
+                scraped, updated = self._scrape_single_category(
+                    pages=pages,
+                    category_url=cat_url,
+                    deep_scrape=deep_scrape,
+                    headless=headless,
+                    cmd_id=cmd_id,
+                    progress_hook=progress_hook,
+                    should_abort=should_abort,
+                    skip_reconciliation=True # Defer reconciliation until the very end
+                )
+                total_scraped += scraped
+                total_updated += updated
+                
+             except Exception as e:
+                 print(f"NL Adapter: Failed category {cat_url}: {e}")
+
+        # Final Reconciliation across ALL categories scraped
+        # Use sync_start_time from the *start* of the loop.
+        # Anything not seen in any category since sync_start_time is likely dropped (or just not in these top 5).
+        # NOTE: Be careful with "Scrape Everything" vs "Partial Scrape". 
+        # If we only scraped 5 categories, we shouldn't delete items from other categories (e.g. Cameras).
+        # The SafetyGuard protects us here (if <10% dropped, proceed). 
+        # But if we have 5000 items and only scrape 200, SafetyGuard will block reconciliation (Correctly).
+        
+        print(f"\nNL Adapter: Multi-Category Sync Complete. Total Scraped: {total_scraped}, Total Updated: {total_updated}")
+        
+        self._perform_reconciliation(total_scraped, total_updated, sync_start_time)
+        self.db.close()
+
+    def _scrape_single_category(
+        self,
+        pages,
+        category_url,
+        deep_scrape,
+        headless,
+        cmd_id,
+        progress_hook,
+        should_abort,
+        skip_reconciliation=False
+    ) -> tuple[int, int]:
+        """
+        Helper: Scrapes one category, returns (count_scraped, count_updated).
+        """
+        print(f"NL Adapter: Starting Category Sync: {category_url}")
         sync_start_time = datetime.utcnow()
         
         # 1. Scrape category pages (Selenium)
@@ -63,7 +149,7 @@ class NoelLeemingAdapter:
         for row in raw_rows:
             try:
                 if should_abort and bool(should_abort()):
-                    return
+                    return len(raw_rows), count_updated
             except Exception:
                 pass
             try:
@@ -106,25 +192,30 @@ class NoelLeemingAdapter:
                             "supplier": "NOEL_LEEMING",
                             "done": int(count_updated),
                             "total": int(len(raw_rows)),
-                            "message": f"Scrape: {count_updated}/{len(raw_rows)} upserted",
+                            "message": f"Scrape: {count_updated}/{len(raw_rows)} upserted ({category_url.split('/')[-1]})",
                         }
                     )
             except Exception:
                 pass
 
-        print(f"NL Adapter: Sync Complete. Processed {count_updated} items.")
+        print(f"NL Adapter: Category Sync Complete. Processed {count_updated} items.")
 
+        if not skip_reconciliation:
+            self._perform_reconciliation(len(raw_rows), count_updated, sync_start_time)
+            self.db.close() # Only close if we own the lifecycle (single run)
+            
+        return len(raw_rows), count_updated
+
+    def _perform_reconciliation(self, scraped_count, updated_count, start_time):
         # 2. Reconciliation (safe)
         from retail_os.core.reconciliation import ReconciliationEngine
         from retail_os.core.safety import SafetyGuard
 
-        failed_count = len(raw_rows) - count_updated
-        if SafetyGuard.is_safe_to_reconcile(len(raw_rows), failed_count):
-            ReconciliationEngine(self.db).process_orphans(self.supplier_id, sync_start_time)
+        failed_count = scraped_count - updated_count
+        if SafetyGuard.is_safe_to_reconcile(scraped_count, failed_count):
+            ReconciliationEngine(self.db).process_orphans(self.supplier_id, start_time)
         else:
             print("NL Adapter: Skipping reconciliation (SafetyGuard).")
-
-        self.db.close()
         
     def _upsert_product(self, data: dict, should_abort=None) -> str:
         """

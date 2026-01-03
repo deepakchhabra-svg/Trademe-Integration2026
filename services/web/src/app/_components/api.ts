@@ -8,8 +8,15 @@ export function apiBaseUrl(): string {
 
 export async function apiHeaders(): Promise<Record<string, string>> {
   const store = await cookies();
-  // For E2E tests, allow setting default role via env var
-  const envDefaultRole = process.env.NEXT_PUBLIC_DEFAULT_ROLE || "listing";
+  // For E2E tests, allow setting default role via env var ONLY when safely configured.
+  // This prevents accidental "root" defaults in production-like environments.
+  const isE2E = process.env.NEXT_PUBLIC_RETAILOS_E2E_MODE === "true";
+  const isTestEnv = process.env.NODE_ENV === "test" || process.env.NEXT_PUBLIC_PLAYWRIGHT === "1";
+
+  const envDefaultRole = (isE2E && isTestEnv)
+    ? (process.env.NEXT_PUBLIC_DEFAULT_ROLE || "listing")
+    : "listing";
+
   const role = store.get("retailos_role")?.value || envDefaultRole;
   const token = store.get("retailos_token")?.value;
   const headers: Record<string, string> = {
