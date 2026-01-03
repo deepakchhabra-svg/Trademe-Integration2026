@@ -8,8 +8,9 @@ export const UI = {
     layout: {
         nav: {
             dashboard: 'lnk-nav-ops-workbench',
-            vaultRaw: 'lnk-nav-vault-1-raw',
-            vaultEnriched: 'lnk-nav-vault-2-enriched',
+            // Derived from NavLink label sanitization in AppShell/NavLink
+            vaultRaw: 'lnk-nav-vault-1-supplier-data',
+            vaultEnriched: 'lnk-nav-vault-2-enriched-products',
             vaultLive: 'lnk-nav-vault-3-listings',
             suppliers: 'lnk-nav-suppliers',
             orders: 'lnk-nav-orders',

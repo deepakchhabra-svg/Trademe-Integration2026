@@ -8,6 +8,7 @@ import path from "path";
 const venvPython = path.resolve(__dirname, "../..", "venv", "Scripts", "python.exe");
 // Keep E2E DB out of the repo working tree by default.
 const dbUrl = process.env.RETAILOS_E2E_DATABASE_URL || "sqlite:////tmp/retailos_e2e.sqlite";
+const powerToken = process.env.RETAIL_OS_POWER_TOKEN || "";
 
 export default defineConfig({
   testDir: "./tests",
@@ -17,12 +18,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 4 : undefined,
+  globalSetup: "./tests/globalSetup.ts",
   reporter: [
     ["html"],
     ["list"],
   ],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000",
+    storageState: "./.playwright/storageState.json",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -45,9 +48,10 @@ export default defineConfig({
       env: {
         PYTHONPATH: path.resolve(__dirname, "../.."),
         DATABASE_URL: dbUrl,
-        // Enable auth bypass for E2E tests
-        RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES: "true",
-        RETAIL_OS_DEFAULT_ROLE: "power",
+        // Power token for authenticated ops endpoints during E2E.
+        RETAIL_OS_POWER_TOKEN: powerToken,
+        // Never allow header-role escalation in CI/E2E.
+        RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES: "false",
       },
       cwd: path.resolve(__dirname, "../.."),
     },
@@ -60,6 +64,8 @@ export default defineConfig({
       env: {
         PYTHONPATH: path.resolve(__dirname, "../.."),
         DATABASE_URL: dbUrl,
+        RETAIL_OS_POWER_TOKEN: powerToken,
+        RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES: "false",
       },
     },
     {

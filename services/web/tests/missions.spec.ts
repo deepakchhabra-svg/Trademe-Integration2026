@@ -4,9 +4,9 @@ test.describe("RetailOS MVP missions (smoke)", () => {
   test("Mission 0: Home loads and shows API status @smoke", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Ops Workbench" })).toBeVisible();
-    await expect(page.getByText("API")).toBeVisible();
-    // Guided workflow text should be present (operator journey).
-    await expect(page.getByText("Scrape → Enrich → Dry-run → Publish")).toBeVisible();
+    await expect(page.getByText("Backend:")).toBeVisible();
+    // Canonical workflow affordance should be present.
+    await expect(page.getByRole("link", { name: "Open Pipeline" }).first()).toBeVisible();
   });
 
   test("Mission A (read): Vault 1 raw page loads @smoke", async ({ page }) => {
@@ -26,7 +26,7 @@ test.describe("RetailOS MVP missions (smoke)", () => {
 
   test("Mission D (read): Commands page loads @smoke", async ({ page }) => {
     await page.goto("/ops/commands");
-    await expect(page.getByRole("heading", { name: "Commands (debug)" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Command log" })).toBeVisible();
   });
 
   test("Mission E (read): Jobs page loads", async ({ page }) => {
@@ -71,7 +71,8 @@ test.describe("RetailOS MVP missions (smoke)", () => {
 
   test("Mission G (drilldown): open a raw product inspector if available", async ({ page, request }) => {
     const api = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-    const res = await request.get(`${api}/vaults/raw?page=1&per_page=1`, { headers: { "X-RetailOS-Role": "root" } });
+    const token = process.env.RETAIL_OS_POWER_TOKEN || "";
+    const res = await request.get(`${api}/vaults/raw?page=1&per_page=1`, { headers: token ? { "X-RetailOS-Token": token } : {} });
     if (!res.ok()) test.skip(true, `API not available: ${res.status()}`);
     const data = (await res.json()) as { items: Array<{ id: number }>; total: number };
     if (!data.total) test.skip(true, "No supplier products in DB");
@@ -83,7 +84,8 @@ test.describe("RetailOS MVP missions (smoke)", () => {
 
   test("Mission H (drilldown): open an enriched inspector if available", async ({ page, request }) => {
     const api = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-    const res = await request.get(`${api}/vaults/enriched?page=1&per_page=1`, { headers: { "X-RetailOS-Role": "root" } });
+    const token = process.env.RETAIL_OS_POWER_TOKEN || "";
+    const res = await request.get(`${api}/vaults/enriched?page=1&per_page=1`, { headers: token ? { "X-RetailOS-Token": token } : {} });
     if (!res.ok()) test.skip(true, `API not available: ${res.status()}`);
     const data = (await res.json()) as { items: Array<{ id: number }>; total: number };
     if (!data.total) test.skip(true, "No internal products in DB");
@@ -102,7 +104,8 @@ test.describe("RetailOS MVP missions (smoke)", () => {
 
   test("Mission I (drilldown): open a listing inspector if available", async ({ page, request }) => {
     const api = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-    const res = await request.get(`${api}/vaults/live?page=1&per_page=1`, { headers: { "X-RetailOS-Role": "root" } });
+    const token = process.env.RETAIL_OS_POWER_TOKEN || "";
+    const res = await request.get(`${api}/vaults/live?page=1&per_page=1`, { headers: token ? { "X-RetailOS-Token": token } : {} });
     if (!res.ok()) test.skip(true, `API not available: ${res.status()}`);
     const data = (await res.json()) as { items: Array<{ id: number }>; total: number };
     if (!data.total) test.skip(true, "No listings in DB");
@@ -114,7 +117,8 @@ test.describe("RetailOS MVP missions (smoke)", () => {
 
   test("Mission P (drilldown): open a supplier policy page if available", async ({ page, request }) => {
     const api = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-    const res = await request.get(`${api}/suppliers`, { headers: { "X-RetailOS-Role": "root" } });
+    const token = process.env.RETAIL_OS_POWER_TOKEN || "";
+    const res = await request.get(`${api}/suppliers`, { headers: token ? { "X-RetailOS-Token": token } : {} });
     if (!res.ok()) test.skip(true, `API not available: ${res.status()}`);
     const data = (await res.json()) as Array<{ id: number }>;
     if (!data.length) test.skip(true, "No suppliers in DB");

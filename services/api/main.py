@@ -917,6 +917,7 @@ def trust_internal_product(
 @app.get("/validate/internal-products/{internal_product_id}")
 def validate_internal_product(
     internal_product_id: int,
+    test_bypass: int = Query(0, ge=0, le=1),
     _role: Role = Depends(require_role("power")),
 ) -> dict[str, Any]:
     """
@@ -928,8 +929,14 @@ def validate_internal_product(
         if not ip:
             raise HTTPException(status_code=404, detail="InternalProduct not found")
         try:
-            # Run full gates, but still bypass "trust score must be >=95" in test_mode.
-            LaunchLock(session).validate_publish(ip, test_mode=True)
+            # Production behavior: ALWAYS enforce full LaunchLock gates.
+            #
+            # Optional test-only bypass:
+            # - query param: ?test_bypass=1
+            # - env gate: RETAIL_OS_ALLOW_TEST_BYPASS=1
+            allow_bypass = _env_bool("RETAIL_OS_ALLOW_TEST_BYPASS", default=False)
+            use_bypass = bool(test_bypass == 1 and allow_bypass)
+            LaunchLock(session).validate_publish(ip, test_mode=use_bypass)
             return {"internal_product_id": ip.id, "ok": True, "reason": None}
         except Exception as e:
             return {"internal_product_id": ip.id, "ok": False, "reason": str(e)[:2000]}

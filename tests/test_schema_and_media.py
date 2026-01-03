@@ -112,14 +112,14 @@ def test_ops_summary_endpoint_shape(tmp_path: Path):
 
     db_file = tmp_path / "retail_os.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
-    # Tests use header roles; production should keep this off by default.
-    os.environ["RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES"] = "true"
+    # Tests should authenticate via token (no insecure header roles).
+    os.environ["RETAIL_OS_POWER_TOKEN"] = "test-power"
 
     import services.api.main as mod
 
     importlib.reload(mod)
     client = TestClient(mod.app)
-    res = client.get("/ops/summary", headers={"X-RetailOS-Role": "power"})
+    res = client.get("/ops/summary", headers={"X-RetailOS-Token": "test-power"})
     assert res.status_code == 200
     data = res.json()
     assert "commands" in data and "vaults" in data and "orders" in data
@@ -135,7 +135,7 @@ def test_command_logs_endpoint_shape(tmp_path: Path):
 
     db_file = tmp_path / "retail_os.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
-    os.environ["RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES"] = "true"
+    os.environ["RETAIL_OS_POWER_TOKEN"] = "test-power"
 
     import retail_os.core.database as db
     import services.api.main as mod
@@ -152,7 +152,7 @@ def test_command_logs_endpoint_shape(tmp_path: Path):
         session.add(db.CommandLog(command_id=cmd.id, level="INFO", logger="test", message="hello cmd_id=cmd-1"))
 
     client = TestClient(mod.app)
-    res = client.get("/commands/cmd-1/logs?tail=true&limit=10", headers={"X-RetailOS-Role": "power"})
+    res = client.get("/commands/cmd-1/logs?tail=true&limit=10", headers={"X-RetailOS-Token": "test-power"})
     assert res.status_code == 200
     data = res.json()
     assert data["command_id"] == "cmd-1"
@@ -170,7 +170,8 @@ def test_supplier_policy_endpoints(tmp_path: Path):
 
     db_file = tmp_path / "retail_os.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
-    os.environ["RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES"] = "true"
+    os.environ["RETAIL_OS_POWER_TOKEN"] = "test-power"
+    os.environ["RETAIL_OS_ROOT_TOKEN"] = "test-root"
 
     import retail_os.core.database as db
     import services.api.main as mod
@@ -191,7 +192,7 @@ def test_supplier_policy_endpoints(tmp_path: Path):
     client = TestClient(mod.app)
 
     # GET policy (power)
-    r1 = client.get(f"/suppliers/{supplier_id}/policy", headers={"X-RetailOS-Role": "power"})
+    r1 = client.get(f"/suppliers/{supplier_id}/policy", headers={"X-RetailOS-Token": "test-power"})
     assert r1.status_code == 200
     j1 = r1.json()
     assert j1["supplier_id"] == supplier_id
@@ -200,7 +201,7 @@ def test_supplier_policy_endpoints(tmp_path: Path):
     # PUT policy (root)
     r2 = client.put(
         f"/suppliers/{supplier_id}/policy",
-        headers={"X-RetailOS-Role": "root"},
+        headers={"X-RetailOS-Token": "test-root"},
         json={"policy": {"enabled": False, "scrape": {"enabled": False, "category_presets": ["a", "b"]}}},
     )
     assert r2.status_code == 200
@@ -220,7 +221,7 @@ def test_draft_payload_endpoint_does_not_500_on_blocked_item(tmp_path: Path):
 
     db_file = tmp_path / "retail_os.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file.as_posix()}"
-    os.environ["RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES"] = "true"
+    os.environ["RETAIL_OS_POWER_TOKEN"] = "test-power"
 
     import retail_os.core.database as db
     import services.api.main as mod
@@ -256,7 +257,7 @@ def test_draft_payload_endpoint_does_not_500_on_blocked_item(tmp_path: Path):
 
     importlib.reload(mod)
     client = TestClient(mod.app)
-    res = client.get(f"/draft/internal-products/{internal_id}/trademe", headers={"X-RetailOS-Role": "power"})
+    res = client.get(f"/draft/internal-products/{internal_id}/trademe", headers={"X-RetailOS-Token": "test-power"})
     assert res.status_code == 200
     data = res.json()
     assert data["internal_product_id"] == internal_id

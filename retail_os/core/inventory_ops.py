@@ -67,6 +67,27 @@ class InventoryOperations:
         Finds all items where SupplierProduct.sync_status == 'REMOVED'
         and queues withdrawal commands if they are currently Live.
         """
+        # Avoid duplicate withdraw commands for the same listing.
+        # We treat pending/executing/retryable as "active" duplicates.
+        existing_withdraw_listing_ids: set[str] = set()
+        try:
+            for c in (
+                self.session.query(SystemCommand)
+                .filter(SystemCommand.type == "WITHDRAW_LISTING")
+                .filter(SystemCommand.status.in_([CommandStatus.PENDING, CommandStatus.EXECUTING, CommandStatus.FAILED_RETRYABLE]))
+                .order_by(SystemCommand.created_at.desc())
+                .limit(2000)
+                .all()
+            ):
+                try:
+                    lid = (c.payload or {}).get("listing_id")
+                    if lid is not None:
+                        existing_withdraw_listing_ids.add(str(lid))
+                except Exception:
+                    continue
+        except Exception:
+            existing_withdraw_listing_ids = set()
+
         # Find removed supplier products that map to LIVE internal listings
         query = self.session.query(TradeMeListing)\
             .join(InternalProduct)\
@@ -81,10 +102,15 @@ class InventoryOperations:
             
         commands = []
         for listing in targets:
+            listing_id = str(listing.tm_listing_id or "")
+            if not listing_id:
+                continue
+            if listing_id in existing_withdraw_listing_ids:
+                continue
             cmd = SystemCommand(
                 id=str(uuid.uuid4()),
                 type="WITHDRAW_LISTING",
-                payload={"listing_id": listing.tm_listing_id, "reason": "Supplier Out of Stock"},
+                payload={"listing_id": listing_id, "reason": "Supplier Out of Stock"},
                 status=CommandStatus.PENDING,
                 priority=10 # High priority
             )
