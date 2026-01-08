@@ -63,14 +63,25 @@ export default async function CommandsPage({
   const page = Math.max(1, Number(sp.page || "1"));
   const perPage = Math.min(200, Math.max(10, Number(sp.per_page || "50")));
   const type = sp.type || "";
-  const status = sp.status ?? "NOT_SUCCEEDED";
+  let status = sp.status ?? "NOT_SUCCEEDED";
+
+  // Map legacy/frontend-friendly statuses to backend-valid ones
+  if (status === "RUNNING") status = "EXECUTING";
+  if (status === "FAILED") status = "NEEDS_ATTENTION";
 
   const qp = new URLSearchParams();
   qp.set("page", String(page));
   qp.set("per_page", String(perPage));
   if (type) qp.set("type", type);
   if (status) qp.set("status", status);
-  const data = await apiGet<PageResponse<Cmd>>(`/commands?${qp.toString()}`);
+
+  let data: PageResponse<Cmd> = { items: [], total: 0 };
+  try {
+    data = await apiGet<PageResponse<Cmd>>(`/commands?${qp.toString()}`);
+  } catch (err) {
+    console.error("Failed to fetch commands:", err);
+    // Fallback to empty list so page doesn't crash 500
+  }
 
   const baseParams = { per_page: perPage, type, status };
   const prevHref = `/ops/commands?${buildQueryString(baseParams, { page: Math.max(1, page - 1) })}`;
@@ -94,8 +105,11 @@ export default async function CommandsPage({
         <Button asChild variant={status === "NEEDS_ATTENTION" ? "default" : "secondary"} size="sm">
           <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NEEDS_ATTENTION" }, { page: 1 })}`}>Needs attention</Link>
         </Button>
+        <Button asChild variant={status === "EXECUTING" ? "default" : "secondary"} size="sm">
+          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "EXECUTING" }, { page: 1 })}`}>Executing</Link>
+        </Button>
         <Button asChild variant={status === "ACTIVE" ? "default" : "secondary"} size="sm">
-          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "ACTIVE" }, { page: 1 })}`}>Active</Link>
+          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "ACTIVE" }, { page: 1 })}`}>Active (All)</Link>
         </Button>
         <Button asChild variant={status === "NOT_SUCCEEDED" ? "default" : "secondary"} size="sm">
           <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "NOT_SUCCEEDED" }, { page: 1 })}`}>Not Succeeded</Link>
@@ -104,7 +118,7 @@ export default async function CommandsPage({
           <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "SUCCEEDED" }, { page: 1 })}`}>Succeeded</Link>
         </Button>
         <Button asChild variant={status === "" ? "default" : "secondary"} size="sm">
-          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "" }, { page: 1 })}`}>All</Link>
+          <Link href={`/ops/commands?${buildQueryString({ per_page: perPage, type, status: "" }, { page: 1 })}`}>All history</Link>
         </Button>
       </div>
 

@@ -158,6 +158,15 @@ class CommandWorker:
         """
         cmd_type = getattr(command, "command_type", None) or getattr(command, "type", None)
         payload = getattr(command, "parameters", None) or getattr(command, "payload", None) or {}
+        
+        # Parse JSON payload if it's a string
+        if isinstance(payload, str):
+            try:
+                import json
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        
         # Normalize common drift issues: accidental whitespace or non-str types.
         if cmd_type is not None and not isinstance(cmd_type, str):
             cmd_type = str(cmd_type)
@@ -1087,7 +1096,8 @@ class CommandWorker:
 
                 adapter = NoelLeemingAdapter()
                 category_url = source_category or payload.get("category_url") or payload.get("url") or None
-                deep_scrape = bool(payload.get("deep_scrape", False))
+                # Default deep_scrape=True for NL to always extract specs (model, features, warranty, stock)
+                deep_scrape = bool(payload.get("deep_scrape", True))
                 headless = bool(payload.get("headless", True))
 
                 def _is_cancelled() -> bool:

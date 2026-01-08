@@ -180,14 +180,18 @@ export function PipelineClient({ supplierId, initial }: { supplierId: number; in
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-sm font-semibold">Scrape</div>
-            <div className="mt-1 text-xs text-slate-500">Pull latest supplier truth into Vault 1.</div>
+            <div className="mt-1 text-xs text-slate-500">Pull latest supplier truth into Vault 1 (includes specs extraction).</div>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
                 className={buttonClass({ variant: "primary" })}
                 onClick={() =>
                   runStep("Scrape", async () => {
-                    const out = await runEnqueue({ type: "SCRAPE_SUPPLIER", payload: { supplier_id: supplierId, supplier_name: data.supplier.name }, priority: 70 });
+                    const out = await runEnqueue({
+                      type: "SCRAPE_SUPPLIER",
+                      payload: { supplier_id: supplierId, supplier_name: data.supplier.name },
+                      priority: 70,
+                    });
                     return `Queued scrape command ${out.id.slice(0, 8)}…`;
                   })
                 }

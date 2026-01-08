@@ -58,14 +58,46 @@ class NoelLeemingAdapter:
             return
 
         # Otherwise, iterate through major categories to simulate "Scrape Everything"
-        # Ordered by priority/revenue potential
+        # Comprehensive list covering all major product categories
+        # Using correct hierarchical /c/ paths (verified to work)
         DEFAULT_CATEGORIES = [
-             "https://www.noelleeming.co.nz/search?cgid=computersofficetech-computers",
-             "https://www.noelleeming.co.nz/shop/phones-gps/phones",
-             "https://www.noelleeming.co.nz/shop/audio",
-             "https://www.noelleeming.co.nz/shop/wearables",
-             "https://www.noelleeming.co.nz/shop/gaming",
-             "https://www.noelleeming.co.nz/shop/household-appliances"
+             # Computers & Office Tech
+             "https://www.noelleeming.co.nz/c/computers-office-tech/computers",
+             "https://www.noelleeming.co.nz/c/computers-office-tech/computer-accessories",
+             "https://www.noelleeming.co.nz/c/computers-office-tech/storage-memory",
+             "https://www.noelleeming.co.nz/c/computers-office-tech/printing",
+             "https://www.noelleeming.co.nz/c/computers-office-tech/networking",
+             
+             # Mobile & Smart Devices
+             "https://www.noelleeming.co.nz/c/phones-gps/phones",
+             "https://www.noelleeming.co.nz/c/phones-gps/phone-accessories",
+             "https://www.noelleeming.co.nz/c/phones-gps/tablets",
+             
+             # Audio
+             "https://www.noelleeming.co.nz/c/audio",
+             "https://www.noelleeming.co.nz/c/audio/headphones",
+             "https://www.noelleeming.co.nz/c/audio/portable-audio",
+             
+             # Home Entertainment
+             "https://www.noelleeming.co.nz/c/home-entertainment/tvs",
+             "https://www.noelleeming.co.nz/c/home-entertainment/soundbars-speakers",
+             
+             # Gaming
+             "https://www.noelleeming.co.nz/c/gaming",
+             
+             # Wearables
+             "https://www.noelleeming.co.nz/c/wearables",
+             
+             # Appliances
+             "https://www.noelleeming.co.nz/c/household-appliances",
+             "https://www.noelleeming.co.nz/c/household-appliances/kitchen-appliances",
+             "https://www.noelleeming.co.nz/c/household-appliances/laundry",
+             
+             # Photo & Video
+             "https://www.noelleeming.co.nz/c/photo-video",
+             
+             # Smart Home
+             "https://www.noelleeming.co.nz/c/smarthome",
         ]
 
         print(f"NL Adapter: Starting Multi-Category Sync for {self.supplier_name} ({len(DEFAULT_CATEGORIES)} categories)")

@@ -321,8 +321,8 @@ def build_onecheq_collection_index(client: httpx.Client, cmd_id: str | None = No
     handles = sorted(set(handles))
     index: dict[str, list[str]] = {}
 
-    conc = int(os.getenv("RETAILOS_ONECHEQ_COLLECTION_INDEX_CONCURRENCY", "4") or "4")
-    conc = max(1, min(16, conc))
+    conc = int(os.getenv("RETAILOS_ONECHEQ_COLLECTION_INDEX_CONCURRENCY", "2") or "2")  # Reduced from 4 to 2
+    conc = max(1, min(8, conc))
 
     def _scan_collection(handle: str) -> tuple[str, list[str]]:
         products: list[str] = []

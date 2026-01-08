@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { apiGet } from "./api";
 import { RoleSwitcher } from "./RoleSwitcher";
-import { NavLink } from "./NavLink";
+import { NavItem } from "./NavItem";
 import { Badge } from "./Badge";
 import { ThemeDensityToggles } from "./ThemeDensityToggles";
 
@@ -45,67 +45,67 @@ export default async function AppShell({ children }: { children: React.ReactNode
           <div className="flex-1 space-y-6 px-3 py-4">
             {/* CORE NAVIGATION (5 Items) */}
             <div className="space-y-1">
-              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Core</div>
-              <NavLink href="/ops/summary" label="Dashboard" />
-              {canSee(who.role, "power") ? <NavLink href="/pipeline" label="Pipeline" /> : null}
-              {canSee(who.role, "power") ? <NavLink href="/ops/bulk" label="Publish Console" /> : null}
-              <NavLink href="/vaults/live" label="Live Listings" />
-              {canSee(who.role, "power") ? <NavLink href="/ops/inbox" label="Inbox" /> : null}
+              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Core</div>
+              <NavItem href="/ops/summary" label="Dashboard" />
+              {canSee(who.role, "power") ? <NavItem href="/pipeline" label="Pipeline" /> : null}
+              {canSee(who.role, "power") ? <NavItem href="/ops/bulk" label="Publish Console" /> : null}
+              <NavItem href="/vaults/live" label="Live Listings" />
+              {canSee(who.role, "power") ? <NavItem href="/ops/inbox" label="Inbox" /> : null}
             </div>
 
             {/* ADVANCED SECTION */}
-            <details className="group space-y-2">
-              <summary className="cursor-pointer rounded-md px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 select-none flex items-center gap-2">
-                <svg className="h-4 w-4 transition-transform group-open:rotate-90 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <details className="group space-y-1 border-t pt-2 mt-2">
+              <summary className="cursor-pointer rounded-md px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground select-none flex items-center gap-2 outline-none">
+                <svg className="h-4 w-4 transition-transform group-open:rotate-90 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
                 Advanced
               </summary>
 
-              <div className="pl-4 space-y-6 border-l ml-5 my-2 border-slate-100">
+              <div className="space-y-6 mt-2">
                 <div className="space-y-1">
-                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Products</div>
-                  <NavLink href="/vaults/raw" label="Products (Raw)" />
-                  <NavLink href="/vaults/enriched" label="Products (Ready)" />
-                  <NavLink href="/products" label="Master View" />
+                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground pl-8">Products</div>
+                  <NavItem href="/vaults/raw" label="Products (Raw)" indent />
+                  <NavItem href="/vaults/enriched" label="Products (Ready)" indent />
+                  <NavItem href="/products" label="Master View" indent />
                 </div>
 
                 <div className="space-y-1">
-                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Ops Details</div>
-                  {canSee(who.role, "power") ? <NavLink href="/ops/commands" label="Command Log" /> : null}
-                  {canSee(who.role, "power") ? <NavLink href="/ops/alerts" label="Alerts" /> : null}
-                  {canSee(who.role, "power") ? <NavLink href="/ops/trademe" label="Trade Me Health" /> : null}
-                  {canSee(who.role, "power") ? <NavLink href="/ops/llm" label="LLM Health" /> : null}
-                  {canSee(who.role, "power") ? <NavLink href="/ops/readiness" label="Publish Readiness" /> : null}
-                  {canSee(who.role, "power") ? <NavLink href="/ops/removed" label="Removed Items" /> : null}
-                  {canSee(who.role, "power") ? <NavLink href="/ops/jobs" label="Background Jobs" /> : null}
+                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground pl-8">Ops Details</div>
+                  {canSee(who.role, "power") ? <NavItem href="/ops/commands" label="Command Log" indent /> : null}
+                  {canSee(who.role, "power") ? <NavItem href="/ops/alerts" label="Alerts" indent /> : null}
+                  {canSee(who.role, "power") ? <NavItem href="/ops/trademe" label="Trade Me Health" indent /> : null}
+                  {canSee(who.role, "power") ? <NavItem href="/ops/llm" label="LLM Health" indent /> : null}
+                  {canSee(who.role, "power") ? <NavItem href="/ops/readiness" label="Publish Readiness" indent /> : null}
+                  {canSee(who.role, "power") ? <NavItem href="/ops/removed" label="Removed Items" indent /> : null}
+                  {canSee(who.role, "power") ? <NavItem href="/ops/jobs" label="Background Jobs" indent /> : null}
                 </div>
 
                 {canSee(who.role, "root") ? (
                   <div className="space-y-1">
-                    <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Diagnostics</div>
-                    <NavLink href="/ops/audits" label="Audit Log" />
+                    <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground pl-8">Diagnostics</div>
+                    <NavItem href="/ops/audits" label="Audit Log" indent />
                   </div>
                 ) : null}
 
                 <div className="space-y-1">
-                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Commerce</div>
-                  {canSee(who.role, "fulfillment") ? <NavLink href="/orders" label="Orders" /> : null}
-                  {canSee(who.role, "fulfillment") ? <NavLink href="/fulfillment" label="Fulfillment" /> : null}
-                  <NavLink href="/suppliers" label="Suppliers" />
+                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground pl-8">Commerce</div>
+                  {canSee(who.role, "fulfillment") ? <NavItem href="/orders" label="Orders" indent /> : null}
+                  {canSee(who.role, "fulfillment") ? <NavItem href="/fulfillment" label="Fulfillment" indent /> : null}
+                  <NavItem href="/suppliers" label="Suppliers" indent />
                 </div>
 
                 <div className="space-y-1">
-                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">External Links</div>
-                  <a href="https://www.trademe.co.nz" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">Trade Me Marketplace ↗</a>
-                  <a href="https://www.trademe.co.nz/a/my-trade-me" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">My Trade Me ↗</a>
-                  <a href="https://www.holidayhouses.co.nz/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-md">Holiday Houses ↗</a>
+                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground pl-8">External Links</div>
+                  <NavItem href="https://www.trademe.co.nz" label="Trade Me Marketplace" indent target="_blank" />
+                  <NavItem href="https://www.trademe.co.nz/a/my-trade-me" label="My Trade Me" indent target="_blank" />
+                  <NavItem href="https://www.holidayhouses.co.nz/" label="Holiday Houses" indent target="_blank" />
                 </div>
 
                 <div className="space-y-1">
-                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Admin</div>
-                  <NavLink href="/access" label="Access & Tokens" />
-                  {canSee(who.role, "root") ? <NavLink href="/admin/settings" label="Settings" /> : null}
+                  <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground pl-8">Admin</div>
+                  <NavItem href="/access" label="Access & Tokens" indent />
+                  {canSee(who.role, "root") ? <NavItem href="/admin/settings" label="Settings" indent /> : null}
                 </div>
               </div>
             </details>

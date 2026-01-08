@@ -147,18 +147,61 @@ export default async function RawDetailPage({
       </div>
 
       {tab === "raw" ? (
-        <SectionCard
-          title="Supplier description"
-          actions={sp.product_url ? (
-            <a className={buttonClass({ variant: "link" })} href={sp.product_url} target="_blank" rel="noreferrer" data-testid="lnk-supplier-page">
-              Open supplier page
-            </a>
+        <>
+          <SectionCard
+            title="Supplier description"
+            actions={sp.product_url ? (
+              <a className={buttonClass({ variant: "link" })} href={sp.product_url} target="_blank" rel="noreferrer" data-testid="lnk-supplier-page">
+                Open supplier page
+              </a>
+            ) : null}
+          >
+            <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-sans" data-testid="raw-description">
+              {sp.description || "-"}
+            </pre>
+          </SectionCard>
+
+          {/* Extracted Specs Section */}
+          {sp.specs && Object.keys(sp.specs).length > 0 ? (
+            <SectionCard title="Extracted Specifications" subtitle="Structured data from scraper">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {sp.specs.product_id ? <Field label="Product ID" value={String(sp.specs.product_id)} testId="spec-product-id" /> : null}
+                {sp.specs.sku ? <Field label="SKU" value={String(sp.specs.sku)} testId="spec-sku" /> : null}
+                {sp.specs.model ? <Field label="Model" value={String(sp.specs.model)} testId="spec-model" /> : null}
+                {sp.specs.condition_normalized ? (
+                  <Field label="Condition" value={<StatusBadge status={String(sp.specs.condition_normalized)} />} testId="spec-condition" />
+                ) : null}
+                {sp.specs.stock_status ? (
+                  <Field label="Stock Status" value={<StatusBadge status={String(sp.specs.stock_status)} />} testId="spec-stock" />
+                ) : null}
+                {sp.specs.warranty_months != null ? (
+                  <Field label="Warranty" value={`${sp.specs.warranty_months} months`} testId="spec-warranty" />
+                ) : null}
+                {sp.specs.offer_end_date ? (
+                  <Field label="Offer Ends" value={String(sp.specs.offer_end_date)} testId="spec-offer-end" />
+                ) : null}
+              </div>
+
+              {Array.isArray(sp.specs.features) && sp.specs.features.length > 0 ? (
+                <div className="mt-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Features</div>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-slate-900" data-testid="spec-features">
+                    {(sp.specs.features as string[]).slice(0, 10).map((f, i) => (
+                      <li key={i}>{f}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <details className="mt-4">
+                <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">Show raw specs JSON</summary>
+                <pre className="mt-2 max-h-[300px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-mono" data-testid="spec-raw-json">
+                  {JSON.stringify(sp.specs, null, 2)}
+                </pre>
+              </details>
+            </SectionCard>
           ) : null}
-        >
-          <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-900 font-sans" data-testid="raw-description">
-            {sp.description || "-"}
-          </pre>
-        </SectionCard>
+        </>
       ) : null}
 
       {tab === "enriched" ? (

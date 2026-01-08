@@ -56,7 +56,7 @@ class OneCheqAdapter:
         t0 = datetime.utcnow()
         
         # 1. Get Raw Data
-        concurrency = int(os.getenv("RETAILOS_ONECHEQ_CONCURRENCY", "8"))
+        concurrency = int(os.getenv("RETAILOS_ONECHEQ_CONCURRENCY", "1"))  # Reduced from 4 to 1 to prevent 429s
         raw_items_gen = scrape_onecheq(limit_pages=pages, collection=collection, concurrency=concurrency, cmd_id=cmd_id)
         print(f"Adapter: Starting processing stream from scraper...")
         
@@ -233,4 +233,3 @@ class OneCheqAdapter:
 if __name__ == "__main__":
     adapter = OneCheqAdapter()
     adapter.run_sync(pages=1, collection="smartphones-and-mobilephones")
-```

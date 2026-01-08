@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { apiGet } from "../../_components/api";
 import { formatNZT } from "../../_components/time";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,18 +29,21 @@ export default async function SummaryPage() {
                     value={kpis.sales_today}
                     icon={DollarSign}
                     trend="Daily sales count"
+                    href="/orders"
                 />
                 <KPI
                     title="Listed Today"
                     value={kpis.listed_today}
                     icon={Package}
                     trend="New live listings"
+                    href="/vaults/live"
                 />
                 <KPI
                     title="Queue Backlog"
                     value={summary.commands.pending}
                     icon={Layers}
                     trend="Commands pending"
+                    href="/ops/inbox"
                 />
                 <KPI
                     title="Failures Today"
@@ -47,6 +51,7 @@ export default async function SummaryPage() {
                     icon={AlertTriangle}
                     status={kpis.failures_today > 0 ? "destructive" : "default"}
                     trend="Failed commands"
+                    href="/ops/commands?status=NEEDS_ATTENTION"
                 />
             </div>
 
@@ -61,12 +66,14 @@ export default async function SummaryPage() {
                             value={summary.vaults.raw_total}
                             sub={`(${summary.vaults.raw_present} present)`}
                             icon={Package}
+                            href="/vaults/raw"
                         />
                         <PipelineRow
                             label="Enriched"
                             value={summary.vaults.enriched_total}
                             sub={`(${summary.vaults.enriched_ready} ready)`}
                             icon={CheckCircle}
+                            href="/vaults/enriched"
                         />
                         <PipelineRow
                             label="Live Listings"
@@ -74,12 +81,14 @@ export default async function SummaryPage() {
                             tone="success"
                             icon={Activity}
                             highlight
+                            href="/vaults/live"
                         />
                         <PipelineRow
                             label="Draft Listings"
                             value={summary.vaults.listings_dry}
                             tone="warning"
                             icon={Clock}
+                            href="/vaults/live?status=DRY_RUN"
                         />
                     </CardContent>
                 </Card>
@@ -89,7 +98,8 @@ export default async function SummaryPage() {
                         <CardTitle>System Health</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="relative group flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                            <Link href="/orders" className="absolute inset-0 z-10" aria-label="Pending Orders"><span className="sr-only">View Pending Orders</span></Link>
                             <div className="flex items-center gap-4">
                                 <div className="rounded-full bg-amber-100 p-2">
                                     <ShoppingCart className="h-5 w-5 text-amber-600" />
@@ -102,7 +112,8 @@ export default async function SummaryPage() {
                             <div className="text-2xl font-bold">{summary.orders.pending}</div>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="relative group flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                            <Link href="/ops/inbox" className="absolute inset-0 z-10" aria-label="Inbox"><span className="sr-only">View Inbox</span></Link>
                             <div className="flex items-center gap-4">
                                 <div className="rounded-full bg-red-100 p-2">
                                     <AlertTriangle className="h-5 w-5 text-red-600" />
@@ -116,11 +127,13 @@ export default async function SummaryPage() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 pt-2">
-                            <div className="rounded-lg bg-muted p-3 text-center">
+                            <div className="relative group rounded-lg bg-muted p-3 text-center hover:bg-muted/80 transition-colors">
+                                <Link href="/ops/commands?status=EXECUTING" className="absolute inset-0 z-10" aria-label="Executing"><span className="sr-only">View Executing</span></Link>
                                 <div className="text-xs text-muted-foreground uppercase">Executing</div>
                                 <div className="text-lg font-bold">{summary.commands.executing}</div>
                             </div>
-                            <div className="rounded-lg bg-muted p-3 text-center">
+                            <div className="relative group rounded-lg bg-muted p-3 text-center hover:bg-muted/80 transition-colors">
+                                <Link href="/ops/commands?status=NEEDS_ATTENTION" className="absolute inset-0 z-10" aria-label="Failed"><span className="sr-only">View Failed</span></Link>
                                 <div className="text-xs text-muted-foreground uppercase">Failed (Total)</div>
                                 <div className="text-lg font-bold">{summary.commands.failed}</div>
                             </div>
@@ -132,9 +145,14 @@ export default async function SummaryPage() {
     );
 }
 
-function KPI({ title, value, icon: Icon, trend, status }: any) {
+function KPI({ title, value, icon: Icon, trend, status, href }: any) {
     return (
-        <Card>
+        <Card className="relative group hover:bg-muted/50 transition-colors">
+            {href && (
+                <Link href={href} className="absolute inset-0 z-10" aria-label={title}>
+                    <span className="sr-only">View {title}</span>
+                </Link>
+            )}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                     {title}
@@ -142,7 +160,7 @@ function KPI({ title, value, icon: Icon, trend, status }: any) {
                 <Icon className={`h-4 w-4 text-muted-foreground ${status === 'destructive' ? 'text-red-500' : ''}`} />
             </CardHeader>
             <CardContent>
-                <div className={`text-2xl font-bold ${status === 'destructive' ? 'text-red-500' : ''}`}>{value}</div>
+                <div className="text-2xl font-bold">{value}</div>
                 <p className="text-xs text-muted-foreground">
                     {trend}
                 </p>
@@ -151,22 +169,28 @@ function KPI({ title, value, icon: Icon, trend, status }: any) {
     )
 }
 
-function PipelineRow({ label, value, sub, icon: Icon, tone, highlight }: any) {
+function PipelineRow({ label, value, sub, icon: Icon, tone, highlight, href }: any) {
     let colorClass = "text-muted-foreground";
     if (tone === "success") colorClass = "text-emerald-600";
     if (tone === "warning") colorClass = "text-amber-600";
     if (tone === "destructive") colorClass = "text-red-600";
 
     return (
-        <div className={`flex items-center justify-between ${highlight ? 'bg-muted/40 p-2 rounded-md -mx-2' : ''}`}>
+        <div className={`relative group flex items-center justify-between ${highlight ? 'bg-muted/40 p-2 rounded-md -mx-2' : ''} hover:bg-muted/50 p-2 rounded-md -mx-2 transition-colors`}>
+            {href && (
+                <Link href={href} className="absolute inset-0 z-10" aria-label={label}>
+                    <span className="sr-only">View {label}</span>
+                </Link>
+            )}
             <div className="flex items-center gap-2">
                 {Icon && <Icon className={`h-4 w-4 ${colorClass}`} />}
                 <span className="text-sm font-medium">{label}</span>
             </div>
             <div className="flex items-center gap-2">
                 {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
-                <span className={`font-bold ${tone === 'success' ? 'text-emerald-600' : ''}`}>{value}</span>
+                <span className="font-bold">{value}</span>
             </div>
         </div>
     )
 }
+

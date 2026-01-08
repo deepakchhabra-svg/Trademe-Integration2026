@@ -57,4 +57,26 @@ test.describe("Navigation & Sidebar", () => {
         // Sidebar should still be present
         await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
     });
+
+    test("dashboard widgets should navigate to correct filtered views", async ({ page }) => {
+        // 1. Queue Backlog -> Inbox
+        await page.goto("/");
+        await page.getByRole("link", { name: "View Queue Backlog" }).click();
+        await expect(page).toHaveURL(/\/ops\/inbox/);
+        await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
+
+        // 2. Executing -> Commands?status=EXECUTING
+        // Note: We use "View Executing" sr-only text or the link overlay
+        await page.goto("/");
+        await page.getByRole("link", { name: "View Executing" }).click();
+        await expect(page).toHaveURL(/.*status=EXECUTING/);
+        // Should not see "An error occurred"
+        await expect(page.getByText("An error occurred")).not.toBeVisible();
+
+        // 3. Failed -> Commands?status=NEEDS_ATTENTION
+        await page.goto("/");
+        await page.getByRole("link", { name: "View Failed" }).click();
+        await expect(page).toHaveURL(/.*status=NEEDS_ATTENTION/);
+        await expect(page.getByText("An error occurred")).not.toBeVisible();
+    });
 });
