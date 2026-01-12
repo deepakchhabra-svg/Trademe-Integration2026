@@ -1,0 +1,4 @@
+# file: /workspace/services/api/dependencies.py
+# hypothesis_version: 6.150.0
+
+[100, 401, 403, '1', 'RETAIL_OS_ROOT_TOKEN', 'X-RetailOS-Role', 'X-RetailOS-Token', 'fulfillment', 'listing', 'on', 'power', 'root', 'true', 'y', 'yes']

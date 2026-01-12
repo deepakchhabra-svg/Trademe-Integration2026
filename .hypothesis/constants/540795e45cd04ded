@@ -1,0 +1,4 @@
+# file: /workspace/scripts/factory_reset.py
+# hypothesis_version: 6.150.0
+
+['\nFINAL STATE:', '--- HARD RESET ---', '--- SOFT RESET ---', '--force', '--hard', '..', '> ', 'CURRENT STATE:', 'DELETE', 'DELETE HARD RESET', 'Done.', 'InternalProducts', 'Live', 'Orders', 'SupplierProducts', 'SystemCommands', 'TradeMeListings', 'VACUUM', '__main__', 'sqlite', 'store_true']

@@ -1,0 +1,4 @@
+# file: /workspace/retail_os/core/trademe_categories.py
+# hypothesis_version: 6.150.0
+
+[-1.0, 0.0, 0.1, 0.2, 0.35, 0.55, 1.0, 1.6, 200, 500, 'Trade-Me-Jobs', '[a-z0-9]+', 'a', 'accessor', 'accessorie', 'accessories', 'adapter', 'adapters', 'adaptor', 'adaptors', 'an', 'and', 'api_id', 'bag', 'bags', 'batteri', 'batteries', 'battery', 'bundle', 'by', 'cable', 'cables', 'case', 'cases', 'categories', 'charger', 'chargers', 'cover', 'covers', 'dock', 'docks', 'for', 'from', 'full_code', 'in', 'name', 'new', 'of', 'on', 'or', 'pack', 'path', 'pouch', 'pouches', 'protector', 'protectors', 'r', 'refurbished', 's', 'screen', 'screens', 'sleeve', 'sleeves', 'ss', 'the', 'to', 'used', 'utf-8', 'with']

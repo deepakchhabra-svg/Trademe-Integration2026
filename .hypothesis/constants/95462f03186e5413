@@ -1,0 +1,4 @@
+# file: /workspace/retail_os/core/image_guard.py
+# hypothesis_version: 6.150.0
+
+[200, 'File not found', 'GEMINI_API_KEY', 'Guard Inactive', 'No description', '```', '```json', 'cache', 'candidates', 'content', 'contents', 'data', 'description', 'image/jpeg', 'inline_data', 'is_marketing', 'is_safe', 'mime_type', 'parts', 'r', 'rb', 'reason', 'text', 'utf-8', 'w']

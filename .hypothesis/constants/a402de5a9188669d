@@ -1,0 +1,4 @@
+# file: /workspace/retail_os/core/marketplace_adapter.py
+# hypothesis_version: 6.150.0
+
+['/', 'BANNED_IMAGE', 'Checked', 'DEFAULT_CATEGORY', 'HIGH', 'NOEL_LEEMING', 'ONECHEQ', 'Untitled Product', '\\', 'audit_reason', 'category_id', 'category_name', 'data/media/', 'description', 'enriched_description', 'enriched_title', 'images', 'is_safe', 'original_description', 'original_title', 'price', 'reason', 'sku', 'source_category', 'supplier', 'title', 'trust_signal']

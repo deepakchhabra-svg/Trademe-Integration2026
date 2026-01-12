@@ -1,0 +1,4 @@
+# file: /workspace/retail_os/core/standardizer.py
+# hypothesis_version: 6.150.0
+
+[0.5, '(?<=[.!?])\\s+', '\\(\\d{2,3}\\)\\s?\\d{3}', '\\b', '\\d{3}\\s\\d{4}', 'address', 'branch', 'call', 'cash', 'clearance', 'come ', 'contact', 'contact ', 'credit', 'delivery', 'drivers license', 'email', 'expert', 'finance', 'friendly', 'guarantee', 'id required', 'inventory', 'loan', 'location', 'our ', 'passport', 'pawn', 'phone', 'pickup', 'postage', 'refund', 'return', 'sale', 'shipping', 'shop', 'speak', 'staff', 'stock', 'store', 'team', 'us ', 'valid id', 'visit', 'visit ', 'warranty', 'we ', 'we are', 'we buy', 'we offer', 'we sell', '•']

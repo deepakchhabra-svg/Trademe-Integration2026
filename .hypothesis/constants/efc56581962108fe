@@ -1,0 +1,4 @@
+# file: /workspace/retail_os/utils/cleaning.py
+# hypothesis_version: 6.150.0
+
+['AirPods', 'Cash Converters', 'MacBook', 'Noel Leeming', '[-–\\s]+$', '\\bAirpods\\b', '\\bIphone\\b', '\\bMacbook\\b', '^[-–\\s]+', 'iPhone']

@@ -1,0 +1,4 @@
+# file: /workspace/retail_os/utils/seo.py
+# hypothesis_version: 6.150.0
+
+[180, ' -*•', ' -•', '(?<=\\.)\\s+', '**Details**', '**Specifications**', '---', '.', ':', 'Address :.*', 'Brand', 'Condition', 'Discover the', 'Discover unbeatable', 'Goods must be paid.*', 'See details', 'Stock Needed!.*', 'Store Contact.*', 'WE ALSO PAWN ON.*', 'WE PAWN CARS.*', 'Web\\s*ID[:\\s]*\\d+.*', '[\\n\\r]+', '\\s+', '_', 'brand', 'cash\\s+converters?', 'condition', 'description', 'imei', 'lot', 'meid', 'mpn', 'noel\\s+leeming', 'serial', 'sku', 'specs', 'supplierlot', 'title']
