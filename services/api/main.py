@@ -89,7 +89,11 @@ def _parse_csv_env(name: str, default: list[str]) -> list[str]:
 # to avoid needing CORS at all.
 _cors_origins = _parse_csv_env(
     "RETAIL_OS_CORS_ORIGINS",
-    default=["http://localhost:3000", "http://127.0.0.1:3000"],
+    default=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://trademe-integration-ui-production.up.railway.app",
+    ],
 )
 _cors_allow_credentials = _env_bool("RETAIL_OS_CORS_ALLOW_CREDENTIALS", default=False)
 if "*" in _cors_origins:
