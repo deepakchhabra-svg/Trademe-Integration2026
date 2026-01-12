@@ -32,5 +32,5 @@ USER myuser
 # Expose API Port
 EXPOSE 8000
 
-# Default Command
-CMD ["python3", "-m", "uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default Command - Use PORT env var for Railway/Render compatibility
+CMD ["sh", "-c", "python -m uvicorn services.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
