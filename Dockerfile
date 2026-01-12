@@ -127,9 +127,9 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 
 [program:web]
-command=node_modules/.bin/next start -p 3000
+command=npm start
 directory=/app/services/web
-environment=API_BASE_URL="http://127.0.0.1:8000",NEXT_PUBLIC_API_BASE_URL=""
+environment=PORT="3000",API_BASE_URL="http://127.0.0.1:8000",NEXT_PUBLIC_API_BASE_URL=""
 autostart=true
 autorestart=true
 stdout_logfile=/dev/stdout
