@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
@@ -28,7 +28,7 @@ class TrustEngine:
         Calculates a 0-100 score based on recent history (Supplier Level).
         """
         # 1. Total Validation Checks in last 24h
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
         
         fails = self.db.query(AuditLog).filter(
             AuditLog.action == "VALIDATION_FAIL",

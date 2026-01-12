@@ -3,7 +3,7 @@ Lifecycle Manager
 The 'Brain' that decides when to promote, demote, or kill a listing.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 
 class LifecycleManager:
@@ -26,7 +26,7 @@ class LifecycleManager:
         output: {"action": "NONE"|"PROMOTE"|"DEMOTE"|"KILL", "new_state": str, "reason": str}
         """
         current_state = listing.actual_state
-        days_live = (datetime.utcnow() - listing.last_synced_at).days
+        days_live = (datetime.now(timezone.utc) - listing.last_synced_at).days
         views = listing.view_count or 0
         watchers = listing.watch_count or 0
         

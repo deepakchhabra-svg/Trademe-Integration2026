@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 import streamlit as st
@@ -679,7 +679,7 @@ def render_operations(session) -> None:
                 SystemCommand(
                     id=str(uuid.uuid4()),
                     type="TEST_COMMAND",
-                    payload={"timestamp": datetime.utcnow().isoformat()},
+                    payload={"timestamp": datetime.now(timezone.utc).isoformat()},
                     status=CommandStatus.PENDING,
                 )
             )

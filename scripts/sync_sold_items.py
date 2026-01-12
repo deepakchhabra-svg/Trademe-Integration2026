@@ -9,7 +9,7 @@ sys.path.append(os.getcwd())
 
 from retail_os.core.database import SessionLocal, Order, TradeMeListing
 from retail_os.trademe.api import TradeMeAPI
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class SoldItemSyncer:
@@ -66,7 +66,7 @@ def sync_sold_items_internal(api: TradeMeAPI = None) -> int:
                     tm_order_ref=purchase_id,
                     tm_listing_id=listing.id,
                     sold_price=item.get("Price", 0),
-                    sold_date=datetime.fromisoformat(item.get("SoldDate").replace("Z", "+00:00")) if item.get("SoldDate") else datetime.utcnow(),
+                    sold_date=datetime.fromisoformat(item.get("SoldDate").replace("Z", "+00:00")) if item.get("SoldDate") else datetime.now(timezone.utc),
                     buyer_name=item.get("Buyer", {}).get("Nickname", "Unknown"),
                     buyer_email=item.get("Buyer", {}).get("Email"),
                     order_status="CONFIRMED",
@@ -79,7 +79,7 @@ def sync_sold_items_internal(api: TradeMeAPI = None) -> int:
             else:
                 # Update existing order
                 order.payment_status = "PAID" if item.get("PaymentStatus") == "Paid" else "PENDING"
-                order.updated_at = datetime.utcnow()
+                order.updated_at = datetime.now(timezone.utc)
                 updated_orders += 1
                 print(f"  🔄 Updated order: {purchase_id}")
         

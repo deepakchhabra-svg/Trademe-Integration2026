@@ -2,8 +2,12 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text, event, ForeignKey, Enum as SQLEnum, JSON, UniqueConstraint, Numeric, Index
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy.sql import func
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+def _utc_now():
+    """Timezone-aware UTC now for SQLAlchemy defaults."""
+    return datetime.now(timezone.utc)
 import enum
 from contextlib import contextmanager
 from typing import Iterable
@@ -88,6 +92,10 @@ class SupplierProduct(Base):
 
     __table_args__ = (
         UniqueConstraint('supplier_id', 'external_sku', name='uix_supplier_sku'),
+        Index('ix_supplier_products_supplier_id', 'supplier_id'),
+        Index('ix_supplier_products_sync_status', 'sync_status'),
+        Index('ix_supplier_products_enrichment_status', 'enrichment_status'),
+        Index('ix_supplier_products_last_scraped', 'last_scraped_at'),
     )
 
 class InternalProduct(Base):
@@ -103,6 +111,10 @@ class InternalProduct(Base):
     
     supplier_product = relationship("SupplierProduct", back_populates="internal_product")
     listings = relationship("TradeMeListing", back_populates="product")
+
+    __table_args__ = (
+        Index('ix_internal_products_supplier_product_id', 'primary_supplier_product_id'),
+    )
 
 class TradeMeListing(Base):
     """The Platform Reality: An instance on TradeMe."""
@@ -139,19 +151,31 @@ class TradeMeListing(Base):
     orders = relationship("Order", back_populates="listing")  # NEW: Track sales
     price_history = relationship("PriceHistory", back_populates="listing")
 
+    __table_args__ = (
+        Index('ix_trademe_listings_actual_state', 'actual_state'),
+        Index('ix_trademe_listings_internal_product_id', 'internal_product_id'),
+        Index('ix_trademe_listings_lifecycle_state', 'lifecycle_state'),
+        Index('ix_trademe_listings_last_synced', 'last_synced_at'),
+    )
+
 class ListingMetricSnapshot(Base):
     """Time-Series data for Velocity Calculation."""
     __tablename__ = 'listing_metrics'
     
     id = Column(Integer, primary_key=True)
     listing_id = Column(Integer, ForeignKey('trademe_listings.id'))
-    captured_at = Column(DateTime, default=datetime.utcnow)
+    captured_at = Column(DateTime, default=_utc_now)
     
     view_count = Column(Integer)
     watch_count = Column(Integer)
     is_sold = Column(Boolean, default=False)
     
     listing = relationship("TradeMeListing", back_populates="metrics")
+
+    __table_args__ = (
+        Index('ix_listing_metrics_listing_id', 'listing_id'),
+        Index('ix_listing_metrics_captured_at', 'captured_at'),
+    )
 
 class PriceHistory(Base):
     """Track price changes for Panic Undo support."""
@@ -161,9 +185,14 @@ class PriceHistory(Base):
     listing_id = Column(Integer, ForeignKey('trademe_listings.id'))
     price = Column(Float, nullable=False)
     change_type = Column(String) # "MANUAL", "PANIC", "STRATEGY"
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=_utc_now)
     
     listing = relationship("TradeMeListing", back_populates="price_history")
+
+    __table_args__ = (
+        Index('ix_price_history_listing_id', 'listing_id'),
+        Index('ix_price_history_timestamp', 'timestamp'),
+    )
 
 class Order(Base):
     __tablename__ = 'orders'
@@ -193,11 +222,19 @@ class Order(Base):
     delivered_date = Column(DateTime)
     
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
+    updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)
     
     # Relationships
     listing = relationship("TradeMeListing", back_populates="orders")
+
+    __table_args__ = (
+        Index('ix_orders_tm_listing_id', 'tm_listing_id'),
+        Index('ix_orders_order_status', 'order_status'),
+        Index('ix_orders_fulfillment_status', 'fulfillment_status'),
+        Index('ix_orders_sold_date', 'sold_date'),
+        Index('ix_orders_created_at', 'created_at'),
+    )
 
 class SystemCommand(Base):
     """The Command Engine Logic."""
@@ -216,9 +253,15 @@ class SystemCommand(Base):
     error_code = Column(String)  # INSUFFICIENT_BALANCE, MISSING_CREDS, etc
     error_message = Column(Text)  # User-facing error message
     
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
+    updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)
 
+    __table_args__ = (
+        Index('ix_system_commands_status', 'status'),
+        Index('ix_system_commands_type', 'type'),
+        Index('ix_system_commands_priority', 'priority'),
+        Index('ix_system_commands_created_at', 'created_at'),
+    )
 
 class CommandProgress(Base):
     """
@@ -235,7 +278,7 @@ class CommandProgress(Base):
     total = Column(Integer)  # optional total estimate
     eta_seconds = Column(Integer)  # optional ETA estimate
     message = Column(Text)  # operator-friendly summary
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)
 
     command = relationship("SystemCommand")
 
@@ -250,7 +293,7 @@ class CommandLog(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     command_id = Column(String, ForeignKey("system_commands.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
     level = Column(String, default="INFO")
     logger = Column(String)
     message = Column(Text)
@@ -271,7 +314,13 @@ class AuditLog(Base):
     old_value = Column(Text)
     new_value = Column(Text)
     user = Column(String) # "System" or "Admin"
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=_utc_now)
+
+    __table_args__ = (
+        Index('ix_audit_logs_entity', 'entity_type', 'entity_id'),
+        Index('ix_audit_logs_timestamp', 'timestamp'),
+        Index('ix_audit_logs_action', 'action'),
+    )
 
 class ResourceLock(Base):
     """Application-Level Locks for Concurrency Safety."""
@@ -282,7 +331,7 @@ class ResourceLock(Base):
     entity_id = Column(String, nullable=False)   # "101", "456"
     owner_cmd_id = Column(String, nullable=False) # Command UUID owning this lock
     
-    acquired_at = Column(DateTime, default=datetime.utcnow)
+    acquired_at = Column(DateTime, default=_utc_now)
     expires_at = Column(DateTime, nullable=False)
     
     # Composite Unique Index ensures 1 global owner per entity
@@ -298,7 +347,7 @@ class ListingDraft(Base):
     payload_json = Column(JSON, nullable=False) # The FINAL payload sent to validation
     validation_results = Column(JSON) # Store API response
     
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
     
 class PhotoHash(Base):
     """Idempotency Cache for Photos."""
@@ -306,7 +355,7 @@ class PhotoHash(Base):
     
     hash = Column(String, primary_key=True) # xxhash
     tm_photo_id = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 class JobStatus(Base):
     """
@@ -332,7 +381,7 @@ class SystemSetting(Base):
     
     key = Column(String, primary_key=True)
     value = Column(JSON, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)
 
 # --- Database Engine ---
 # Single source of truth database (configurable by env var)

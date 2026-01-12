@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from retail_os.core.database import SessionLocal, SupplierProduct, TradeMeListing, SystemCommand, CommandStatus, AuditLog
 import uuid
@@ -105,6 +105,6 @@ class ReconciliationEngine:
             old_value=old,
             new_value=new,
             user="ReconciliationEngine",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
         self.db.add(log)

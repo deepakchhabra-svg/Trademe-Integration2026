@@ -5,7 +5,7 @@ import os
 import json
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from retail_os.core.database import (
@@ -68,7 +68,7 @@ class SpectatorScheduler:
         job = JobStatus(
             job_type=job_type,
             status="RUNNING",
-            start_time=datetime.utcnow(),
+            start_time=datetime.now(timezone.utc),
             end_time=None,
             items_processed=0,
             items_created=0,
@@ -86,7 +86,7 @@ class SpectatorScheduler:
         if not job:
             return
         job.status = status
-        job.end_time = datetime.utcnow()
+        job.end_time = datetime.now(timezone.utc)
         job.summary = json.dumps(summary, sort_keys=True)
         session.commit()
         

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from retail_os.core.database import ListingMetricSnapshot, TradeMeListing, InternalProduct
 
 class MetricsEngine:
@@ -15,7 +15,7 @@ class MetricsEngine:
         """
         Computes Views Per Day over the last N days.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         past = now - timedelta(days=days)
         
         # Get Current (or latest snapshot)

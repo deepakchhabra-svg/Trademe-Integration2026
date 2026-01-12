@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 from typing import Any, Optional
@@ -99,9 +99,9 @@ def health() -> HealthResponse:
     try:
         with get_db_session() as session:
             session.execute(text("SELECT 1"))
-        return HealthResponse(status="ok", utc=datetime.utcnow(), db="ok", db_error=None)
+        return HealthResponse(status="ok", utc=datetime.now(timezone.utc), db="ok", db_error=None)
     except Exception as e:
-        return HealthResponse(status="degraded", utc=datetime.utcnow(), db="error", db_error=str(e)[:200])
+        return HealthResponse(status="degraded", utc=datetime.now(timezone.utc), db="error", db_error=str(e)[:200])
 
 
 @app.get("/media/{rel_path:path}")
@@ -153,7 +153,7 @@ def trademe_account_summary(_role: Role = Depends(require_role("power"))) -> dic
     Trade Me account health for ops decisions (balance, reputation signals).
     """
     import os as _os
-    utc = datetime.utcnow().isoformat()
+    utc = datetime.now(timezone.utc).isoformat()
     configured = bool(
         (_os.getenv("CONSUMER_KEY") or "").strip()
         and (_os.getenv("CONSUMER_SECRET") or "").strip()
@@ -598,7 +598,7 @@ def retry_command(command_id: str, _role: Role = Depends(require_role("power")))
         c.last_error = None
         c.error_code = None
         c.error_message = None
-        c.updated_at = datetime.utcnow()
+        c.updated_at = datetime.now(timezone.utc)
         session.commit()
         return CommandActionResponse(id=c.id, status=c.status.value if hasattr(c.status, "value") else str(c.status))
 
@@ -610,7 +610,7 @@ def cancel_command(command_id: str, _role: Role = Depends(require_role("power"))
         if not c:
             raise HTTPException(status_code=404, detail="Command not found")
         c.status = CommandStatus.CANCELLED
-        c.updated_at = datetime.utcnow()
+        c.updated_at = datetime.now(timezone.utc)
         session.commit()
         return CommandActionResponse(id=c.id, status=c.status.value if hasattr(c.status, "value") else str(c.status))
 
@@ -1257,7 +1257,7 @@ def ops_removed_items(
                 }
             )
 
-        return {"utc": datetime.utcnow().isoformat(), "total": total, "items": items, "page": page, "per_page": per_page}
+        return {"utc": datetime.now(timezone.utc).isoformat(), "total": total, "items": items, "page": page, "per_page": per_page}
 
 
 @app.get("/listings/by-tm/{tm_listing_id}")

@@ -8,7 +8,7 @@ if _REPO_ROOT not in sys.path:
 
 from typing import List
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import json
 
@@ -59,7 +59,7 @@ class CashConvertersAdapter:
         browse_url: str = "https://shop.cashconverters.co.nz/Browse/R160787-R160789/North_Island-Auckland",
     ):
         print(f"CC Adapter: Starting Sync for {self.supplier_name}...")
-        sync_start_time = datetime.utcnow()
+        sync_start_time = datetime.now(timezone.utc)
         
         # 1. Discover product URLs
         from scripts.discover_category import discover_cash_converters_urls
@@ -186,7 +186,7 @@ class CashConvertersAdapter:
                 specs=data.get("specs", {}),
                 source_category=data.get("source_category"),
                 snapshot_hash=current_hash,
-                last_scraped_at=datetime.utcnow()
+                last_scraped_at=datetime.now(timezone.utc)
             )
             self.db.add(sp)
             self.db.flush()
@@ -204,7 +204,7 @@ class CashConvertersAdapter:
                 self.db.add(ip)
         else:
             # UPDATE
-            sp.last_scraped_at = datetime.utcnow()
+            sp.last_scraped_at = datetime.now(timezone.utc)
             # Always refresh category metadata even if content snapshot is unchanged.
             sp.source_category = data.get("source_category")
             if sp.snapshot_hash != current_hash:
@@ -220,7 +220,7 @@ class CashConvertersAdapter:
                         old_value=str(sp.cost_price),
                         new_value=str(cost),
                         user="System",
-                        timestamp=datetime.utcnow()
+                        timestamp=datetime.now(timezone.utc)
                     )
                     self.db.add(log)
                     print(f"   -> Audited Price Change: {sp.cost_price} -> {cost}")
@@ -234,7 +234,7 @@ class CashConvertersAdapter:
                         old_value=sp.title,
                         new_value=data["title"],
                         user="System",
-                        timestamp=datetime.utcnow()
+                        timestamp=datetime.now(timezone.utc)
                     )
                     self.db.add(log)
 

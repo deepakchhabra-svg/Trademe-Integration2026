@@ -365,8 +365,8 @@ def fetch_system_health():
         } for l in locks]
         
         # 3. Scraper Throughput (Last 24h)
-        from datetime import datetime, timedelta
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        from datetime import datetime, timedelta, timezone
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
         
         def calc_throughput(job_type):
             runs = session.query(JobStatus).filter(

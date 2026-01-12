@@ -136,8 +136,8 @@ try:
     # Keep it on this module logger as well (harmless if duplicates are avoided above).
     if not any(isinstance(h, _DBLogHandler) for h in logger.handlers):
         logger.addHandler(_DBLogHandler())
-except Exception:
-    pass
+except Exception as e:
+    logger.debug(f"DB log handler setup skipped: {e}")
 
 class CommandWorker:
     def __init__(self):
@@ -253,8 +253,8 @@ class CommandWorker:
                 for h in logger.handlers:
                     if isinstance(h, _DBLogHandler):
                         h.flush()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Log flush failed (non-critical): {e}")
 
         except Exception as e:
             session.rollback()
@@ -918,7 +918,7 @@ class CommandWorker:
                 desired_price=tm_payload["StartPrice"],
                 actual_price=tm_payload["StartPrice"],
                 actual_state="Live",
-                last_synced_at=datetime.utcnow()
+                last_synced_at=datetime.now(timezone.utc)
             )
             session.add(tm_listing)
             session.commit()
@@ -1055,7 +1055,7 @@ class CommandWorker:
                                     else pr.eta_seconds
                                 )
                                 pr.message = str((info or {}).get("message") or pr.message or "")
-                                pr.updated_at = datetime.utcnow()
+                                pr.updated_at = datetime.now(timezone.utc)
                             except Exception:
                                 pass
 
@@ -1084,7 +1084,7 @@ class CommandWorker:
                 from datetime import datetime
                 from retail_os.core.database import SupplierProduct
                 session.query(SupplierProduct).filter_by(supplier_id=supplier_id).update(
-                    {"last_scraped_at": datetime.utcnow()},
+                    {"last_scraped_at": datetime.now(timezone.utc)},
                     synchronize_session=False
                 )
                 session.commit()
@@ -1144,7 +1144,7 @@ class CommandWorker:
                                     else pr.eta_seconds
                                 )
                                 pr.message = str((info or {}).get("message") or pr.message or "")
-                                pr.updated_at = datetime.utcnow()
+                                pr.updated_at = datetime.now(timezone.utc)
                             except Exception:
                                 pass
 
@@ -1233,7 +1233,7 @@ class CommandWorker:
             job = JobStatus(
                 job_type="ONECHEQ_FULL_BACKFILL",
                 status="RUNNING",
-                start_time=datetime.utcnow(),
+                start_time=datetime.now(timezone.utc),
                 items_processed=0,
                 summary=None,
             )
@@ -1324,7 +1324,7 @@ class CommandWorker:
             job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
             if job:
                 job.status = "COMPLETED"
-                job.end_time = datetime.utcnow()
+                job.end_time = datetime.now(timezone.utc)
                 job.items_processed = total
                 job.summary = json.dumps(summary, ensure_ascii=True)
             s.commit()
@@ -1353,7 +1353,7 @@ class CommandWorker:
 
         job_row_id = None
         with SessionLocal() as s:
-            job = JobStatus(job_type="BACKFILL_IMAGES_ONECHEQ", status="RUNNING", start_time=datetime.utcnow(), summary=None)
+            job = JobStatus(job_type="BACKFILL_IMAGES_ONECHEQ", status="RUNNING", start_time=datetime.now(timezone.utc), summary=None)
             s.add(job)
             s.commit()
             job_row_id = job.id
@@ -1403,7 +1403,7 @@ class CommandWorker:
                                 else pr.eta_seconds
                             )
                             pr.message = str((info or {}).get("message") or pr.message or "")
-                            pr.updated_at = datetime.utcnow()
+                            pr.updated_at = datetime.now(timezone.utc)
                         except Exception:
                             pass
 
@@ -1426,7 +1426,7 @@ class CommandWorker:
             job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
             if job:
                 job.status = "COMPLETED"
-                job.end_time = datetime.utcnow()
+                job.end_time = datetime.now(timezone.utc)
                 job.summary = json.dumps(res, ensure_ascii=True)
             s.commit()
 
@@ -1459,7 +1459,7 @@ class CommandWorker:
 
         job_row_id = None
         with SessionLocal() as s:
-            job = JobStatus(job_type="VALIDATE_LAUNCHLOCK", status="RUNNING", start_time=datetime.utcnow(), summary=None)
+            job = JobStatus(job_type="VALIDATE_LAUNCHLOCK", status="RUNNING", start_time=datetime.now(timezone.utc), summary=None)
             s.add(job)
             s.commit()
             job_row_id = job.id
@@ -1509,7 +1509,7 @@ class CommandWorker:
                                 else pr.eta_seconds
                             )
                             pr.message = str((info or {}).get("message") or pr.message or "")
-                            pr.updated_at = datetime.utcnow()
+                            pr.updated_at = datetime.now(timezone.utc)
                         except Exception:
                             pass
 
@@ -1523,7 +1523,7 @@ class CommandWorker:
             job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
             if job:
                 job.status = "COMPLETED"
-                job.end_time = datetime.utcnow()
+                job.end_time = datetime.now(timezone.utc)
                 job.summary = json.dumps(res, ensure_ascii=True)
             s.commit()
     
@@ -1646,7 +1646,7 @@ class CommandWorker:
             job = JobStatus(
                 job_type="ENRICH_SUPPLIER",
                 status="RUNNING",
-                start_time=datetime.utcnow(),
+                start_time=datetime.now(timezone.utc),
                 items_processed=0,
                 items_created=created_internal,
                 summary=None,
@@ -1666,7 +1666,7 @@ class CommandWorker:
                 job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
                 if job:
                     job.status = "COMPLETED"
-                    job.end_time = datetime.utcnow()
+                    job.end_time = datetime.now(timezone.utc)
                 s.commit()
 
             logger.info(
@@ -1681,7 +1681,7 @@ class CommandWorker:
                 job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
                 if job:
                     job.status = "FAILED"
-                    job.end_time = datetime.utcnow()
+                    job.end_time = datetime.now(timezone.utc)
                     job.summary = str(e)[:2000]
                 s.commit()
             raise
@@ -1720,7 +1720,7 @@ class CommandWorker:
             job = JobStatus(
                 job_type="SYNC_SOLD_ITEMS",
                 status="RUNNING",
-                start_time=datetime.utcnow(),
+                start_time=datetime.now(timezone.utc),
                 items_processed=0,
                 items_created=0,
                 items_updated=0,
@@ -1741,7 +1741,7 @@ class CommandWorker:
                 job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
                 if job:
                     job.status = "COMPLETED"
-                    job.end_time = datetime.utcnow()
+                    job.end_time = datetime.now(timezone.utc)
                     job.items_processed = int(new_orders or 0)
                     job.items_created = int(new_orders or 0)
                     job.summary = f"new_orders={int(new_orders or 0)}"
@@ -1758,7 +1758,7 @@ class CommandWorker:
                 job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
                 if job:
                     job.status = "FAILED"
-                    job.end_time = datetime.utcnow()
+                    job.end_time = datetime.now(timezone.utc)
                     job.items_failed = 1
                     job.summary = err[:2000]
                 s.commit()
@@ -1782,7 +1782,7 @@ class CommandWorker:
             job = JobStatus(
                 job_type="SYNC_SELLING_ITEMS",
                 status="RUNNING",
-                start_time=datetime.utcnow(),
+                start_time=datetime.now(timezone.utc),
                 items_processed=0,
                 items_updated=0,
                 items_failed=0,
@@ -1856,7 +1856,7 @@ class CommandWorker:
                     job = s.query(JobStatus).get(job_row_id)
                     if job:
                         job.status = "COMPLETED"
-                        job.end_time = datetime.utcnow()
+                        job.end_time = datetime.now(timezone.utc)
                         job.items_processed = len(selling_ids)
                         job.items_updated = updated
                         job.items_failed = failed
@@ -1868,7 +1868,7 @@ class CommandWorker:
                     job = s.query(JobStatus).get(job_row_id)
                     if job:
                         job.status = "FAILED"
-                        job.end_time = datetime.utcnow()
+                        job.end_time = datetime.now(timezone.utc)
                         job.items_failed = 1
                         job.summary = str(e)[:2000]
                     s.commit()
@@ -1913,7 +1913,7 @@ class CommandWorker:
                     old_value=str(old),
                     new_value="PENDING",
                     user="Operator",
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                 )
             )
             session.commit()

@@ -11,7 +11,7 @@ from retail_os.trademe.worker import CommandWorker
 from retail_os.core.listing_builder import build_listing_payload, compute_payload_hash
 import uuid
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def run_gatekeeper():
@@ -27,7 +27,7 @@ def run_gatekeeper():
         "blockers": []
     }
     
-    test_start = datetime.utcnow()
+    test_start = datetime.now(timezone.utc)
     results["evidence"].append(f"GATEKEEPER START: {test_start}")
     
     # CHECK 1: Encoding

@@ -5,7 +5,7 @@ import time
 import re
 import requests
 from requests_oauthlib import OAuth1
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from retail_os.core.database import PhotoHash
 from dotenv import load_dotenv
@@ -243,7 +243,7 @@ class TradeMeAPI:
             lst = data.get("List", [])
             
             # Client-side filter for 'days'
-            cutoff = datetime.utcnow().timestamp() - (days * 86400)
+            cutoff = datetime.now(timezone.utc).timestamp() - (days * 86400)
             
             recent_sales = []
             for item in lst:

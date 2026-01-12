@@ -1,7 +1,7 @@
 import os
 import json
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Callable
 from sqlalchemy.orm import Session
 from retail_os.core.database import SupplierProduct, InternalProduct, AuditLog
@@ -157,7 +157,7 @@ class ProductUpserter:
             source_category=data.get("source_category"),
             source_categories=data.get("source_categories"),
             snapshot_hash=current_hash,
-            last_scraped_at=datetime.utcnow()
+            last_scraped_at=datetime.now(timezone.utc)
         )
         self.db.add(sp)
         self.db.flush()
@@ -186,7 +186,7 @@ class ProductUpserter:
         stock_level: Optional[int], local_images: list[str], original_images: list[str], 
         specs: dict, current_hash: str
     ) -> str:
-        sp.last_scraped_at = datetime.utcnow()
+        sp.last_scraped_at = datetime.now(timezone.utc)
         # Always refresh category/ranking metadata
         sp.source_category = data.get("source_category")
         sp.source_categories = data.get("source_categories")
@@ -203,7 +203,7 @@ class ProductUpserter:
                     old_value=str(sp.cost_price),
                     new_value=str(cost),
                     user="System",
-                    timestamp=datetime.utcnow()
+                    timestamp=datetime.now(timezone.utc)
                 ))
 
             if sp.title != data["title"]:
@@ -214,7 +214,7 @@ class ProductUpserter:
                     old_value=sp.title,
                     new_value=data["title"],
                     user="System",
-                    timestamp=datetime.utcnow()
+                    timestamp=datetime.now(timezone.utc)
                 ))
 
             # Commit Updates

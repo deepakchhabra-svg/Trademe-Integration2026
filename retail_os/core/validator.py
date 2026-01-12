@@ -2,7 +2,7 @@ import random
 import sys
 import os
 sys.path.append(os.getcwd())
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from retail_os.core.database import SessionLocal, SupplierProduct, InternalProduct
 from retail_os.scrapers.universal.adapter import UniversalAdapter
@@ -151,7 +151,7 @@ class ValidationEngine:
         all_ids = [r[0] for r in self.db.query(SupplierProduct.id).filter(SupplierProduct.sync_status != "REMOVED").all()]
         
         if not all_ids:
-             return {"score": 0, "total_checked": 0, "matches": 0, "mismatches": [], "timestamp": datetime.utcnow()}
+             return {"score": 0, "total_checked": 0, "matches": 0, "mismatches": [], "timestamp": datetime.now(timezone.utc)}
              
         # Random Sample
         target_ids = random.sample(all_ids, min(len(all_ids), sample_size))
@@ -214,7 +214,7 @@ class ValidationEngine:
             "total_checked": total,
             "matches": matches,
             "mismatches": mismatches,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.now(timezone.utc)
         }
         
         print(f"Validator: Complete. Score={report['score']}%")

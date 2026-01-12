@@ -1,4 +1,5 @@
 import os
+import logging
 import requests
 from pathlib import Path
 from urllib.parse import urlparse
@@ -6,6 +7,8 @@ import time
 import threading
 
 from retail_os.utils.http_throttle import GlobalHTTPThrottle
+
+logger = logging.getLogger(__name__)
 
 class ImageDownloader:
     """Physical image download service with verification."""
@@ -24,8 +27,8 @@ class ImageDownloader:
         try:
             if should_abort and bool(should_abort()):
                 return {"success": False, "path": None, "size": 0, "error": "Cancelled"}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Abort check failed (non-critical): {e}")
 
         if not url or url.startswith("https://placehold.co"):
             return {"success": False, "path": None, "size": 0, "error": "Placeholder URL"}
@@ -33,7 +36,8 @@ class ImageDownloader:
         def _referer_for(u: str) -> str | None:
             try:
                 host = urlparse(u).netloc.lower()
-            except Exception:
+            except Exception as e:
+                logger.debug(f"URL parse failed for referer: {e}")
                 return None
             if "noelleeming.co.nz" in host:
                 return "https://www.noelleeming.co.nz/"

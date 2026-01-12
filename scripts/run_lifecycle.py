@@ -10,7 +10,7 @@ sys.path.append(os.getcwd())
 
 from retail_os.core.database import SessionLocal, TradeMeListing, SystemCommand, CommandStatus
 from retail_os.strategy.lifecycle import LifecycleManager
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 def run_lifecycle_analysis():
@@ -41,7 +41,7 @@ def run_lifecycle_analysis():
         
         # Apply State Change (Local)
         listing.actual_state = recommendation["new_state"]
-        listing.last_synced_at = datetime.utcnow()
+        listing.last_synced_at = datetime.now(timezone.utc)
         updates += 1
         
         # Dispatch Commands?

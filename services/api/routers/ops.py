@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Any, Optional
 from collections import Counter
 import uuid
@@ -224,7 +224,7 @@ def ops_summary(_role: Role = Depends(require_role("power"))) -> dict[str, Any]:
         orders_pending = session.query(func.count(Order.id)).filter(Order.fulfillment_status == "PENDING").scalar() or 0
 
         return {
-            "utc": datetime.utcnow().isoformat(),
+            "utc": datetime.now(timezone.utc).isoformat(),
             "commands": {
                 "total": cmd_total,
                 "pending": cmd_pending,
@@ -337,7 +337,7 @@ def ops_pipeline_summary(
                 continue
 
         return {
-            "utc": datetime.utcnow().isoformat(),
+            "utc": datetime.now(timezone.utc).isoformat(),
             "supplier": {"id": sup.id, "name": sup.name},
             "counts": {
                 "raw_total": raw_total,
@@ -413,7 +413,7 @@ def ops_supplier_pipeline(
             )
 
         return {
-            "utc": datetime.utcnow().isoformat(),
+            "utc": datetime.now(timezone.utc).isoformat(),
             "supplier": {"id": sup.id, "name": sup.name, "base_url": sup.base_url, "is_active": sup.is_active},
             "summary": summary,
             "active_commands": items,
@@ -824,7 +824,7 @@ def bulk_approve_publish(req: BulkApprovePublishRequest, _role: Role = Depends(r
                         "internal_product_id": l.internal_product_id,
                         "dry_run": False,
                         "approved_from_dryrun": dryrun_cmd_id,
-                        "approved_at": datetime.utcnow().isoformat(),
+                        "approved_at": datetime.now(timezone.utc).isoformat(),
                     },
                     status=CommandStatus.PENDING,
                     priority=int(req.priority),

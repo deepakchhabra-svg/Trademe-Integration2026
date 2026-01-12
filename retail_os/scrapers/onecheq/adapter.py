@@ -9,7 +9,7 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..",
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 from sqlalchemy.orm import Session
 from retail_os.core.database import SessionLocal, Supplier, SupplierProduct, InternalProduct
@@ -52,8 +52,8 @@ class OneCheqAdapter:
             pages = 0  # Passes through to scraper's <=0 logic
             
         print(f"Adapter: Starting Sync for {self.supplier_name} (Pages={'UNLIMITED' if pages == 0 else pages}, Collection={collection})...")
-        sync_start_time = datetime.utcnow()
-        t0 = datetime.utcnow()
+        sync_start_time = datetime.now(timezone.utc)
+        t0 = datetime.now(timezone.utc)
         
         # 1. Get Raw Data
         concurrency = int(os.getenv("RETAILOS_ONECHEQ_CONCURRENCY", "1"))  # Reduced from 4 to 1 to prevent 429s
@@ -139,7 +139,7 @@ class OneCheqAdapter:
                         eta = None
                         try:
                             if total_estimate is not None:
-                                elapsed = (datetime.utcnow() - t0).total_seconds()
+                                elapsed = (datetime.now(timezone.utc) - t0).total_seconds()
                                 rate = (count_total_scraped / elapsed) if elapsed > 0 else 0.0
                                 if rate > 0:
                                     eta = int(round(max(total_estimate - count_total_scraped, 0) / rate))

@@ -12,7 +12,7 @@ from retail_os.trademe.worker import CommandWorker
 from retail_os.core.listing_builder import build_listing_payload, compute_payload_hash
 import uuid
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def run_e2e_selftest():
@@ -21,7 +21,7 @@ def run_e2e_selftest():
     Tests criteria A-H and returns detailed report.
     """
     session = SessionLocal()
-    test_start = datetime.utcnow()
+    test_start = datetime.now(timezone.utc)
     results = {
         "run_id": str(uuid.uuid4())[:8],
         "start_time": test_start,

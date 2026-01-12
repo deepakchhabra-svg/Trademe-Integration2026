@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import re
 from urllib.parse import urlparse
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 from typing import Optional
 
@@ -145,7 +145,7 @@ class UniversalAdapter:
                 product_url=url,
                 images=imgs,
                 snapshot_hash=url_hash,
-                last_scraped_at=datetime.utcnow()
+                last_scraped_at=datetime.now(timezone.utc)
             )
             self.db.add(sp)
             self.db.flush()

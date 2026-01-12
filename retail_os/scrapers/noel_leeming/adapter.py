@@ -8,7 +8,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 
 from retail_os.core.database import SessionLocal, Supplier, SupplierProduct, InternalProduct
@@ -101,7 +101,7 @@ class NoelLeemingAdapter:
         ]
 
         print(f"NL Adapter: Starting Multi-Category Sync for {self.supplier_name} ({len(DEFAULT_CATEGORIES)} categories)")
-        sync_start_time = datetime.utcnow()
+        sync_start_time = datetime.now(timezone.utc)
         
         total_scraped = 0
         total_updated = 0
@@ -162,7 +162,7 @@ class NoelLeemingAdapter:
         Helper: Scrapes one category, returns (count_scraped, count_updated).
         """
         print(f"NL Adapter: Starting Category Sync: {category_url}")
-        sync_start_time = datetime.utcnow()
+        sync_start_time = datetime.now(timezone.utc)
         
         # 1. Scrape category pages (Selenium)
         raw_rows = scrape_category(
@@ -340,7 +340,7 @@ class NoelLeemingAdapter:
                 specs=data.get("specs", {}),
                 source_category=data.get("source_category"),
                 snapshot_hash=current_hash,
-                last_scraped_at=datetime.utcnow()
+                last_scraped_at=datetime.now(timezone.utc)
             )
             self.db.add(sp)
             self.db.flush()
@@ -361,7 +361,7 @@ class NoelLeemingAdapter:
             
         else:
             # UPDATE
-            sp.last_scraped_at = datetime.utcnow()
+            sp.last_scraped_at = datetime.now(timezone.utc)
             # Always refresh category metadata even if snapshot is unchanged.
             sp.source_category = data.get("source_category")
             if sp.snapshot_hash != current_hash:
