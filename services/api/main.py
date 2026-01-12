@@ -62,6 +62,18 @@ app = FastAPI(title="RetailOS API", version="0.1.0", lifespan=lifespan)
 app.include_router(ops.router)
 app.include_router(vaults.router)
 
+@app.get("/")
+def root():
+    """Root endpoint - API welcome page."""
+    return {
+        "name": "RetailOS API",
+        "version": "0.1.0",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/health",
+        "metrics": "/metrics"
+    }
+
 def _parse_csv_env(name: str, default: list[str]) -> list[str]:
     raw = (os.getenv(name) or "").strip()
     if not raw:
