@@ -55,10 +55,10 @@ COPY --from=frontend-builder /frontend/public ./services/web/public
 # Create data directory
 RUN mkdir -p /app/data
 
-# Nginx configuration - single port, routes to API and Web
-RUN cat > /etc/nginx/sites-available/default << 'NGINXCONF'
+# Nginx configuration template (PORT replaced at runtime)
+RUN cat > /etc/nginx/nginx-template.conf << 'NGINXCONF'
 server {
-    listen 8080;
+    listen ${PORT} default_server;
     
     # API routes
     location /health { proxy_pass http://127.0.0.1:8000; }
@@ -88,6 +88,16 @@ server {
     }
 }
 NGINXCONF
+
+# Create startup script that configures nginx with correct PORT
+RUN cat > /app/start.sh << 'STARTSH'
+#!/bin/bash
+# Replace PORT in nginx config (default 8080 if not set)
+export PORT=${PORT:-8080}
+envsubst '${PORT}' < /etc/nginx/nginx-template.conf > /etc/nginx/sites-available/default
+exec supervisord -c /etc/supervisor/supervisord.conf
+STARTSH
+RUN chmod +x /app/start.sh
 
 # Supervisor configuration
 RUN mkdir -p /var/log/supervisor
@@ -138,12 +148,12 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 SUPCONF
 
-# Expose single port
+# Expose port (Railway sets PORT dynamically)
 EXPOSE 8080
 
-# Health check
+# Health check (uses PORT env var, defaults to 8080)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
-# Run supervisor (manages all services)
-CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+# Run startup script (configures nginx port, then starts supervisor)
+CMD ["/app/start.sh"]
