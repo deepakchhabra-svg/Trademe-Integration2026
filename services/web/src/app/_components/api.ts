@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 
 export function apiBaseUrl(): string {
-  // Server-side: Use API_BASE_URL (private) or NEXT_PUBLIC_API_BASE_URL or localhost default.
-  // API_BASE_URL is set in production to http://127.0.0.1:8000 for container-internal calls.
-  return process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+  // Server-side: In Railway, use NEXT_PUBLIC_API_BASE_URL which points to the API service
+  // In local dev, fall back to localhost
+  return process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 }
 
 export async function apiHeaders(): Promise<Record<string, string>> {
