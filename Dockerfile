@@ -4,10 +4,10 @@ FROM node:20-alpine AS ui-builder
 
 WORKDIR /ui
 COPY services/web/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 COPY services/web/ ./
-RUN npm run build
+RUN npm run build && npm prune --production
 
 # Stage 2: Python API + Serve UI
 FROM python:3.12-slim
@@ -57,15 +57,15 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
 
 # Create startup script to run both API and UI
 RUN echo '#!/bin/bash\n\
-set -e\n\
-# Start API in background\n\
-python -m uvicorn services.api.main:app --host 0.0.0.0 --port ${PORT:-8000} &\n\
-API_PID=$!\n\
-# Start Next.js UI\n\
-cd /app/services/web && npm start -- -p ${UI_PORT:-3000} &\n\
-UI_PID=$!\n\
-# Wait for both processes\n\
-wait $API_PID $UI_PID\n\
-' > /app/start.sh && chmod +x /app/start.sh
+    set -e\n\
+    # Start API in background\n\
+    python -m uvicorn services.api.main:app --host 0.0.0.0 --port ${PORT:-8000} &\n\
+    API_PID=$!\n\
+    # Start Next.js UI\n\
+    cd /app/services/web && npm start -- -p ${UI_PORT:-3000} &\n\
+    UI_PID=$!\n\
+    # Wait for both processes\n\
+    wait $API_PID $UI_PID\n\
+    ' > /app/start.sh && chmod +x /app/start.sh
 
 CMD ["/app/start.sh"]
