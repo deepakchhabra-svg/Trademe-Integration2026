@@ -1,0 +1,36 @@
+# Render.com Blueprint
+# Deploy with: https://render.com/deploy
+
+services:
+  # FastAPI Backend
+  - type: web
+    name: retailos-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python scripts/import_legacy_excel.py --file imports/legacy_products.csv
+    startCommand: uvicorn services.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+      - key: DATABASE_URL
+        value: sqlite:///./data/retail_os.db
+    disk:
+      name: data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+
+  # Background Worker
+  - type: worker
+    name: retailos-worker
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -u retail_os/trademe/worker.py
+    envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+      - key: DATABASE_URL
+        value: sqlite:///./data/retail_os.db
+    disk:
+      name: data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
