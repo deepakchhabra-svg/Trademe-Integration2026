@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Play, RefreshCw, UploadCloud, CheckCircle, ShieldAlert, Sparkles, AlertCircle } from "lucide-react";
+import { Loader2, UploadCloud, ShieldAlert, Sparkles } from "lucide-react";
 
 type Resp = { id: string; status: string };
 type Supplier = { id: number; name: string };
@@ -21,7 +21,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
   const [supplierId, setSupplierId] = useState<string>("");
   const [supplierName, setSupplierName] = useState<string>("");
   const [sourceCategory, setSourceCategory] = useState<string>("");
-  const [activeTab, setActiveTab] = useState("sourcing");
+  // Tabs are controlled by the Tabs component internally
 
   // Limits
   const [pages, setPages] = useState<string>("1");
@@ -246,7 +246,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   <Button
                     variant="outline"
                     onClick={() => run("DRY_RUN", async () => {
-                      const res = await apiPostClient<any>("/ops/bulk/dryrun_publish", {
+                      const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/dryrun_publish", {
                         supplier_id: Number(supplierId),
                         source_category: sourceCategory,
                         limit: Number(dryRunLimit),
@@ -272,7 +272,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   <Button
                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                     onClick={() => run("APPROVE", async () => {
-                      const res = await apiPostClient<any>("/ops/bulk/approve_publish", {
+                      const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/approve_publish", {
                         supplier_id: Number(supplierId),
                         source_category: sourceCategory,
                         limit: Number(approveLimit),
@@ -309,7 +309,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
                   <Input className="w-24" placeholder="Limit" value={resetEnrichLimit} onChange={e => setResetEnrichLimit(e.target.value)} />
                   <Button variant="destructive" onClick={() => run("RESET", async () => {
                     if (!confirm("Reset enrichment for these items?")) return "Cancelled";
-                    const res = await apiPostClient<any>("/ops/bulk/reset_enrichment", {
+                    const res = await apiPostClient<{ enqueued: number }>("/ops/bulk/reset_enrichment", {
                       supplier_id: Number(supplierId),
                       source_category: sourceCategory,
                       limit: Number(resetEnrichLimit)
@@ -325,7 +325,7 @@ export function BulkOpsForm({ suppliers }: { suppliers: Supplier[] }) {
         </TabsContent>
 
         <TabsContent value="reprice" className="pt-4">
-          <RepriceSection supplierId={supplierId} supplierName={supplierName} sourceCategory={sourceCategory} />
+          <RepriceSection supplierId={supplierId} sourceCategory={sourceCategory} />
         </TabsContent>
       </Tabs>
     </div>

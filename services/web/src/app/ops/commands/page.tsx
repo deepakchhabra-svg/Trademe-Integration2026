@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Filter, Search } from "lucide-react";
+import { Filter } from "lucide-react";
 
 function typeLabel(t: string): string {
   const key = (t || "").toUpperCase();

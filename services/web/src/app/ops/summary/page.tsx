@@ -6,9 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Activity, AlertTriangle, DollarSign, Package, Layers, ShoppingCart, CheckCircle, Clock } from "lucide-react";
 
 export default async function SummaryPage() {
+    type SummaryData = {
+        utc: string;
+        vaults: { raw_total: number; raw_present: number; enriched_total: number; enriched_ready: number; listings_live: number; listings_dry: number };
+        commands: { pending: number; executing: number; human_required: number; failed: number };
+        orders: { pending: number };
+    };
+    type KpisData = { sales_today: number; listed_today: number; failures_today: number };
     const [summary, kpis] = await Promise.all([
-        apiGet<any>("/ops/summary"),
-        apiGet<any>("/ops/kpis"),
+        apiGet<SummaryData>("/ops/summary"),
+        apiGet<KpisData>("/ops/kpis"),
     ]);
 
     return (
@@ -145,7 +152,7 @@ export default async function SummaryPage() {
     );
 }
 
-function KPI({ title, value, icon: Icon, trend, status, href }: any) {
+function KPI({ title, value, icon: Icon, trend, status, href }: { title: string; value: string | number; icon: React.ComponentType<{ className?: string }>; trend?: string; status?: string; href?: string }) {
     return (
         <Card className="relative group hover:bg-muted/50 transition-colors">
             {href && (
@@ -169,7 +176,7 @@ function KPI({ title, value, icon: Icon, trend, status, href }: any) {
     )
 }
 
-function PipelineRow({ label, value, sub, icon: Icon, tone, highlight, href }: any) {
+function PipelineRow({ label, value, sub, icon: Icon, tone, highlight, href }: { label: string; value: string | number; sub?: string; icon: React.ComponentType<{ className?: string }>; tone?: string; highlight?: boolean; href?: string }) {
     let colorClass = "text-muted-foreground";
     if (tone === "success") colorClass = "text-emerald-600";
     if (tone === "warning") colorClass = "text-amber-600";

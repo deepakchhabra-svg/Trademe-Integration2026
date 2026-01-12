@@ -3,7 +3,11 @@
 import { getCookie } from "./cookies";
 
 export function apiBaseUrlClient(): string {
-  // On Windows, `localhost` can resolve to IPv6 ::1 while the API binds to 127.0.0.1.
+  // In production (same-origin via nginx), use empty string.
+  // In development, use the API URL or default to localhost.
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
+    return process.env.NEXT_PUBLIC_API_BASE_URL || "";
+  }
   return process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 }
 

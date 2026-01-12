@@ -8,7 +8,7 @@ import { formatNZT } from "../../_components/time";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Filter, Search, RefreshCw } from "lucide-react";
+import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type LiveItem = {
@@ -89,7 +89,7 @@ export function LiveVaultClient({
             key: "tm_listing_id",
             label: "TM ID",
             className: "font-mono text-xs",
-            render: (val, row) => val ? (
+            render: (val) => val ? (
                 <a href={`https://www.trademe.co.nz/Browse/Listing.aspx?id=${val}`} target="_blank" className="hover:underline text-blue-600">
                     {val as string}
                 </a>

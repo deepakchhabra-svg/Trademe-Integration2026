@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, CheckCircle, RefreshCw, Play } from "lucide-react";
+import { RefreshCw, Play } from "lucide-react";
 
 type RepriceItem = {
     listing_id: string;
@@ -30,11 +30,9 @@ type RepriceResponse = {
 
 export function RepriceSection({
     supplierId,
-    supplierName,
     sourceCategory,
 }: {
     supplierId: string;
-    supplierName: string;
     sourceCategory: string;
 }) {
     const [ruleType, setRuleType] = useState<"percentage" | "fixed_markup">("percentage");
@@ -87,7 +85,7 @@ export function RepriceSection({
                         <select
                             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             value={ruleType}
-                            onChange={(e) => setRuleType(e.target.value as any)}
+                            onChange={(e) => setRuleType(e.target.value as "percentage" | "fixed_markup")}
                         >
                             <option value="percentage">Target Margin % (e.g. 0.15)</option>
                             <option value="fixed_markup">Fixed Markup $ (e.g. 10.0)</option>

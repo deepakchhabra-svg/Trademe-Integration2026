@@ -23,7 +23,9 @@ export interface StatusBadgeProps {
     className?: string;
 }
 
-const variantMap: Record<string, any> = {
+type BadgeVariant = "default" | "secondary" | "outline" | "slate" | "emerald" | "red" | "amber" | "blue" | "indigo" | "destructive";
+
+const variantMap: Record<string, BadgeVariant> = {
     SUCCESS: "emerald",
     FAILED: "destructive",
     PRESENT: "emerald",

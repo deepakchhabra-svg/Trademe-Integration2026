@@ -49,7 +49,8 @@ export function DataTable<T extends Record<string, unknown>>({
     density,
 }: DataTableProps<T>) {
     const { density: uiDensity } = useUISettings();
-    const effectiveDensity = density ?? uiDensity ?? "compact";
+    const _effectiveDensity = density ?? uiDensity ?? "compact";
+    void _effectiveDensity; // Reserved for future use
 
     if (loading) {
         return (
