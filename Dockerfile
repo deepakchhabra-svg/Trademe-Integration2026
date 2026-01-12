@@ -93,8 +93,8 @@ NGINXCONF
 RUN cat > /app/start.sh << 'STARTSH'
 #!/bin/bash
 # Replace PORT in nginx config (default 8080 if not set)
-export PORT=${PORT:-8080}
-envsubst '${PORT}' < /etc/nginx/nginx-template.conf > /etc/nginx/sites-available/default
+PORT=${PORT:-8080}
+sed "s/\${PORT}/$PORT/g" /etc/nginx/nginx-template.conf > /etc/nginx/sites-available/default
 exec supervisord -c /etc/supervisor/supervisord.conf
 STARTSH
 RUN chmod +x /app/start.sh
