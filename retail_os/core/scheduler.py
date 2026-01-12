@@ -82,7 +82,7 @@ class SpectatorScheduler:
         return job
 
     def _finish_jobstatus(self, session, job_id: int, status: str, summary: dict):
-        job = session.query(JobStatus).get(job_id)
+        job = session.get(JobStatus, job_id)
         if not job:
             return
         job.status = status

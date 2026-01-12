@@ -126,7 +126,7 @@ class InventoryOperations:
         """
         Updates local order status and queues an UPDATE_SHIPPING command to Trade Me.
         """
-        order = self.session.query(Order).get(order_id)
+        order = self.session.get(Order, order_id)
         if not order:
             return False
             

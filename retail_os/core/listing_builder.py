@@ -23,7 +23,7 @@ def build_listing_payload(internal_product_id: int, overrides: Optional[Dict[str
     """
     session = SessionLocal()
     try:
-        prod = session.query(InternalProduct).get(internal_product_id)
+        prod = session.get(InternalProduct, internal_product_id)
         if not prod or not prod.supplier_product:
             raise ValueError(f"Product {internal_product_id} not found or missing supplier data")
         

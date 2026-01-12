@@ -37,28 +37,30 @@ from .schemas import PageResponse, HealthResponse
 from .utils import _REPO_ROOT, _MEDIA_ROOT, _dt, _public_image_urls, _serialize_supplier_product, _serialize_internal_product, _serialize_listing
 from .dependencies import Role, require_role, require_authenticated, get_request_role, _env_bool, _role_rank
 from .routers import ops, vaults
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="RetailOS API", version="0.1.0")
-
-app.include_router(ops.router)
-app.include_router(vaults.router)
-
-
-
-
-@app.on_event("startup")
-def _startup_init_db() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """
-    Ensure DB schema exists on fresh machines (especially local Windows dev).
-    Without this, list endpoints (e.g. /vaults/raw) can 500 if tables don't exist yet.
+    Lifespan context manager for startup/shutdown events.
+    Replaces deprecated @app.on_event("startup").
     """
+    # Startup: Ensure DB schema exists
     try:
         from retail_os.core.database import init_db
-
         init_db()
     except Exception as e:
         # Don't crash the API process; surface errors through endpoints/logs instead.
         print(f"API startup: init_db failed: {e}")
+    
+    yield  # Application runs here
+    
+    # Shutdown: Cleanup if needed (currently none required)
+
+app = FastAPI(title="RetailOS API", version="0.1.0", lifespan=lifespan)
+
+app.include_router(ops.router)
+app.include_router(vaults.router)
 
 def _parse_csv_env(name: str, default: list[str]) -> list[str]:
     raw = (os.getenv(name) or "").strip()
@@ -102,6 +104,75 @@ def health() -> HealthResponse:
         return HealthResponse(status="ok", utc=datetime.now(timezone.utc), db="ok", db_error=None)
     except Exception as e:
         return HealthResponse(status="degraded", utc=datetime.now(timezone.utc), db="error", db_error=str(e)[:200])
+
+
+@app.get("/metrics")
+def metrics() -> dict[str, Any]:
+    """
+    Prometheus-compatible metrics endpoint for monitoring.
+    Returns key operational metrics for dashboards and alerting.
+    """
+    try:
+        with get_db_session() as session:
+            from sqlalchemy import func
+            
+            # Count key entities
+            sp_total = session.query(func.count(SupplierProduct.id)).scalar() or 0
+            sp_present = session.query(func.count(SupplierProduct.id)).filter(
+                SupplierProduct.sync_status == "PRESENT"
+            ).scalar() or 0
+            sp_pending_enrich = session.query(func.count(SupplierProduct.id)).filter(
+                SupplierProduct.enrichment_status == "PENDING"
+            ).scalar() or 0
+            
+            ip_total = session.query(func.count(InternalProduct.id)).scalar() or 0
+            
+            listings_live = session.query(func.count(TradeMeListing.id)).filter(
+                TradeMeListing.actual_state == "Live"
+            ).scalar() or 0
+            listings_draft = session.query(func.count(TradeMeListing.id)).filter(
+                TradeMeListing.actual_state == "DRY_RUN"
+            ).scalar() or 0
+            
+            # Command queue metrics
+            cmd_pending = session.query(func.count(SystemCommand.id)).filter(
+                SystemCommand.status == "PENDING"
+            ).scalar() or 0
+            cmd_executing = session.query(func.count(SystemCommand.id)).filter(
+                SystemCommand.status == "EXECUTING"
+            ).scalar() or 0
+            cmd_failed = session.query(func.count(SystemCommand.id)).filter(
+                SystemCommand.status.in_(["FAILED_RETRYABLE", "FAILED_FATAL", "HUMAN_REQUIRED"])
+            ).scalar() or 0
+            
+            # Order metrics
+            orders_pending = session.query(func.count(Order.id)).filter(
+                Order.fulfillment_status == "PENDING"
+            ).scalar() or 0
+            
+            return {
+                "status": "ok",
+                "utc": datetime.now(timezone.utc).isoformat(),
+                "metrics": {
+                    "supplier_products_total": sp_total,
+                    "supplier_products_present": sp_present,
+                    "supplier_products_pending_enrichment": sp_pending_enrich,
+                    "internal_products_total": ip_total,
+                    "listings_live": listings_live,
+                    "listings_draft": listings_draft,
+                    "commands_pending": cmd_pending,
+                    "commands_executing": cmd_executing,
+                    "commands_failed": cmd_failed,
+                    "orders_pending_fulfillment": orders_pending,
+                }
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "utc": datetime.now(timezone.utc).isoformat(),
+            "error": str(e)[:200],
+            "metrics": {}
+        }
 
 
 @app.get("/media/{rel_path:path}")
@@ -207,9 +278,8 @@ def trademe_validate_drafts(
     This uses TradeMeAPI.validate_listing() and will return "Not configured" if credentials are missing.
     """
     import os as _os
-    from datetime import datetime as _dtm
 
-    utc = _dtm.utcnow().isoformat()
+    utc = datetime.now(timezone.utc).isoformat()
     configured = bool(
         (_os.getenv("CONSUMER_KEY") or "").strip()
         and (_os.getenv("CONSUMER_SECRET") or "").strip()

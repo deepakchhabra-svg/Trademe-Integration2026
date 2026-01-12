@@ -214,7 +214,7 @@ def run_e2e_selftest():
                 session.close()
                 session = SessionLocal()
                 
-                cmd = session.query(SystemCommand).get(dryrun_id)
+                cmd = session.get(SystemCommand, dryrun_id)
                 if cmd and cmd.status not in [CommandStatus.PENDING, CommandStatus.EXECUTING]:
                     break
                     
@@ -225,7 +225,7 @@ def run_e2e_selftest():
                     break
             
             # Check result
-            cmd = session.query(SystemCommand).get(dryrun_id)
+            cmd = session.get(SystemCommand, dryrun_id)
             if cmd and cmd.status == CommandStatus.SUCCEEDED:
                 # Find listing
                 dryrun_listing = session.query(TradeMeListing).filter(

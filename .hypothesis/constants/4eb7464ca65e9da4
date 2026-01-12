@@ -1,0 +1,4 @@
+# file: /workspace/retail_os/utils/image_downloader.py
+# hypothesis_version: 6.150.0
+
+[0.5, 2.0, 300, 1000, 2048, 8192, '--fail', '--retry', '--retry-delay', '-A', '-H', '-L', '-o', '.jpg', '.png', '.webp', '1', '3', 'Accept', 'Cancelled', 'File not saved', 'JPEG', 'P', 'Placeholder URL', 'RGB', 'RGBA', 'Referer', 'User-Agent', 'content-type', 'curl', 'data/media', 'error', 'exists', 'https://placehold.co', 'image', 'image/*,*/*;q=0.8', 'noelleeming.co.nz', 'onecheq.co.nz', 'path', 'size', 'success', 'wb']

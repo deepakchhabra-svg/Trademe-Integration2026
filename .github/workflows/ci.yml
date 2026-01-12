@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Compile Python
+        run: |
+          python -m compileall -q retail_os services/api
+
+      - name: Run Python tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m pytest tests/ --ignore=tests/e2e -q
+
+  web:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+      PYTHONPATH: ${{ github.workspace }}
+      RETAILOS_E2E_DATABASE_URL: sqlite:////tmp/retailos_e2e.sqlite
+      RETAIL_OS_POWER_TOKEN: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      RETAIL_OS_INSECURE_ALLOW_HEADER_ROLES: "false"
+      NEXT_PUBLIC_DEFAULT_ROLE: power
+    defaults:
+      run:
+        working-directory: services/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python (for API + Worker)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ../../requirements.txt
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: services/web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('services/web/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Seed E2E Database
+        working-directory: ${{ github.workspace }}
+        run: python tests/seed_e2e.py
+
+      - name: Run Playwright
+        run: npx playwright test --project=chromium --shard=${{ matrix.shard }}/4
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: services/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload Test Results (Traces/Videos)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.shard }}
+          path: services/web/test-results/
+          retention-days: 30

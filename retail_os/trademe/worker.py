@@ -402,7 +402,7 @@ class CommandWorker:
         session = SessionLocal()
         
         try:
-            prod = session.query(InternalProduct).get(internal_id)
+            prod = session.get(InternalProduct, internal_id)
             
             if not prod:
                 raise ValueError(f"Product {internal_id} not found")
@@ -489,7 +489,7 @@ class CommandWorker:
 
                 # Persist DRY_RUN evidence on the command (for later drift checks / bulk approvals)
                 try:
-                    cmd_row = session.query(SystemCommand).get(command.id)
+                    cmd_row = session.get(SystemCommand, command.id)
                     sp = prod.supplier_product
                     if cmd_row and sp:
                         cmd_payload = cmd_row.payload or {}
@@ -1321,7 +1321,7 @@ class CommandWorker:
         summary["total_seconds"] = round(time.perf_counter() - t0, 3)
 
         with SessionLocal() as s:
-            job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+            job = s.get(JobStatus, job_row_id) if job_row_id is not None else None
             if job:
                 job.status = "COMPLETED"
                 job.end_time = datetime.now(timezone.utc)
@@ -1423,7 +1423,7 @@ class CommandWorker:
             )
 
         with SessionLocal() as s:
-            job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+            job = s.get(JobStatus, job_row_id) if job_row_id is not None else None
             if job:
                 job.status = "COMPLETED"
                 job.end_time = datetime.now(timezone.utc)
@@ -1520,7 +1520,7 @@ class CommandWorker:
             res = validate_launchlock(session=s, supplier_id=supplier_id, limit=limit, cmd_id=str(command.id), progress_hook=_progress_hook, should_abort=_is_cancelled)
 
         with SessionLocal() as s:
-            job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+            job = s.get(JobStatus, job_row_id) if job_row_id is not None else None
             if job:
                 job.status = "COMPLETED"
                 job.end_time = datetime.now(timezone.utc)
@@ -1663,7 +1663,7 @@ class CommandWorker:
                 source_category=source_category,
             )
             with SessionLocal() as s:
-                job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+                job = s.get(JobStatus, job_row_id) if job_row_id is not None else None
                 if job:
                     job.status = "COMPLETED"
                     job.end_time = datetime.now(timezone.utc)
@@ -1678,7 +1678,7 @@ class CommandWorker:
         except Exception as e:
             logger.error("ENRICH_SUPPLIER_FAILED cmd_id=%s supplier=%s error=%s", command.id, supplier_name, e)
             with SessionLocal() as s:
-                job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+                job = s.get(JobStatus, job_row_id) if job_row_id is not None else None
                 if job:
                     job.status = "FAILED"
                     job.end_time = datetime.now(timezone.utc)
@@ -1697,7 +1697,7 @@ class CommandWorker:
         # Persist and stop.
         s = SessionLocal()
         try:
-            row = s.query(SystemCommand).get(command.id)
+            row = s.get(SystemCommand, command.id)
             if row:
                 row.status = command.status
                 row.error_code = command.error_code
@@ -1738,7 +1738,7 @@ class CommandWorker:
             new_orders = syncer.sync_recent_sales()
 
             with SessionLocal() as s:
-                job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+                job = s.get(JobStatus, job_row_id) if job_row_id is not None else None
                 if job:
                     job.status = "COMPLETED"
                     job.end_time = datetime.now(timezone.utc)
@@ -1755,7 +1755,7 @@ class CommandWorker:
                 command.error_message = "Trade Me credentials missing for sold-item sync"
 
             with SessionLocal() as s:
-                job = s.query(JobStatus).get(job_row_id) if job_row_id is not None else None
+                job = s.get(JobStatus, job_row_id) if job_row_id is not None else None
                 if job:
                     job.status = "FAILED"
                     job.end_time = datetime.now(timezone.utc)
@@ -1853,7 +1853,7 @@ class CommandWorker:
 
             if job_row_id is not None:
                 with SessionLocal() as s:
-                    job = s.query(JobStatus).get(job_row_id)
+                    job = s.get(JobStatus, job_row_id)
                     if job:
                         job.status = "COMPLETED"
                         job.end_time = datetime.now(timezone.utc)
@@ -1865,7 +1865,7 @@ class CommandWorker:
         except Exception as e:
             if job_row_id is not None:
                 with SessionLocal() as s:
-                    job = s.query(JobStatus).get(job_row_id)
+                    job = s.get(JobStatus, job_row_id)
                     if job:
                         job.status = "FAILED"
                         job.end_time = datetime.now(timezone.utc)
@@ -1890,7 +1890,7 @@ class CommandWorker:
         try:
             from retail_os.core.database import SupplierProduct, AuditLog
 
-            sp = session.query(SupplierProduct).get(int(sp_id))
+            sp = session.get(SupplierProduct, int(sp_id))
             if not sp:
                 raise ValueError("SupplierProduct not found")
 

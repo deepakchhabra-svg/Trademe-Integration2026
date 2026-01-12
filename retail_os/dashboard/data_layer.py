@@ -31,7 +31,7 @@ def validate_product_for_launch(session, product_id):
     Returns: (bool, reasons)
     """
     from retail_os.core.database import InternalProduct
-    product = session.query(InternalProduct).get(product_id)
+    product = session.get(InternalProduct, product_id)
     if not product:
         return False, ["Product not found"]
         
