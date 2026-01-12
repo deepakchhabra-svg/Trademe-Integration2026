@@ -237,7 +237,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Import legacy Excel products")
     parser.add_argument("--dry-run", action="store_true", help="Preview without making changes")
     parser.add_argument("--limit", type=int, help="Limit number of products to import")
-    parser.add_argument("--file", type=str, default="data/import_listings.xlsx", help="Path to CSV/Excel file")
+    parser.add_argument("--file", type=str, default="imports/legacy_products.csv", help="Path to CSV/Excel file")
     
     args = parser.parse_args()
     
