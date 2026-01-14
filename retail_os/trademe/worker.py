@@ -183,6 +183,14 @@ class CommandWorker:
                 print(f"Worker Crash: {e}")
                 time.sleep(5)
             time.sleep(1)
+    
+    def poll_once(self):
+        """Process one batch of pending commands. Useful for background thread integration."""
+        try:
+            self.process_next_command()
+        except Exception as e:
+            logger.error(f"Worker poll error: {e}")
+        time.sleep(1)  # Brief pause between polls
 
     def process_next_command(self):
         session = SessionLocal()

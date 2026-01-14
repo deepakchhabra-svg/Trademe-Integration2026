@@ -53,9 +53,43 @@ async def lifespan(app: FastAPI):
         # Don't crash the API process; surface errors through endpoints/logs instead.
         print(f"API startup: init_db failed: {e}")
     
+    # Start background worker in separate thread
+    worker_thread = None
+    worker_stop_event = None
+    try:
+        import threading
+        from retail_os.trademe.worker import CommandWorker
+        
+        worker_stop_event = threading.Event()
+        
+        def run_worker():
+            """Run the command worker in a background thread."""
+            print("Starting background worker thread...")
+            worker = CommandWorker()
+            # Run worker with stop event
+            while not worker_stop_event.is_set():
+                try:
+                    worker.poll_once()  # Process one batch of commands
+                except Exception as e:
+                    print(f"Worker error: {e}")
+                    import time
+                    time.sleep(5)  # Wait before retrying on error
+        
+        worker_thread = threading.Thread(target=run_worker, daemon=True, name="CommandWorker")
+        worker_thread.start()
+        print("Background worker thread started successfully")
+    except Exception as e:
+        print(f"Failed to start background worker: {e}")
+    
     yield  # Application runs here
     
-    # Shutdown: Cleanup if needed (currently none required)
+    # Shutdown: Stop worker thread
+    if worker_stop_event:
+        print("Stopping background worker...")
+        worker_stop_event.set()
+    if worker_thread and worker_thread.is_alive():
+        worker_thread.join(timeout=10)
+        print("Background worker stopped")
 
 app = FastAPI(title="RetailOS API", version="0.1.0", lifespan=lifespan)
 

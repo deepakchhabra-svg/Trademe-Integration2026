@@ -13,10 +13,59 @@ export default async function SummaryPage() {
         orders: { pending: number };
     };
     type KpisData = { sales_today: number; listed_today: number; failures_today: number };
-    const [summary, kpis] = await Promise.all([
-        apiGet<SummaryData>("/ops/summary"),
-        apiGet<KpisData>("/ops/kpis"),
-    ]);
+    
+    let summary: SummaryData | null = null;
+    let kpis: KpisData | null = null;
+    let error: string | null = null;
+
+    try {
+        [summary, kpis] = await Promise.all([
+            apiGet<SummaryData>("/ops/summary"),
+            apiGet<KpisData>("/ops/kpis"),
+        ]);
+    } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+        console.error("Dashboard data fetch failed:", error);
+    }
+
+    if (error || !summary || !kpis) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+                    <p className="text-muted-foreground">Store health and system vitals.</p>
+                </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-red-600">Failed to Load Dashboard</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Unable to fetch dashboard data from the API. This usually means:
+                        </p>
+                        <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mb-4">
+                            <li>The API backend is offline or unreachable</li>
+                            <li>Network connectivity issues</li>
+                            <li>API authentication problems</li>
+                        </ul>
+                        {error && (
+                            <div className="mt-4 p-3 bg-muted rounded-md">
+                                <p className="text-xs font-mono text-red-600">{error}</p>
+                            </div>
+                        )}
+                        <div className="mt-4 flex gap-2">
+                            <Link href="/pipeline" className="text-sm text-blue-600 hover:underline">
+                                Try Pipeline →
+                            </Link>
+                            <Link href="/suppliers" className="text-sm text-blue-600 hover:underline">
+                                Try Suppliers →
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

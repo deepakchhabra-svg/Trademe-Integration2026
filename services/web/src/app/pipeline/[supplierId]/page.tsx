@@ -18,7 +18,33 @@ export default async function SupplierPipelinePage({ params }: { params: Promise
     );
   }
 
-  const initial = await apiGet<PipelineResp>(`/ops/suppliers/${supplierId}/pipeline`);
+  let initial: PipelineResp | null = null;
+  let error: string | null = null;
+
+  try {
+    initial = await apiGet<PipelineResp>(`/ops/suppliers/${supplierId}/pipeline`);
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+    console.error(`Pipeline data fetch failed for supplier ${supplierId}:`, error);
+  }
+
+  if (error || !initial) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Pipeline Error"
+          subtitle={`Failed to load pipeline for supplier ${supplierId}`}
+          actions={<Link className={buttonClass({ variant: "outline" })} href="/pipeline">Back to Suppliers</Link>}
+        />
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-900 mb-2">Unable to fetch pipeline data from the API.</p>
+          {error && (
+            <p className="text-xs font-mono text-red-700">{error}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
